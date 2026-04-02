@@ -1,0 +1,385 @@
+<template>
+  <div class="versions-view">
+    <n-space vertical size="large">
+      <!-- 工具栏 -->
+      <n-card>
+        <n-space justify="space-between">
+          <n-space>
+            <n-button type="primary" @click="handleFetchVersions" :loading="loading">
+              <template #icon>
+                <n-icon><RefreshIcon /></n-icon>
+              </template>
+              刷新版本列表
+            </n-button>
+            <n-select
+              v-model:value="filterType"
+              :options="typeOptions"
+              style="width: 150px"
+            />
+          </n-space>
+          <n-text depth="3">
+            共 {{ filteredVersions.length }} 个版本可下载
+          </n-text>
+        </n-space>
+      </n-card>
+
+      <!-- 版本列表 -->
+      <n-spin :show="loading">
+        <n-list hoverable clickable>
+          <n-list-item v-for="version in filteredVersions" :key="version.id">
+            <n-thing>
+              <template #header>
+                <n-space align="center">
+                  <n-text strong>{{ version.name }}</n-text>
+                  <n-tag :type="getTypeColor(version.versionType)" size="small">
+                    {{ getTypeText(version.versionType) }}
+                  </n-tag>
+                </n-space>
+              </template>
+
+              <template #description>
+                <n-space vertical size="small">
+                  <n-text depth="3">
+                    大小: {{ formatSize(version.size) }}
+                  </n-text>
+                  <n-text depth="3">
+                    版本: {{ version.gameVersion }} - {{ version.subVersion }}
+                  </n-text>
+                  <n-text v-if="version.illustrate" depth="3">
+                    说明: {{ version.illustrate }}
+                  </n-text>
+                </n-space>
+              </template>
+
+              <template #action>
+                <n-space>
+                  <!-- 下载按钮或进度条 -->
+                  <n-button
+                    v-if="!isDownloading(version.id)"
+                    type="primary"
+                    size="medium"
+                    @click="handleDownload(version)"
+                  >
+                    <template #icon>
+                      <n-icon><DownloadIcon /></n-icon>
+                    </template>
+                    下载
+                  </n-button>
+                  <n-progress
+                    v-else
+                    type="line"
+                    :percentage="getDownloadProgress(version.id)"
+                    :indicator-placement="'inside'"
+                    processing
+                    style="width: 200px"
+                  />
+                </n-space>
+              </template>
+            </n-thing>
+          </n-list-item>
+        </n-list>
+        <n-empty v-if="filteredVersions.length === 0 && !loading" description="暂无版本" />
+      </n-spin>
+    </n-space>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, h } from 'vue'
+import { useVersionStore } from '../stores/version'
+import { useMessage, useDialog, NInput } from 'naive-ui'
+import { Refresh as RefreshIcon, CloudDownload as DownloadIcon } from '@vicons/ionicons5'
+import { formatSize } from '../utils/format'
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
+import type { Version } from '../types/version'
+
+const versionStore = useVersionStore()
+const message = useMessage()
+const dialog = useDialog()
+
+const loading = ref(false)
+const filterType = ref<string>('all')
+const downloadProgress = ref<Record<string, number>>({})
+const installingVersions = ref<Set<string>>(new Set())
+const completedDownloads = ref<Set<string>>(new Set()) // 新增：记录已完成的下载
+// 原始ID到唯一ID的映射
+const originalToUniqueId = ref<Record<string, string>>({})
+
+const typeOptions = [
+  { label: '全部', value: 'all' },
+  { label: '插件版', value: 'api' },
+  { label: '联机版', value: 'net' }
+  // 暂时移除原版选项（原版不好安装）
+]
+
+// 版本号比较函数，用于正确排序（例如：2.4 > 2.3 > 2.2）
+function compareVersion(v1: string, v2: string): number {
+  const parts1 = v1.split('.').map(Number)
+  const parts2 = v2.split('.').map(Number)
+
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const num1 = parts1[i] || 0
+    const num2 = parts2[i] || 0
+    if (num1 !== num2) {
+      return num2 - num1 // 降序
+    }
+  }
+  return 0
+}
+
+const filteredVersions = computed(() => {
+  let versions = versionStore.versions
+
+  // 暂时排除原版（不好安装）
+  versions = versions.filter(v => v.versionType !== 'original')
+
+  // 再按类型过滤
+  if (filterType.value !== 'all') {
+    versions = versions.filter(v => v.versionType === filterType.value)
+  }
+
+  // 排序：先按 gameVersion 降序，再按 subVersion 降序
+  return versions.sort((a, b) => {
+    // 先比较游戏主版本号
+    const versionCompare = compareVersion(a.gameVersion, b.gameVersion)
+    if (versionCompare !== 0) {
+      return versionCompare
+    }
+
+    // 游戏版本相同，比较子版本号
+    // subVersion 格式可能是 "API1.60", 需要提取数字部分
+    const extractSubVersionNumbers = (subVersion: string): number[] => {
+      const matches = subVersion.match(/(\d+(\.\d+)?)/g)
+      return matches ? matches.map(v => v.split('.').map(Number)).flat() : [0]
+    }
+
+    const subNumbersA = extractSubVersionNumbers(a.subVersion)
+    const subNumbersB = extractSubVersionNumbers(b.subVersion)
+
+    for (let i = 0; i < Math.max(subNumbersA.length, subNumbersB.length); i++) {
+      const numA = subNumbersA[i] || 0
+      const numB = subNumbersB[i] || 0
+      if (numA !== numB) {
+        return numB - numA // 降序
+      }
+    }
+
+    // 子版本也相同，按创建时间降序
+    const timeA = new Date(a.releaseDate || 0).getTime()
+    const timeB = new Date(b.releaseDate || 0).getTime()
+    return timeB - timeA
+  })
+})
+
+function getTypeText(type: string): string {
+  const types = {
+    api: '插件版',
+    net: '联机版',
+    original: '原版'
+  }
+  return types[type as keyof typeof types] || type
+}
+
+function getTypeColor(type: string): 'info' | 'success' | 'warning' | 'default' {
+  switch (type) {
+    case 'api': return 'info'
+    case 'net': return 'warning'
+    case 'original': return 'success'
+    default: return 'default'
+  }
+}
+
+function isDownloading(id: string): boolean {
+  const uniqueId = originalToUniqueId.value[id]
+  return versionStore.downloading.has(id) || Boolean(uniqueId && versionStore.downloading.has(uniqueId))
+}
+
+function getDownloadProgress(id: string): number {
+  const uniqueId = originalToUniqueId.value[id]
+  if (uniqueId) {
+    // 如果有映射，返回唯一ID的进度，或者0（如果已清理）
+    return downloadProgress.value[uniqueId] || 0
+  }
+  // 如果没有映射，返回原始ID的进度，或者0
+  return downloadProgress.value[id] || 0
+}
+
+async function handleFetchVersions() {
+  loading.value = true
+  try {
+    await versionStore.fetchVersions()
+    message.success('版本列表已更新')
+  } catch (error) {
+    message.error('获取版本列表失败：' + error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleDownload(version: Version) {
+  const customName = await getCustomVersionName(version.name)
+  if (!customName) {
+    return
+  }
+
+  try {
+    await versionStore.downloadVersionWithCustomName(version.id, customName)
+    message.success(`开始下载 "${customName}"`)
+  } catch (error) {
+    message.error('下载失败：' + error)
+  }
+}
+
+async function getCustomVersionName(defaultName: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let name = defaultName
+    let errorMessage = ''
+
+    function checkDuplicate(inputName: string): boolean {
+      const trimmed = inputName.trim()
+      if (!trimmed) return false
+      return versionStore.versions.some(v =>
+        v.installed && v.name === trimmed
+      )
+    }
+
+    const d = dialog.create({
+      title: '输入版本名称',
+      content: () => {
+        return h('div', [
+          h('p', { style: 'margin-bottom: 12px;' }, '请输入这个版本的名称（用于区分不同配置）'),
+          h(NInput, {
+            placeholder: defaultName,
+            defaultValue: defaultName,
+            status: errorMessage ? 'error' : undefined,
+            onUpdateValue: (value: string) => {
+              name = value
+              if (checkDuplicate(value)) {
+                errorMessage = '该名称已存在，请使用其他名称'
+              } else {
+                errorMessage = ''
+              }
+            },
+            onKeyup: (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                if (checkDuplicate(name)) {
+                  errorMessage = '该名称已存在，请使用其他名称'
+                } else {
+                  resolve(name.trim() || null)
+                }
+              }
+            }
+          }),
+          errorMessage ? h('p', {
+            style: 'margin-top: 8px; color: #f56c6c; font-size: 12px;'
+          }, errorMessage) : null
+        ])
+      },
+      positiveText: '确定',
+      negativeText: '取消',
+      onPositiveClick: () => {
+        if (checkDuplicate(name)) {
+          errorMessage = '该名称已存在，请使用其他名称'
+        } else {
+          resolve(name.trim() || null)
+        }
+      },
+      onNegativeClick: () => {
+        resolve(null)
+      }
+    })
+  })
+}
+
+function handleDownloadProgress(data: any) {
+  const { versionId, downloaded, total, originalId } = data
+
+  // 如果这个下载已经完成了，忽略后续进度事件
+  if (completedDownloads.value.has(versionId)) {
+    console.log(`[Download] Ignoring progress for completed download: ${versionId}`)
+    return
+  }
+
+  const progress = Math.floor((downloaded / total) * 100)
+  downloadProgress.value[versionId] = progress
+
+  if (downloaded >= total && !installingVersions.value.has(versionId)) {
+    // 标记为已完成，防止重复处理
+    completedDownloads.value.add(versionId)
+    installingVersions.value.add(versionId)
+
+    console.log(`[Download] Version ${versionId} completed, starting installation...`)
+
+    message.success('下载完成，正在安装...')
+
+    versionStore.installVersion(versionId)
+      .then(async () => {
+        message.success('安装完成！')
+
+        // 安装成功后清理所有状态
+        versionStore.finishDownload(versionId)
+        delete downloadProgress.value[versionId]
+
+        // 清理映射
+        if (originalId && originalToUniqueId.value[originalId] === versionId) {
+          delete originalToUniqueId.value[originalId]
+          console.log(`[Download] Cleaned mapping: ${originalId}`)
+        }
+
+        installingVersions.value.delete(versionId)
+        completedDownloads.value.delete(versionId)
+
+        // 刷新版本列表，更新安装状态
+        await versionStore.getVersions()
+
+        console.log(`[Download] Version ${versionId} installation completed`)
+      })
+      .catch((error) => {
+        console.error(`[Download] Version ${versionId} installation failed:`, error)
+        message.error('安装失败：' + error)
+
+        // 安装失败也要清理状态
+        versionStore.finishDownload(versionId)
+        delete downloadProgress.value[versionId]
+
+        if (originalId && originalToUniqueId.value[originalId] === versionId) {
+          delete originalToUniqueId.value[originalId]
+        }
+
+        installingVersions.value.delete(versionId)
+        completedDownloads.value.delete(versionId)
+      })
+  }
+}
+
+function handleDownloadStart(data: any) {
+  const { originalId, uniqueId } = data
+  if (originalId && uniqueId) {
+    // 清理旧的状态（如果有）
+    completedDownloads.value.delete(uniqueId)
+    installingVersions.value.delete(uniqueId)
+    delete downloadProgress.value[uniqueId]
+
+    originalToUniqueId.value[originalId] = uniqueId
+    console.log(`[Download] Mapping ${originalId} -> ${uniqueId}`)
+  }
+}
+
+onMounted(() => {
+  EventsOn('download:start', handleDownloadStart)
+  EventsOn('download:progress', handleDownloadProgress)
+  handleFetchVersions()
+})
+
+onUnmounted(() => {
+  EventsOff('download:start')
+  EventsOff('download:progress')
+})
+</script>
+
+<style scoped>
+.versions-view {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+</style>
