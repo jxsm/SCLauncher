@@ -81,3 +81,13 @@ export async function GetPrimaryVersion(): Promise<Version | null> {
 export async function SetPrimaryVersion(versionId: string): Promise<void> {
   await AppBindings.SetPrimaryVersion(versionId)
 }
+
+// 打开版本文件夹
+export async function OpenVersionFolder(versionId: string): Promise<void> {
+  await AppBindings.OpenVersionFolder(versionId)
+}
+
+// 打开版本的mods文件夹
+export async function OpenVersionModsFolder(versionId: string): Promise<void> {
+  await AppBindings.OpenVersionModsFolder(versionId)
+}

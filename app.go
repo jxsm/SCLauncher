@@ -273,6 +273,20 @@ func (a *App) CancelDownload(versionID string) error {
 	return a.versionMgr.CancelDownload(versionID)
 }
 
+// OpenVersionFolder 打开版本文件夹
+func (a *App) OpenVersionFolder(versionID string) error {
+	versionPath := a.paths.GetVersionPath(versionID)
+	runtime.BrowserOpenURL(a.ctx, "file:///"+versionPath)
+	return nil
+}
+
+// OpenVersionModsFolder 打开版本的mods文件夹
+func (a *App) OpenVersionModsFolder(versionID string) error {
+	modsPath := filepath.Join(a.paths.GetVersionPath(versionID), "mods")
+	runtime.BrowserOpenURL(a.ctx, "file:///"+modsPath)
+	return nil
+}
+
 // ========== 游戏管理 API ==========
 
 // LaunchGame 启动游戏

@@ -9,318 +9,165 @@
 
 一个现代化的生存战争（SurvivalCraft）游戏启动器
 
-[功能特性](#功能特性) • [快速开始](#快速开始) • [开发文档](#开发文档) • [项目结构](#项目结构)
-
 </div>
 
 ## 📖 项目简介
 
-SCLauncher 是一个使用 **Wails** (Go + Vue 3) 构建的现代化游戏启动器，专为《生存战争》游戏设计。提供版本管理、模组安装、一键启动等功能。
+SCLauncher 是一个专为《生存战争》游戏设计的现代化启动器，提供版本管理、模组安装、一键启动等功能，让游戏管理更加简单便捷。
 
 ### ✨ 功能特性
 
 #### 🎮 核心功能
-- **一键启动** - 快速启动游戏，支持自定义启动参数
-- **版本管理** - 多版本隔离，轻松切换不同版本
-- **版本下载** - 自动从清单文件下载游戏版本
-- **模组管理** - 简单的模组安装/卸载功能
+- **一键启动** - 快速启动游戏，支持多版本管理
+- **版本管理** - 安装多个游戏版本，轻松切换
+- **版本下载** - 自动从清单文件下载游戏版本，支持断点续传
+- **模组管理** - 简单的模组安装/卸载功能，支持启用/禁用
 - **进度显示** - 实时显示下载和安装进度
+- **主要版本** - 设置默认启动版本
 
 #### 🎨 界面设计
 - **简洁现代** - 扁平化设计，清爽的视觉体验
 - **响应式布局** - 适配不同分辨率
 - **流畅动画** - 细腻的交互体验
+- **暗色主题** - 护眼的暗色界面
 
 #### 🔧 技术特性
-- **轻量级** - 基于 Wails，体积小、启动快
-- **跨平台** - 支持 Windows、macOS、Linux
-- **高性能** - Go 后端 + Vue 3 前端
-- **数据持久化** - SQLite 本地数据库
+- **轻量级** - 体积小、启动快
+- **高性能** - 原生性能，流畅体验
+- **数据持久化** - 本地数据库，安全可靠
 
-## 🚀 快速开始
+## 🚀 使用说明
 
-### 环境要求
+### 安装
 
-- **Go**: 1.21 或更高版本
-- **Node.js**: 18 或更高版本
-- **Wails CLI**: 最新版本
+1. 下载最新版本的 SCLauncher 的exe文件
+2. 首次运行会自动创建必要的目录结构
 
-### 安装依赖
+### 基本使用
 
-```bash
-# 安装 Wails CLI
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+#### 首次使用
 
-# 安装前端依赖
-cd frontend
-npm install
-cd ..
-```
+1. **配置清单文件**
+   - 打开"设置"页面
+   - 设置版本清单文件的 URL
+   - 清单文件包含所有可下载的游戏版本信息
 
-### 开发模式
+2. **下载游戏版本**
+   - 进入"版本下载"页面
+   - 选择"插件版"或"联机版"
+   - 点击版本卡片上的"下载"按钮
+   - 输入自定义版本名称
+   - 等待下载完成
 
-```bash
-# 启动开发服务器（热重载）
-wails dev
-```
+3. **启动游戏**
+   - 在"首页"或"已安装版本"页面
+   - 点击"启动"按钮即可开始游戏
 
-### 构建应用
+#### 版本管理
 
-```bash
-# 构建生产版本
-wails build
+- **查看已安装版本**
+  - 进入"已安装版本"页面
+  - 查看所有已安装的游戏版本
 
-# Windows 构建产物
-./build/bin/SCLauncher.exe
-```
+- **设置主要版本**
+  - 点击版本卡片上的"设为主要"按钮
+  - 主要版本会在首页显示，且优先启动
 
-## 📚 开发文档
+- **重命名版本**
+  - 点击"改名"按钮
+  - 输入新的版本名称
 
-### 🏗️ 项目结构
+- **删除版本**
+  - 点击"删除"按钮
+  - 确认后即可删除版本及其所有文件
 
-```
-SCLauncher/
-├── backend/              # Go 后端
-│   ├── game/            # 游戏进程管理
-│   ├── version/         # 版本管理
-│   ├── mod/             # 模组管理
-│   ├── download/        # 下载管理
-│   └── storage/         # 数据存储
-├── frontend/            # Vue 3 前端
-│   ├── src/
-│   │   ├── api/        # API 调用
-│   │   ├── components/ # 组件
-│   │   ├── views/      # 页面
-│   │   ├── stores/     # 状态管理
-│   │   └── types/      # 类型定义
-└── resources/          # 资源文件
-```
+- **打开版本文件夹**
+  - 点击"打开文件夹"按钮
+  - 可以直接访问游戏安装目录
 
-### 🔌 API 接口定义
+#### 模组管理
 
-#### 游戏 API
+1. **选择版本**
+   - 进入"模组管理"页面
+   - 从下拉菜单中选择要管理的版本
 
-```go
-// 启动游戏
-func (a *App) LaunchGame(versionId string) error
+2. **导入模组**
+   - 点击"导入模组"按钮
+   - 选择模组文件（.zip 或 .scmod）
+   - 模组会自动安装到选中版本的 mods 目录
 
-// 停止游戏
-func (a *App) StopGame() error
+3. **启用/禁用模组**
+   - 勾选模组前的复选框以启用
+   - 取消勾选以禁用模组
+   - 禁用的模组会被重命名为 .disable 后缀
 
-// 获取游戏状态
-func (a *App) GetGameStatus() GameStatus
-```
+4. **删除模组**
+   - 点击模组卡片上的"删除"按钮
+   - 确认后即可删除模组文件
 
-#### 版本 API
+5. **打开模组文件夹**
+   - 点击"打开文件夹"按钮
+   - 直接访问该版本的 mods 目录
 
-```go
-// 获取所有版本
-func (a *App) GetVersions() []Version
+#### 下载页面
 
-// 下载版本
-func (a *App) DownloadVersion(versionId string) error
+- **分组显示**
+  - 版本按游戏版本号分组显示（如 2.31、2.4、2.3）
+  - 点击分组标题可展开/收起该组
 
-// 删除版本
-func (a *App) DeleteVersion(versionId string) error
+- **筛选版本**
+  - 使用下拉菜单选择"插件版"或"联机版"
+  - 只显示对应类型的版本
 
-// 切换版本
-func (a *App) SwitchVersion(versionId string) error
-```
+- **下载进度**
+  - 下载时显示实时进度条
+  - 可切换到其他页面，进度不会丢失
 
-#### 模组 API
+### 设置说明
 
-```go
-// 获取模组列表
-func (a *App) GetMods(versionId string) []Mod
+- **清单文件 URL**：版本清单文件的地址，包含所有可下载的版本信息
+- **最大并发下载数**：同时进行的下载任务数量上限
+- **游戏路径**：游戏安装的基础目录
 
-// 安装模组
-func (a *App) InstallMod(versionId string, modPath string) error
+## 📁 目录结构
 
-// 卸载模组
-func (a *App) UninstallMod(versionId string, modId string) error
-```
-
-#### 下载 API
-
-```go
-// 获取下载任务列表
-func (a *App) GetDownloads() []DownloadTask
-
-// 暂停下载
-func (a *App) PauseDownload(taskId string) error
-
-// 取消下载
-func (a *App) CancelDownload(taskId string) error
-```
-
-### 📊 数据模型
-
-#### Version（版本）
-
-```typescript
-interface Version {
-  id: string              // 版本 ID
-  name: string            // 版本名称
-  version: string         // 版本号（如 1.0.0）
-  type: 'release' | 'beta' | 'alpha'  // 版本类型
-  releaseDate: string     // 发布日期
-  size: number            // 文件大小（字节）
-  downloadUrl: string     // 下载地址
-  installed: boolean      // 是否已安装
-  localPath?: string      // 本地路径
-  checksum?: string       // 文件校验和
-}
-```
-
-#### Mod（模组）
-
-```typescript
-interface Mod {
-  id: string              // 模组 ID
-  name: string            // 模组名称
-  version: string         // 模组版本
-  author: string          // 作者
-  description: string     // 描述
-  enabled: boolean        // 是否启用
-  installDate: string     // 安装日期
-  files: string[]         // 模组文件列表
-}
-```
-
-#### DownloadTask（下载任务）
-
-```typescript
-interface DownloadTask {
-  id: string              // 任务 ID
-  type: 'version' | 'mod' // 下载类型
-  name: string            // 名称
-  totalSize: number       // 总大小
-  downloadedSize: number  // 已下载大小
-  speed: number           // 下载速度（字节/秒）
-  status: 'pending' | 'downloading' | 'paused' | 'completed' | 'failed'
-  error?: string          // 错误信息
-}
-```
-
-### 🗄️ 清单文件格式
-
-清单文件（manifest.json）格式示例：
-
-```json
-{
-  "formatVersion": 1,
-  "gameId": "survivalcraft",
-  "versions": [
-    {
-      "id": "sc-1.0.0",
-      "name": "生存战争 1.0.0",
-      "version": "1.0.0",
-      "type": "release",
-      "releaseDate": "2024-01-01",
-      "size": 524288000,
-      "downloadUrl": "https://example.com/sc-1.0.0.zip",
-      "checksum": {
-        "algorithm": "sha256",
-        "value": "abc123..."
-      },
-      "description": "首个正式版本"
-    }
-  ]
-}
-```
-
-### 📁 目录结构设计
-
-启动器运行后会创建以下目录结构：
+启动器会在以下位置创建目录：
 
 ```
 SCLauncher/
-├── data/
-│   ├── database.db       # SQLite 数据库
-│   └── config.json       # 配置文件
 ├── versions/             # 游戏版本目录
-│   ├── sc-1.0.0/        # 版本隔离目录
-│   │   ├── game.exe     # 游戏可执行文件
-│   │   ├── data/        # 游戏数据
-│   │   └── mods/        # 模组目录
-│   └── sc-1.1.0/
+│   └── [版本ID]/        # 各个版本的独立目录
+│       ├── game.exe     # 游戏可执行文件
+│       ├── data/        # 游戏数据
+│       └── mods/        # 模组目录
 └── downloads/            # 临时下载目录
-    └── .tmp/
 ```
 
-### 🔄 状态管理
+## ⚠️ 注意事项
 
-使用 Pinia 进行状态管理，主要 Store：
+1. **首次使用**：需要先配置清单文件 URL 才能下载游戏版本
+2. **网络连接**：下载游戏版本需要稳定的网络连接
+3. **磁盘空间**：确保有足够的磁盘空间存储游戏文件
+4. **版本隔离**：每个版本独立安装，互不影响
+5. **模组兼容**：请注意模组与游戏版本的兼容性
 
-- `gameStore` - 游戏状态（运行状态、当前版本）
-- `versionStore` - 版本列表、下载状态
-- `modStore` - 模组列表
-- `downloadStore` - 下载任务列表
+## 🐛 常见问题
 
-### 🎯 开发路线图
+**Q: 下载失败怎么办？**
+A: 检查网络连接和清单文件 URL 是否正确，可以尝试重新下载。
 
-#### Phase 1: 核心功能 ✅
-- [x] 项目初始化
-- [ ] 基础 UI 框架搭建
-- [ ] 版本管理（下载、安装、删除）
-- [ ] 游戏启动/停止
+**Q: 游戏无法启动？**
+A: 确认游戏文件完整，可以在已安装页面打开文件夹检查文件是否存在。也有可能提供的游戏版本文件不完整，可以反馈一下
 
-#### Phase 2: 扩展功能
-- [ ] 模组管理
-- [ ] 下载管理器
-- [ ] 设置页面
+**Q: 模组不生效？**
+A: 确认模组已启用（复选框勾选），且模组与游戏版本兼容。
 
-#### Phase 3: 优化提升
-- [ ] UI 美化
-- [ ] 性能优化
-- [ ] 错误处理
-- [ ] 日志系统
-
-## 🛠️ 技术栈
-
-### 后端
-- **Wails v2** - 桌面应用框架
-- **Go 1.21+** - 后端逻辑
-- **SQLite** - 数据存储
-- **GORM** - ORM 框架（可选）
-
-### 前端
-- **Vue 3** - UI 框架
-- **TypeScript** - 类型安全
-- **Vite** - 构建工具
-- **Pinia** - 状态管理
-- **Vue Router** - 路由管理
-
-## 📝 开发规范
-
-### Git 提交规范
-
-```
-feat: 新功能
-fix: 修复 bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 重构
-test: 测试相关
-chore: 构建/工具变动
-```
-
-### 代码规范
-
-- **Go**: 遵循 `gofmt` 格式化
-- **Vue/TS**: 使用 ESLint + Prettier
-
-## 🤝 贡献指南
-
-欢迎提交 Issue 和 Pull Request！
+**Q: 如何切换游戏版本？**
+A: 在首页或已安装版本页面选择要启动的版本，点击"启动"按钮即可。
 
 ## 📄 许可证
 
 MIT License
-
-## 👤 作者
-
-jxsm - 3164058616@qq.com
 
 ---
 
@@ -328,6 +175,6 @@ jxsm - 3164058616@qq.com
 
 **[⬆ 回到顶部](#sclauncher---生存战争启动器)**
 
-Made with ❤️ by Wails + Vue 3
+Made with ❤️
 
 </div>

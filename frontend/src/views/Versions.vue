@@ -18,67 +18,79 @@
             />
           </n-space>
           <n-text depth="3">
-            共 {{ filteredVersions.length }} 个版本可下载
+            共 {{ groupedVersions.reduce((sum, g) => sum + g.versions.length, 0) }} 个版本可下载
           </n-text>
         </n-space>
       </n-card>
 
       <!-- 版本列表 -->
       <n-spin :show="loading">
-        <n-list hoverable clickable>
-          <n-list-item v-for="version in filteredVersions" :key="version.id">
-            <n-thing>
-              <template #header>
-                <n-space align="center">
-                  <n-text strong>{{ version.name }}</n-text>
-                  <n-tag :type="getTypeColor(version.versionType)" size="small">
-                    {{ getTypeText(version.versionType) }}
-                  </n-tag>
-                </n-space>
-              </template>
+        <n-collapse v-if="groupedVersions.length > 0">
+          <n-collapse-item v-for="group in groupedVersions" :key="group.gameVersion">
+            <template #header>
+              <n-space align="center" justify="space-between" style="width: 100%">
+                <n-text strong style="font-size: 16px">
+                  {{ group.gameVersion }}
+                </n-text>
+                <n-tag size="small" type="info">
+                  {{ group.versions.length }} 个版本
+                </n-tag>
+              </n-space>
+            </template>
 
-              <template #description>
-                <n-space vertical size="small">
-                  <n-text depth="3">
-                    大小: {{ formatSize(version.size) }}
-                  </n-text>
-                  <n-text depth="3">
-                    版本: {{ version.gameVersion }} - {{ version.subVersion }}
-                  </n-text>
-                  <n-text v-if="version.illustrate" depth="3">
-                    说明: {{ version.illustrate }}
-                  </n-text>
-                </n-space>
-              </template>
+            <n-list hoverable clickable>
+              <n-list-item v-for="version in group.versions" :key="version.id">
+                <n-thing>
+                  <template #header>
+                    <n-space align="center">
+                      <n-text strong>{{ version.subVersion }}</n-text>
+                      <n-tag :type="getTypeColor(version.versionType)" size="small">
+                        {{ getTypeText(version.versionType) }}
+                      </n-tag>
+                    </n-space>
+                  </template>
 
-              <template #action>
-                <n-space>
-                  <!-- 下载按钮或进度条 -->
-                  <n-button
-                    v-if="!isDownloading(version.id)"
-                    type="primary"
-                    size="medium"
-                    @click="handleDownload(version)"
-                  >
-                    <template #icon>
-                      <n-icon><DownloadIcon /></n-icon>
-                    </template>
-                    下载
-                  </n-button>
-                  <n-progress
-                    v-else
-                    type="line"
-                    :percentage="getDownloadProgress(version.id)"
-                    :indicator-placement="'inside'"
-                    processing
-                    style="width: 200px"
-                  />
-                </n-space>
-              </template>
-            </n-thing>
-          </n-list-item>
-        </n-list>
-        <n-empty v-if="filteredVersions.length === 0 && !loading" description="暂无版本" />
+                  <template #description>
+                    <n-space vertical size="small">
+                      <n-text depth="3">
+                        大小: {{ formatSize(version.size) }}
+                      </n-text>
+                      <n-text v-if="version.illustrate" depth="3">
+                        说明: {{ version.illustrate }}
+                      </n-text>
+                    </n-space>
+                  </template>
+
+                  <template #action>
+                    <n-space>
+                      <!-- Download button or progress -->
+                      <n-button
+                        v-if="!isDownloading(version.id)"
+                        type="primary"
+                        size="medium"
+                        @click="handleDownload(version)"
+                      >
+                        <template #icon>
+                          <n-icon><DownloadIcon /></n-icon>
+                        </template>
+                        下载
+                      </n-button>
+                      <n-progress
+                        v-else
+                        type="line"
+                        :percentage="getDownloadProgress(version.id)"
+                        :indicator-placement="'inside'"
+                        processing
+                        style="width: 200px"
+                      />
+                    </n-space>
+                  </template>
+                </n-thing>
+              </n-list-item>
+            </n-list>
+          </n-collapse-item>
+        </n-collapse>
+        <n-empty v-if="groupedVersions.length === 0 && !loading" description="暂无版本" />
       </n-spin>
     </n-space>
   </div>
@@ -98,8 +110,7 @@ const message = useMessage()
 const dialog = useDialog()
 
 const loading = ref(false)
-const filterType = ref<string>('all')
-const downloadProgress = ref<Record<string, number>>({})
+const filterType = ref<string>('api') // Default to plugin version
 const installingVersions = ref<Set<string>>(new Set())
 // Record completed downloads to prevent duplicate processing
 const completedDownloads = ref<Set<string>>(new Set())
@@ -109,10 +120,8 @@ const originalToUniqueId = ref<Record<string, string>>({})
 const manifestVersions = ref<Version[]>([])
 
 const typeOptions = [
-  { label: '全部', value: 'all' },
   { label: '插件版', value: 'api' },
   { label: '联机版', value: 'net' }
-  // 暂时移除原版选项（原版不好安装）
 ]
 
 // 版本号比较函数，用于正确排序（例如：2.4 > 2.3 > 2.2）
@@ -130,48 +139,51 @@ function compareVersion(v1: string, v2: string): number {
   return 0
 }
 
-const filteredVersions = computed(() => {
+// Group versions by game version (2.31, 2.4, etc.)
+const groupedVersions = computed(() => {
   let versions = manifestVersions.value
 
-  // 暂时排除原版（不好安装）
-  versions = versions.filter(v => v.versionType !== 'original')
+  // Filter by selected type
+  versions = versions.filter(v => v.versionType === filterType.value)
 
-  // 再按类型过滤
-  if (filterType.value !== 'all') {
-    versions = versions.filter(v => v.versionType === filterType.value)
-  }
-
-  // 排序：先按 gameVersion 降序，再按 subVersion 降序
-  return versions.sort((a, b) => {
-    // 先比较游戏主版本号
-    const versionCompare = compareVersion(a.gameVersion, b.gameVersion)
-    if (versionCompare !== 0) {
-      return versionCompare
+  // Group by gameVersion
+  const groups: Record<string, typeof versions> = {}
+  versions.forEach(v => {
+    if (!groups[v.gameVersion]) {
+      groups[v.gameVersion] = []
     }
-
-    // 游戏版本相同，比较子版本号
-    // subVersion 格式可能是 "API1.60", 需要提取数字部分
-    const extractSubVersionNumbers = (subVersion: string): number[] => {
-      const matches = subVersion.match(/(\d+(\.\d+)?)/g)
-      return matches ? matches.map(v => v.split('.').map(Number)).flat() : [0]
-    }
-
-    const subNumbersA = extractSubVersionNumbers(a.subVersion)
-    const subNumbersB = extractSubVersionNumbers(b.subVersion)
-
-    for (let i = 0; i < Math.max(subNumbersA.length, subNumbersB.length); i++) {
-      const numA = subNumbersA[i] || 0
-      const numB = subNumbersB[i] || 0
-      if (numA !== numB) {
-        return numB - numA // 降序
-      }
-    }
-
-    // 子版本也相同，按创建时间降序
-    const timeA = new Date(a.releaseDate || 0).getTime()
-    const timeB = new Date(b.releaseDate || 0).getTime()
-    return timeB - timeA
+    groups[v.gameVersion].push(v)
   })
+
+  // Sort versions within each group by subVersion (descending)
+  Object.keys(groups).forEach(gameVersion => {
+    groups[gameVersion].sort((a, b) => {
+      const extractSubVersionNumbers = (subVersion: string): number[] => {
+        const matches = subVersion.match(/(\d+(\.\d+)?)/g)
+        return matches ? matches.map(v => v.split('.').map(Number)).flat() : [0]
+      }
+
+      const subNumbersA = extractSubVersionNumbers(a.subVersion)
+      const subNumbersB = extractSubVersionNumbers(b.subVersion)
+
+      for (let i = 0; i < Math.max(subNumbersA.length, subNumbersB.length); i++) {
+        const numA = subNumbersA[i] || 0
+        const numB = subNumbersB[i] || 0
+        if (numA !== numB) {
+          return numB - numA // Descending
+        }
+      }
+      return 0
+    })
+  })
+
+  // Sort groups by gameVersion (descending) and convert to array
+  return Object.keys(groups)
+    .sort((a, b) => compareVersion(a, b))
+    .map(gameVersion => ({
+      gameVersion,
+      versions: groups[gameVersion]
+    }))
 })
 
 function getTypeText(type: string): string {
@@ -233,7 +245,7 @@ function getDownloadProgress(id: string): number {
       return 0
     }
     // 返回 uniqueId 的进度
-    const progress = downloadProgress.value[uniqueId] || 0
+    const progress = versionStore.downloadProgress[uniqueId] || 0
     if (progress > 0) {
       console.log(`[getDownloadProgress] id=${id}, uniqueId=${uniqueId}, progress=${progress}`)
     }
@@ -245,7 +257,7 @@ function getDownloadProgress(id: string): number {
       return 0
     }
     // 返回原始ID的进度
-    const progress = downloadProgress.value[id] || 0
+    const progress = versionStore.downloadProgress[id] || 0
     if (progress > 0) {
       console.log(`[getDownloadProgress] id=${id}, progress=${progress}`)
     }
@@ -275,7 +287,6 @@ async function handleDownload(version: Version) {
 
   try {
     await versionStore.downloadVersionWithCustomName(version.id, customName)
-    message.success(`开始下载 "${customName}"`)
   } catch (error) {
     message.error('下载失败：' + error)
   }
@@ -355,7 +366,7 @@ function handleDownloadProgress(data: any) {
 
   // 只在未完成时更新进度
   if (!completedDownloads.value.has(versionId)) {
-    downloadProgress.value[versionId] = progress
+    versionStore.updateDownloadProgress(versionId, progress)
   }
 }
 
@@ -382,19 +393,17 @@ function handleDownloadComplete(data: any) {
 
   console.log(`[Download] Version ${versionId} completed, starting installation...`)
 
-  message.success('下载完成，正在安装...')
-
   versionStore.installVersion(versionId)
     .then(async () => {
       message.success('安装完成！')
 
       // 清理所有相关的进度状态
-      delete downloadProgress.value[versionId]
+      versionStore.clearDownloadProgress(versionId)
 
       // 清理映射和原始ID的进度数据
       if (originalId && originalToUniqueId.value[originalId] === versionId) {
         delete originalToUniqueId.value[originalId]
-        delete downloadProgress.value[originalId] // 清理原始ID的进度数据
+        versionStore.clearDownloadProgress(originalId)
         console.log(`[Download] Cleaned mapping and progress for: ${originalId}`)
       }
 
@@ -411,12 +420,12 @@ function handleDownloadComplete(data: any) {
       message.error('安装失败：' + error)
 
       // 清理所有相关的进度状态
-      delete downloadProgress.value[versionId]
+      versionStore.clearDownloadProgress(versionId)
 
       // 清理映射和原始ID的进度数据
       if (originalId && originalToUniqueId.value[originalId] === versionId) {
         delete originalToUniqueId.value[originalId]
-        delete downloadProgress.value[originalId] // 清理原始ID的进度数据
+        versionStore.clearDownloadProgress(originalId)
       }
 
       installingVersions.value.delete(versionId)
@@ -430,10 +439,10 @@ function handleDownloadStart(data: any) {
     // 清理旧的状态（如果有）
     completedDownloads.value.delete(uniqueId)
     installingVersions.value.delete(uniqueId)
-    delete downloadProgress.value[uniqueId]
+    versionStore.clearDownloadProgress(uniqueId)
 
     // 清理原始ID的旧数据（如果有）
-    delete downloadProgress.value[originalId]
+    versionStore.clearDownloadProgress(originalId)
 
     originalToUniqueId.value[originalId] = uniqueId
     console.log(`[Download] Mapping ${originalId} -> ${uniqueId}`)

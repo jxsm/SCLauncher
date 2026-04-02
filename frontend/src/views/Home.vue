@@ -1,93 +1,68 @@
 <template>
   <div class="home-view">
-    <n-space vertical size="large">
-      <!-- 欢迎卡片 -->
-      <n-card title="欢迎使用 SCLauncher" hoverable>
-        <template #header-extra>
-          <n-tag type="info">生存战争启动器</n-tag>
-        </template>
-        <n-space vertical>
-          <p>一个现代化的生存战争游戏启动器</p>
-          <n-space>
-            <n-button type="primary" @click="$router.push('/installed')">
-              已安装版本
-            </n-button>
-            <n-button @click="$router.push('/versions')">
-              版本下载
-            </n-button>
-            <n-button @click="$router.push('/mods')">
-              模组管理
-            </n-button>
-          </n-space>
-        </n-space>
-      </n-card>
-
-      <!-- 快速启动主要版本 -->
-      <n-card title="快速启动" hoverable>
-        <template #header-extra>
-          <n-tag v-if="primaryVersion" type="success">主要版本</n-tag>
-        </template>
-        <n-spin :show="loading">
-          <n-space vertical v-if="primaryVersion">
-            <n-text strong style="font-size: 20px;">{{ primaryVersion.name }}</n-text>
-            <n-space>
-              <n-tag :type="getVersionTypeColor(primaryVersion.versionType)" size="small">
-                {{ getVersionTypeText(primaryVersion.versionType) }}
-              </n-tag>
-              <n-text depth="3">版本: {{ primaryVersion.gameVersion }} - {{ primaryVersion.subVersion }}</n-text>
-            </n-space>
-
-            <n-space>
-              <n-button
-                type="success"
-                size="large"
-                :disabled="gameStore.isRunning"
-                :loading="launchingPrimary"
-                @click="handleLaunchPrimary"
-              >
-                <template #icon>
-                  <n-icon><PlayIcon /></n-icon>
-                </template>
-                {{ gameStore.isRunning ? '游戏运行中' : '启动游戏' }}
-              </n-button>
-              <n-button
-                v-if="gameStore.isRunning"
-                type="error"
-                size="large"
-                @click="handleStop"
-              >
-                <template #icon>
-                  <n-icon><StopIcon /></n-icon>
-                </template>
-                停止游戏
-              </n-button>
-            </n-space>
-          </n-space>
-          <n-empty v-else description="未设置主要版本">
-            <template #extra>
-              <n-button type="primary" @click="$router.push('/installed')">
-                去设置
-              </n-button>
-            </template>
-          </n-empty>
-        </n-spin>
-      </n-card>
-
-      <!-- 游戏状态 -->
-      <n-card title="游戏状态" hoverable>
-        <n-space vertical>
-          <n-space>
-            <n-text>状态:</n-text>
-            <n-tag :type="getStatusType()">
-              {{ getStatusText() }}
+    <!-- 左侧操作面板 -->
+    <div class="left-panel">
+      <!-- 版本信息区 - 居中显示 -->
+      <div class="version-section">
+        <div v-if="primaryVersion" class="version-info">
+          <div class="version-name">{{ primaryVersion.name }}</div>
+          <div class="version-details">
+            <n-tag :type="getVersionTypeColor(primaryVersion.versionType)" size="small">
+              {{ getVersionTypeText(primaryVersion.versionType) }}
             </n-tag>
-          </n-space>
-          <n-text v-if="gameStore.processInfo" depth="3">
-            进程 ID: {{ gameStore.processInfo.pid }}
-          </n-text>
+            <n-text depth="3" style="font-size: 13px;">
+              {{ primaryVersion.gameVersion }} - {{ primaryVersion.subVersion }}
+            </n-text>
+          </div>
+        </div>
+        <n-empty v-else description="未设置主要版本" size="small" />
+      </div>
+
+      <!-- 核心操作按钮区 - 固定在底部 -->
+      <div class="action-section">
+        <!-- 启动游戏按钮 -->
+        <n-button
+          v-if="primaryVersion"
+          class="launch-btn"
+          :loading="launching"
+          :disabled="gameStore.isRunning"
+          @click="handleLaunch"
+        >
+          <div class="launch-btn-content">
+            <span class="launch-btn-text">启动游戏</span>
+            <span class="launch-btn-subtitle">Star Technology</span>
+          </div>
+        </n-button>
+
+        <!-- 停止游戏按钮 -->
+        <n-button
+          v-if="gameStore.isRunning"
+          class="launch-btn stop-btn"
+          type="error"
+          @click="handleStop"
+        >
+          <div class="launch-btn-content">
+            <span class="launch-btn-text">停止游戏</span>
+            <span class="launch-btn-subtitle">游戏运行中</span>
+          </div>
+        </n-button>
+
+        <!-- 两个小按钮 -->
+        <n-space class="secondary-actions">
+          <n-button class="secondary-btn" @click="$router.push('/installed')">
+            版本选择
+          </n-button>
+          <n-button class="secondary-btn" @click="$router.push('/mods')">
+            模组管理
+          </n-button>
         </n-space>
-      </n-card>
-    </n-space>
+      </div>
+    </div>
+
+    <!-- 右侧空白区域 -->
+    <div class="right-area">
+      <!-- 可以在这里放置背景图或其他内容 -->
+    </div>
   </div>
 </template>
 
@@ -96,14 +71,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage } from 'naive-ui'
-import { Play as PlayIcon, Stop as StopIcon } from '@vicons/ionicons5'
 
 const versionStore = useVersionStore()
 const gameStore = useGameStore()
 const message = useMessage()
 
-const loading = ref(false)
-const launchingPrimary = ref(false)
+const launching = ref(false)
 
 const primaryVersion = computed(() => versionStore.primaryVersion)
 
@@ -125,38 +98,20 @@ function getVersionTypeColor(type: string): 'info' | 'success' | 'warning' | 'de
   }
 }
 
-function getStatusType() {
-  switch (gameStore.status) {
-    case 'running': return 'success'
-    case 'stopped': return 'default'
-    case 'crashed': return 'error'
-    default: return 'default'
-  }
-}
-
-function getStatusText() {
-  switch (gameStore.status) {
-    case 'running': return '运行中'
-    case 'stopped': return '已停止'
-    case 'crashed': return '已崩溃'
-    default: return '未知'
-  }
-}
-
-async function handleLaunchPrimary() {
+async function handleLaunch() {
   if (!primaryVersion.value) {
     message.error('请先设置主要版本')
     return
   }
 
-  launchingPrimary.value = true
+  launching.value = true
   try {
     await gameStore.launchGame(primaryVersion.value.id)
     message.success(`游戏 "${primaryVersion.value.name}" 启动成功！`)
   } catch (error) {
     message.error('游戏启动失败：' + error)
   } finally {
-    launchingPrimary.value = false
+    launching.value = false
   }
 }
 
@@ -170,22 +125,145 @@ async function handleStop() {
 }
 
 onMounted(async () => {
-  loading.value = true
   try {
     await versionStore.getVersions()
     await versionStore.getPrimaryVersion()
     await gameStore.updateStatus()
   } catch (error) {
     message.error('加载数据失败：' + error)
-  } finally {
-    loading.value = false
   }
 })
 </script>
 
 <style scoped>
 .home-view {
-  max-width: 800px;
-  margin: 0 auto;
+  display: flex;
+  height: calc(100vh - 100px);
+}
+
+/* 左侧操作面板 */
+.left-panel {
+  width: 300px;
+  min-width: 300px;
+  height: 100%;
+  background: #161f2d;
+  border-right: 1px solid var(--n-divider-color);
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+}
+
+/* 版本信息区 - 居中显示 */
+.version-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.version-info {
+  text-align: center;
+}
+
+.version-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--n-text-color);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.version-details {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 核心操作按钮区 - 固定在底部 */
+.action-section {
+  margin-top: auto;
+  padding: 24px;
+  border-top: 1px solid var(--n-divider-color);
+}
+
+.launch-btn {
+  width: 100%;
+  height: 60px !important;
+  border: 2px solid var(--n-primary-color);
+  background: var(--n-color);
+  color: var(--n-primary-color);
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  margin-bottom: 16px;
+}
+
+.launch-btn:hover {
+  background: var(--n-primary-color);
+  color: #ffffff;
+}
+
+.launch-btn.stop-btn {
+  border-color: var(--n-error-color);
+  color: var(--n-error-color);
+}
+
+.launch-btn.stop-btn:hover {
+  background: var(--n-error-color);
+  color: #ffffff;
+}
+
+.launch-btn-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 4px;
+}
+
+.launch-btn-text {
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.launch-btn-subtitle {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* 次要操作按钮 */
+.secondary-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.secondary-btn {
+  border: 1px solid red;
+  width: 120px;
+  height: 48px;
+  font-size: 14px;
+  border: 1px solid var(--n-border-color);
+  background: var(--n-color);
+  color: var(--n-text-color-2);
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.secondary-btn:hover {
+  border-color: var(--n-primary-color);
+  color: var(--n-primary-color);
+}
+
+/* 右侧空白区域 */
+.right-area {
+  flex: 1;
+  background: var(--n-color-modal);
 }
 </style>

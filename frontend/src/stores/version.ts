@@ -12,6 +12,7 @@ export const useVersionStore = defineStore('version', () => {
   const primaryVersion = ref<Version | null>(null)
   const downloading = ref<Set<string>>(new Set())
   const installing = ref<Set<string>>(new Set())
+  const downloadProgress = ref<Record<string, number>>({})
 
   // 清单缓存
   const manifestCache = ref<Version[] | null>(null)
@@ -119,6 +120,14 @@ export const useVersionStore = defineStore('version', () => {
     downloading.value.delete(versionId)
   }
 
+  function updateDownloadProgress(versionId: string, progress: number) {
+    downloadProgress.value[versionId] = progress
+  }
+
+  function clearDownloadProgress(versionId: string) {
+    delete downloadProgress.value[versionId]
+  }
+
   async function installVersion(versionId: string) {
     installing.value.add(versionId)
     try {
@@ -217,6 +226,7 @@ export const useVersionStore = defineStore('version', () => {
     primaryVersion,
     downloading,
     installing,
+    downloadProgress,
     installedVersions,
     versionsByType,
     fetchVersions,
@@ -224,6 +234,8 @@ export const useVersionStore = defineStore('version', () => {
     downloadVersion,
     downloadVersionWithCustomName,
     finishDownload,
+    updateDownloadProgress,
+    clearDownloadProgress,
     installVersion,
     deleteVersion,
     renameVersion,

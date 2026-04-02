@@ -41,6 +41,10 @@ export function InstallVersion(arg1:string):Promise<void>;
 
 export function LaunchGame(arg1:string):Promise<void>;
 
+export function OpenVersionFolder(arg1:string):Promise<void>;
+
+export function OpenVersionModsFolder(arg1:string):Promise<void>;
+
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
 
 export function SelectModFile():Promise<string>;

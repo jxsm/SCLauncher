@@ -70,6 +70,24 @@
                   </n-button>
                   <n-button
                     size="medium"
+                    @click="handleOpenFolder(version)"
+                  >
+                    <template #icon>
+                      <n-icon><FolderIcon /></n-icon>
+                    </template>
+                    打开文件夹
+                  </n-button>
+                  <n-button
+                    size="medium"
+                    @click="handleManageMods(version)"
+                  >
+                    <template #icon>
+                      <n-icon><ModsIcon /></n-icon>
+                    </template>
+                    模组管理
+                  </n-button>
+                  <n-button
+                    size="medium"
                     @click="handleRename(version)"
                   >
                     <template #icon>
@@ -109,16 +127,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
+import { useRouter } from 'vue-router'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon } from '@vicons/ionicons5'
+import { OpenVersionFolder } from '../api/version'
+import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon } from '@vicons/ionicons5'
 import type { Version } from '../types/version'
 
 const versionStore = useVersionStore()
 const gameStore = useGameStore()
 const message = useMessage()
 const dialog = useDialog()
+const router = useRouter()
 
 const loading = ref(false)
 const renamingVersion = ref<Version | null>(null)
@@ -223,6 +244,21 @@ function handleDelete(version: Version) {
     .catch((error) => {
       message.error('删除失败：' + error)
     })
+}
+
+async function handleOpenFolder(version: Version) {
+  try {
+    await OpenVersionFolder(version.id)
+  } catch (error) {
+    message.error('打开文件夹失败：' + error)
+  }
+}
+
+function handleManageMods(version: Version) {
+  router.push({
+    name: 'Mods',
+    query: { versionId: version.id }
+  })
 }
 
 onMounted(async () => {

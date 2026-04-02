@@ -78,6 +78,14 @@ export function LaunchGame(arg1) {
   return window['go']['main']['App']['LaunchGame'](arg1);
 }
 
+export function OpenVersionFolder(arg1) {
+  return window['go']['main']['App']['OpenVersionFolder'](arg1);
+}
+
+export function OpenVersionModsFolder(arg1) {
+  return window['go']['main']['App']['OpenVersionModsFolder'](arg1);
+}
+
 export function RenameVersion(arg1, arg2) {
   return window['go']['main']['App']['RenameVersion'](arg1, arg2);
 }
