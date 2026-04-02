@@ -13,6 +13,11 @@ export const useVersionStore = defineStore('version', () => {
   const downloading = ref<Set<string>>(new Set())
   const installing = ref<Set<string>>(new Set())
 
+  // 清单缓存
+  const manifestCache = ref<Version[] | null>(null)
+  const manifestCacheTime = ref<number | null>(null)
+  const MANIFEST_CACHE_DURATION = 10 * 60 * 1000 // 10分钟（毫秒）
+
   // 计算属性
   const installedVersions = computed(() =>
     versions.value.filter(v => v.installed)
@@ -33,15 +38,45 @@ export const useVersionStore = defineStore('version', () => {
     return grouped
   })
 
+  // 检查缓存是否过期
+  function isManifestCacheExpired(): boolean {
+    if (!manifestCacheTime.value) return true
+    const now = Date.now()
+    return now - manifestCacheTime.value > MANIFEST_CACHE_DURATION
+  }
+
+  // 清除清单缓存
+  function clearManifestCache() {
+    manifestCache.value = null
+    manifestCacheTime.value = null
+    console.log('[Version] Manifest cache cleared')
+  }
+
   // 操作
-  async function fetchVersions() {
+  async function fetchVersions(): Promise<Version[]> {
+    // 如果缓存未过期，直接使用缓存
+    if (!isManifestCacheExpired() && manifestCache.value) {
+      console.log('[Version] Using cached manifest')
+      versions.value = manifestCache.value
+      return manifestCache.value
+    }
+
     loading.value = true
     error.value = null
     try {
-      versions.value = await versionApi.FetchVersions()
+      const fetchedVersions = await versionApi.FetchVersions()
+      versions.value = fetchedVersions
+
+      // 更新缓存
+      manifestCache.value = fetchedVersions
+      manifestCacheTime.value = Date.now()
+      console.log('[Version] Manifest cached at:', new Date(manifestCacheTime.value).toLocaleString())
+
+      return fetchedVersions
     } catch (e) {
       error.value = e as string
       console.error('Failed to fetch versions:', e)
+      throw e
     } finally {
       loading.value = false
     }
@@ -194,6 +229,7 @@ export const useVersionStore = defineStore('version', () => {
     renameVersion,
     setCurrentVersion,
     getPrimaryVersion,
-    setPrimaryVersion
+    setPrimaryVersion,
+    clearManifestCache
   }
 })

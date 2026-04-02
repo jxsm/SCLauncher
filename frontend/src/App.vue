@@ -4,33 +4,35 @@
       <n-dialog-provider ref="dialogProviderInst">
         <n-notification-provider>
           <div class="app-container">
-            <!-- 顶部标签页 -->
-            <n-tabs
-              v-model:value="activeTab"
-              type="line"
-              animated
-              @update:value="handleTabChange"
-            >
-              <n-tab-pane name="home" tab="首页">
-                <HomeView />
-              </n-tab-pane>
+            <!-- 固定在顶部的导航栏 -->
+            <div class="app-nav">
+              <n-tabs
+                v-model:value="activeTab"
+                type="line"
+                animated
+                @update:value="handleTabChange"
+              >
+                <n-tab-pane name="home" tab="首页">
+                  <HomeView />
+                </n-tab-pane>
 
-              <n-tab-pane name="installed" tab="已安装版本">
-                <InstalledVersionsView />
-              </n-tab-pane>
+                <n-tab-pane name="installed" tab="已安装版本">
+                  <InstalledVersionsView />
+                </n-tab-pane>
 
-              <n-tab-pane name="versions" tab="版本下载">
-                <VersionsView />
-              </n-tab-pane>
+                <n-tab-pane name="versions" tab="版本下载">
+                  <VersionsView />
+                </n-tab-pane>
 
-              <n-tab-pane name="mods" tab="模组管理">
-                <ModsView />
-              </n-tab-pane>
+                <n-tab-pane name="mods" tab="模组管理">
+                  <ModsView />
+                </n-tab-pane>
 
-              <n-tab-pane name="settings" tab="设置">
-                <SettingsView />
-              </n-tab-pane>
-            </n-tabs>
+                <n-tab-pane name="settings" tab="设置">
+                  <SettingsView />
+                </n-tab-pane>
+              </n-tabs>
+            </div>
           </div>
         </n-notification-provider>
       </n-dialog-provider>
@@ -39,9 +41,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, onUnmounted, getCurrentInstance } from 'vue'
+import { ref, h, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { darkTheme, NAlert, NDialogProvider, useDialog } from 'naive-ui'
+import { darkTheme, NAlert, NDialogProvider } from 'naive-ui'
 import { useGameStore } from './stores/game'
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
 import HomeView from './views/Home.vue'
@@ -54,8 +56,6 @@ const router = useRouter()
 const gameStore = useGameStore()
 const activeTab = ref('home')
 
-// 不要在根组件的 setup 中直接调用 useDialog
-// 而是通过 getCurrentInstance 或者动态获取
 const dialogProviderInst = ref<InstanceType<typeof NDialogProvider> | null>(null)
 
 function handleTabChange(value: string) {
@@ -136,18 +136,35 @@ body {
 .app-container {
   width: 100vw;
   height: 100vh;
+  overflow-y: auto;
+}
+
+/* 固定在顶部的导航栏 */
+.app-nav {
+  position: sticky;
+  top: 0;
+  width: 100%;
   padding: 20px;
-  overflow: auto;
+  background-color: var(--n-color);
+  z-index: 1000;
+  backdrop-filter: blur(10px);
 }
 
 /* 隐藏滚动条但保持滚动功能 */
 .app-container::-webkit-scrollbar {
-  display: none;
+  width: 8px;
 }
 
-/* Firefox */
-.app-container {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+.app-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.app-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 </style>

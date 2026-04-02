@@ -101,9 +101,12 @@ const loading = ref(false)
 const filterType = ref<string>('all')
 const downloadProgress = ref<Record<string, number>>({})
 const installingVersions = ref<Set<string>>(new Set())
-const completedDownloads = ref<Set<string>>(new Set()) // 新增：记录已完成的下载
-// 原始ID到唯一ID的映射
+// Record completed downloads to prevent duplicate processing
+const completedDownloads = ref<Set<string>>(new Set())
+// Mapping from original ID to unique ID
 const originalToUniqueId = ref<Record<string, string>>({})
+// Manifest versions list (only contains original versions, not custom named ones)
+const manifestVersions = ref<Version[]>([])
 
 const typeOptions = [
   { label: '全部', value: 'all' },
@@ -128,7 +131,7 @@ function compareVersion(v1: string, v2: string): number {
 }
 
 const filteredVersions = computed(() => {
-  let versions = versionStore.versions
+  let versions = manifestVersions.value
 
   // 暂时排除原版（不好安装）
   versions = versions.filter(v => v.versionType !== 'original')
@@ -191,23 +194,71 @@ function getTypeColor(type: string): 'info' | 'success' | 'warning' | 'default' 
 
 function isDownloading(id: string): boolean {
   const uniqueId = originalToUniqueId.value[id]
-  return versionStore.downloading.has(id) || Boolean(uniqueId && versionStore.downloading.has(uniqueId))
+
+  // 如果这个版本已经完成了下载，返回 false
+  if (uniqueId) {
+    // 有映射时，检查 uniqueId 是否已完成
+    if (completedDownloads.value.has(uniqueId)) {
+      console.log(`[isDownloading] id=${id}, uniqueId=${uniqueId}, completed=true, returning false`)
+      return false
+    }
+  } else {
+    // 没有映射时，检查原始ID是否已完成
+    if (completedDownloads.value.has(id)) {
+      console.log(`[isDownloading] id=${id}, completed=true, returning false`)
+      return false
+    }
+  }
+
+  // 检查是否正在下载
+  const isDownloadingOriginal = versionStore.downloading.has(id)
+  const isDownloadingUnique = uniqueId && versionStore.downloading.has(uniqueId)
+
+  // 调试日志
+  if (isDownloadingOriginal || isDownloadingUnique) {
+    console.log(`[isDownloading] id=${id}, uniqueId=${uniqueId}, isDownloadingOriginal=${isDownloadingOriginal}, isDownloadingUnique=${isDownloadingUnique}`)
+  }
+
+  return isDownloadingOriginal || Boolean(isDownloadingUnique)
 }
 
 function getDownloadProgress(id: string): number {
   const uniqueId = originalToUniqueId.value[id]
+
+  // 如果这个版本已经完成了下载，返回0（即使有进度数据也不显示）
   if (uniqueId) {
-    // 如果有映射，返回唯一ID的进度，或者0（如果已清理）
-    return downloadProgress.value[uniqueId] || 0
+    // 有映射时，检查 uniqueId 是否已完成
+    if (completedDownloads.value.has(uniqueId)) {
+      console.log(`[getDownloadProgress] id=${id}, uniqueId=${uniqueId}, completed=true, returning 0`)
+      return 0
+    }
+    // 返回 uniqueId 的进度
+    const progress = downloadProgress.value[uniqueId] || 0
+    if (progress > 0) {
+      console.log(`[getDownloadProgress] id=${id}, uniqueId=${uniqueId}, progress=${progress}`)
+    }
+    return progress
+  } else {
+    // 没有映射时，检查原始ID是否已完成
+    if (completedDownloads.value.has(id)) {
+      console.log(`[getDownloadProgress] id=${id}, completed=true, returning 0`)
+      return 0
+    }
+    // 返回原始ID的进度
+    const progress = downloadProgress.value[id] || 0
+    if (progress > 0) {
+      console.log(`[getDownloadProgress] id=${id}, progress=${progress}`)
+    }
+    return progress
   }
-  // 如果没有映射，返回原始ID的进度，或者0
-  return downloadProgress.value[id] || 0
 }
 
 async function handleFetchVersions() {
   loading.value = true
   try {
-    await versionStore.fetchVersions()
+    // 获取清单文件中的版本列表（只包含原始版本）
+    const versions = await versionStore.fetchVersions()
+    manifestVersions.value = versions
     message.success('版本列表已更新')
   } catch (error) {
     message.error('获取版本列表失败：' + error)
@@ -301,55 +352,76 @@ function handleDownloadProgress(data: any) {
   }
 
   const progress = Math.floor((downloaded / total) * 100)
-  downloadProgress.value[versionId] = progress
 
-  if (downloaded >= total && !installingVersions.value.has(versionId)) {
-    // 标记为已完成，防止重复处理
-    completedDownloads.value.add(versionId)
-    installingVersions.value.add(versionId)
-
-    console.log(`[Download] Version ${versionId} completed, starting installation...`)
-
-    message.success('下载完成，正在安装...')
-
-    versionStore.installVersion(versionId)
-      .then(async () => {
-        message.success('安装完成！')
-
-        // 安装成功后清理所有状态
-        versionStore.finishDownload(versionId)
-        delete downloadProgress.value[versionId]
-
-        // 清理映射
-        if (originalId && originalToUniqueId.value[originalId] === versionId) {
-          delete originalToUniqueId.value[originalId]
-          console.log(`[Download] Cleaned mapping: ${originalId}`)
-        }
-
-        installingVersions.value.delete(versionId)
-        completedDownloads.value.delete(versionId)
-
-        // 刷新版本列表，更新安装状态
-        await versionStore.getVersions()
-
-        console.log(`[Download] Version ${versionId} installation completed`)
-      })
-      .catch((error) => {
-        console.error(`[Download] Version ${versionId} installation failed:`, error)
-        message.error('安装失败：' + error)
-
-        // 安装失败也要清理状态
-        versionStore.finishDownload(versionId)
-        delete downloadProgress.value[versionId]
-
-        if (originalId && originalToUniqueId.value[originalId] === versionId) {
-          delete originalToUniqueId.value[originalId]
-        }
-
-        installingVersions.value.delete(versionId)
-        completedDownloads.value.delete(versionId)
-      })
+  // 只在未完成时更新进度
+  if (!completedDownloads.value.has(versionId)) {
+    downloadProgress.value[versionId] = progress
   }
+}
+
+function handleDownloadComplete(data: any) {
+  const { versionId, originalId } = data
+
+  // 防止重复处理
+  if (installingVersions.value.has(versionId)) {
+    console.log(`[Download] Already installing: ${versionId}`)
+    return
+  }
+
+  // 先标记为正在安装，防止重复处理
+  installingVersions.value.add(versionId)
+  completedDownloads.value.add(versionId)
+
+  // 立即停止显示下载进度（删除 uniqueId）
+  versionStore.finishDownload(versionId)
+
+  // 同时也尝试删除原始ID（如果存在）
+  if (originalId) {
+    versionStore.finishDownload(originalId)
+  }
+
+  console.log(`[Download] Version ${versionId} completed, starting installation...`)
+
+  message.success('下载完成，正在安装...')
+
+  versionStore.installVersion(versionId)
+    .then(async () => {
+      message.success('安装完成！')
+
+      // 清理所有相关的进度状态
+      delete downloadProgress.value[versionId]
+
+      // 清理映射和原始ID的进度数据
+      if (originalId && originalToUniqueId.value[originalId] === versionId) {
+        delete originalToUniqueId.value[originalId]
+        delete downloadProgress.value[originalId] // 清理原始ID的进度数据
+        console.log(`[Download] Cleaned mapping and progress for: ${originalId}`)
+      }
+
+      installingVersions.value.delete(versionId)
+      completedDownloads.value.delete(versionId)
+
+      // 注意：不需要刷新 manifestVersions，因为它只包含清单文件中的原始版本
+      // 用户可以点击"刷新版本列表"按钮来更新清单
+
+      console.log(`[Download] Version ${versionId} installation completed`)
+    })
+    .catch((error) => {
+      console.error(`[Download] Version ${versionId} installation failed:`, error)
+      message.error('安装失败：' + error)
+
+      // 清理所有相关的进度状态
+      delete downloadProgress.value[versionId]
+
+      // 清理映射和原始ID的进度数据
+      if (originalId && originalToUniqueId.value[originalId] === versionId) {
+        delete originalToUniqueId.value[originalId]
+        delete downloadProgress.value[originalId] // 清理原始ID的进度数据
+      }
+
+      installingVersions.value.delete(versionId)
+      completedDownloads.value.delete(versionId)
+    })
 }
 
 function handleDownloadStart(data: any) {
@@ -360,20 +432,35 @@ function handleDownloadStart(data: any) {
     installingVersions.value.delete(uniqueId)
     delete downloadProgress.value[uniqueId]
 
+    // 清理原始ID的旧数据（如果有）
+    delete downloadProgress.value[originalId]
+
     originalToUniqueId.value[originalId] = uniqueId
     console.log(`[Download] Mapping ${originalId} -> ${uniqueId}`)
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   EventsOn('download:start', handleDownloadStart)
   EventsOn('download:progress', handleDownloadProgress)
-  handleFetchVersions()
+  EventsOn('download:complete', handleDownloadComplete)
+
+  // 初始化清单版本列表
+  loading.value = true
+  try {
+    const versions = await versionStore.fetchVersions()
+    manifestVersions.value = versions
+  } catch (error) {
+    message.error('加载版本列表失败：' + error)
+  } finally {
+    loading.value = false
+  }
 })
 
 onUnmounted(() => {
   EventsOff('download:start')
   EventsOff('download:progress')
+  EventsOff('download:complete')
 })
 </script>
 

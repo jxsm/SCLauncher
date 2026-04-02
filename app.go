@@ -111,6 +111,16 @@ func (a *App) GetConfig() map[string]interface{} {
 	}
 }
 
+// SetManifestURL 设置清单文件 URL
+func (a *App) SetManifestURL(url string) error {
+	return a.config.SetManifestURL(url)
+}
+
+// SetMaxConcurrent 设置最大并发下载数
+func (a *App) SetMaxConcurrent(max int) error {
+	return a.config.SetMaxConcurrent(max)
+}
+
 // SetCurrentVersion 设置当前选中的版本
 func (a *App) SetCurrentVersion(versionID string) error {
 	return a.config.SetCurrentVersion(versionID)
@@ -176,7 +186,7 @@ func (a *App) GetInstalledVersions() ([]version.Version, error) {
 
 // DownloadVersion 下载版本
 func (a *App) DownloadVersion(versionID string) error {
-	return a.versionMgr.DownloadVersion(versionID, func(downloaded, total, speed int64) {
+	err := a.versionMgr.DownloadVersion(versionID, func(downloaded, total, speed int64) {
 		// 发送进度事件到前端
 		runtime.EventsEmit(a.ctx, "download:progress", map[string]interface{}{
 			"versionId":  versionID,
@@ -185,6 +195,16 @@ func (a *App) DownloadVersion(versionID string) error {
 			"speed":      speed,
 		})
 	})
+
+	// 下载完成后发送确认事件
+	if err == nil {
+		runtime.EventsEmit(a.ctx, "download:complete", map[string]interface{}{
+			"versionId":  versionID,
+			"originalId": versionID,
+		})
+	}
+
+	return err
 }
 
 // DownloadVersionWithCustomName 下载版本（使用自定义名称）
@@ -199,7 +219,7 @@ func (a *App) DownloadVersionWithCustomName(versionID, customName string) error 
 		"customName": customName,
 	})
 
-	return a.versionMgr.DownloadVersionWithCustomName(versionID, uniqueID, customName, func(downloaded, total, speed int64) {
+	err := a.versionMgr.DownloadVersionWithCustomName(versionID, uniqueID, customName, func(downloaded, total, speed int64) {
 		// 发送进度事件到前端（同时包含原始ID和唯一ID）
 		runtime.EventsEmit(a.ctx, "download:progress", map[string]interface{}{
 			"versionId":  uniqueID,
@@ -209,6 +229,16 @@ func (a *App) DownloadVersionWithCustomName(versionID, customName string) error 
 			"speed":      speed,
 		})
 	})
+
+	// 下载完成后发送确认事件
+	if err == nil {
+		runtime.EventsEmit(a.ctx, "download:complete", map[string]interface{}{
+			"versionId":  uniqueID,
+			"originalId": versionID,
+		})
+	}
+
+	return err
 }
 
 // generateUniqueID 生成唯一 ID

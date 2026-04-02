@@ -178,3 +178,15 @@ func (c *Config) SetCurrentVersion(versionID string) error {
 	c.CurrentVersion = versionID
 	return c.Save()
 }
+
+// SetManifestURL 设置清单文件 URL
+func (c *Config) SetManifestURL(url string) error {
+	c.ManifestURL = url
+	return c.Save()
+}
+
+// SetMaxConcurrent 设置最大并发下载数
+func (c *Config) SetMaxConcurrent(max int) error {
+	c.MaxConcurrent = max
+	return c.Save()
+}

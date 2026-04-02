@@ -1,21 +1,6 @@
 <template>
   <div class="settings-view">
     <n-space vertical size="large">
-      <!-- 应用信息 -->
-      <n-card title="应用信息">
-        <n-descriptions :column="1" bordered>
-          <n-descriptions-item label="应用名称">
-            SCLauncher
-          </n-descriptions-item>
-          <n-descriptions-item label="版本">
-            v0.1.0
-          </n-descriptions-item>
-          <n-descriptions-item label="作者">
-            jxsm
-          </n-descriptions-item>
-        </n-descriptions>
-      </n-card>
-
       <!-- 路径信息 -->
       <n-card title="路径信息">
         <n-descriptions :column="1" bordered>
@@ -62,25 +47,81 @@
           保存设置
         </n-button>
       </n-card>
+
+      <!-- 关于 -->
+      <div class="about-section">
+        <n-button text @click="showAboutDialog = true">
+          <template #icon>
+            <n-icon><InformationIcon /></n-icon>
+          </template>
+          关于
+        </n-button>
+      </div>
     </n-space>
+
+    <!-- 关于对话框 -->
+    <n-modal v-model:show="showAboutDialog" preset="dialog" title="关于 SCLauncher">
+      <n-space vertical>
+        <n-descriptions :column="1" bordered label-placement="left" label-style="width: 80px;">
+          <n-descriptions-item label="版本">
+            v0.1.0
+          </n-descriptions-item>
+          <n-descriptions-item label="作者">
+            jxsm
+          </n-descriptions-item>
+          <n-descriptions-item label="开源协议">
+            MIT License
+          </n-descriptions-item>
+        </n-descriptions>
+        <n-divider />
+        <n-text>
+          SCLauncher 是一个开源的生存战争游戏启动器，支持版本管理、模组安装等功能。
+        </n-text>
+        <n-button type="primary" block @click="openGitHub">
+          <template #icon>
+            <n-icon><GithubIcon /></n-icon>
+          </template>
+          在 GitHub 上查看项目
+        </n-button>
+      </n-space>
+      <template #action>
+        <n-button @click="showAboutDialog = false">关闭</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
-import { GetConfig } from '../api/config'
+import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon } from '@vicons/ionicons5'
+import { GetConfig, SetManifestURL, SetMaxConcurrent } from '../api/config'
+import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
 
 const message = useMessage()
+const versionStore = useVersionStore()
 
 const config = ref<AppConfig | null>(null)
 const manifestUrl = ref('')
 const maxConcurrent = ref(3)
+const showAboutDialog = ref(false)
 
 async function handleSaveManifestUrl() {
-  // TODO: 实现保存清单 URL 的逻辑
-  message.success('清单 URL 已保存（功能待实现）')
+  if (!manifestUrl.value.trim()) {
+    message.error('清单 URL 不能为空')
+    return
+  }
+
+  try {
+    await SetManifestURL(manifestUrl.value.trim())
+    message.success('清单 URL 已保存')
+
+    // 清除清单缓存，以便下次进入版本页面时重新获取
+    versionStore.clearManifestCache()
+  } catch (error) {
+    message.error('保存失败：' + error)
+  }
 }
 
 function handleResetManifestUrl() {
@@ -88,8 +129,16 @@ function handleResetManifestUrl() {
 }
 
 async function handleSaveSettings() {
-  // TODO: 实现保存设置的逻辑
-  message.success('设置已保存（功能待实现）')
+  try {
+    await SetMaxConcurrent(maxConcurrent.value)
+    message.success('设置已保存')
+  } catch (error) {
+    message.error('保存失败：' + error)
+  }
+}
+
+function openGitHub() {
+  window.open('https://github.com/jxsm/SCLauncher', '_blank')
 }
 
 onMounted(async () => {
@@ -109,5 +158,16 @@ onMounted(async () => {
 .settings-view {
   max-width: 800px;
   margin: 0 auto;
+}
+
+.about-section {
+  text-align: center;
+  padding: 20px 0;
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+.about-section:hover {
+  opacity: 1;
 }
 </style>

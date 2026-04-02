@@ -90,6 +90,14 @@ export function SetCurrentVersion(arg1) {
   return window['go']['main']['App']['SetCurrentVersion'](arg1);
 }
 
+export function SetManifestURL(arg1) {
+  return window['go']['main']['App']['SetManifestURL'](arg1);
+}
+
+export function SetMaxConcurrent(arg1) {
+  return window['go']['main']['App']['SetMaxConcurrent'](arg1);
+}
+
 export function SetPrimaryVersion(arg1) {
   return window['go']['main']['App']['SetPrimaryVersion'](arg1);
 }

@@ -47,6 +47,10 @@ export function SelectModFile():Promise<string>;
 
 export function SetCurrentVersion(arg1:string):Promise<void>;
 
+export function SetManifestURL(arg1:string):Promise<void>;
+
+export function SetMaxConcurrent(arg1:number):Promise<void>;
+
 export function SetPrimaryVersion(arg1:string):Promise<void>;
 
 export function StopGame():Promise<void>;
