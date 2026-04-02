@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
+	"SCLauncher/backend/appinfo"
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
@@ -96,6 +100,15 @@ func (a *App) shutdown(ctx context.Context) {
 }
 
 // ========== 配置相关 API ==========
+
+// GetAppInfo 获取应用信息
+func (a *App) GetAppInfo() map[string]string {
+	return map[string]string{
+		"version":  appinfo.Version,
+		"repoOwner": appinfo.RepoOwner,
+		"repoName":  appinfo.RepoName,
+	}
+}
 
 // GetConfig 获取配置
 func (a *App) GetConfig() map[string]interface{} {
@@ -334,6 +347,96 @@ func (a *App) FormatSize(bytes int64) string {
 // VersionExists 检查版本是否存在
 func (a *App) VersionExists(versionID string) bool {
 	return a.paths.VersionExists(versionID)
+}
+
+// ========== 版本更新检查 API ==========
+
+// GitHubRelease GitHub 发布信息
+type GitHubRelease struct {
+	TagName     string `json:"tag_name"`
+	Name        string `json:"name"`
+	HtmlUrl     string `json:"html_url"`
+	PublishedAt string `json:"published_at"`
+	Body        string `json:"body"`
+}
+
+// CheckUpdate 检查更新
+func (a *App) CheckUpdate() (map[string]interface{}, error) {
+	// 获取最新 release
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", appinfo.RepoOwner, appinfo.RepoName)
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("Checking for updates from: %s", url))
+	runtime.LogInfo(a.ctx, fmt.Sprintf("Current version: %s", appinfo.Version))
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("获取更新信息失败: %v", err))
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("GitHub API 返回错误状态码: %d", resp.StatusCode)
+		runtime.LogWarning(a.ctx, err.Error())
+		return nil, err
+	}
+
+	var release GitHubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("解析 release 信息失败: %v", err))
+		return nil, err
+	}
+
+	// 移除版本号前的 'v' 前缀
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("Latest version from GitHub: %s (tag: %s)", latestVersion, release.TagName))
+
+	// 比较版本号
+	hasUpdate := compareVersions(appinfo.Version, latestVersion)
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("Has update: %v (current: %s, latest: %s)", hasUpdate, appinfo.Version, latestVersion))
+
+	return map[string]interface{}{
+		"currentVersion": appinfo.Version,
+		"latestVersion":  latestVersion,
+		"hasUpdate":      hasUpdate,
+		"tagName":        release.TagName,
+		"name":           release.Name,
+		"url":            release.HtmlUrl,
+		"publishedAt":    release.PublishedAt,
+		"body":           release.Body,
+	}, nil
+}
+
+// compareVersions 比较版本号，返回 true 表示有新版本
+func compareVersions(current, latest string) bool {
+	currentParts := strings.Split(current, ".")
+	latestParts := strings.Split(latest, ".")
+
+	for i := 0; i < 3; i++ {
+		var currentVal, latestVal int
+
+		if i < len(currentParts) {
+			fmt.Sscanf(currentParts[i], "%d", &currentVal)
+		}
+		if i < len(latestParts) {
+			fmt.Sscanf(latestParts[i], "%d", &latestVal)
+		}
+
+		if latestVal > currentVal {
+			return true
+		}
+		if latestVal < currentVal {
+			return false
+		}
+	}
+
+	return false
 }
 
 // ========== 模组管理 API ==========

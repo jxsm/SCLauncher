@@ -64,10 +64,10 @@
       <n-space vertical>
         <n-descriptions :column="1" bordered label-placement="left" label-style="width: 80px;">
           <n-descriptions-item label="版本">
-            v0.1.0
+            v{{ appInfo.version }}
           </n-descriptions-item>
           <n-descriptions-item label="作者">
-            jxsm
+            {{ appInfo.repoOwner }}
           </n-descriptions-item>
           <n-descriptions-item label="开源协议">
             MIT License
@@ -83,6 +83,12 @@
           </template>
           在 GitHub 上查看项目
         </n-button>
+        <n-button block @click="handleCheckUpdate">
+          <template #icon>
+            <n-icon><UpdateIcon /></n-icon>
+          </template>
+          检查更新
+        </n-button>
       </n-space>
       <template #action>
         <n-button @click="showAboutDialog = false">关闭</n-button>
@@ -92,20 +98,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useMessage } from 'naive-ui'
-import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon } from '@vicons/ionicons5'
-import { GetConfig, SetManifestURL, SetMaxConcurrent } from '../api/config'
+import { ref, onMounted, h } from 'vue'
+import { useMessage, useDialog, NAlert } from 'naive-ui'
+import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon, RefreshOutline as UpdateIcon } from '@vicons/ionicons5'
+import { GetConfig, SetManifestURL, SetMaxConcurrent, GetAppInfo, CheckUpdate } from '../api/config'
 import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
 
 const message = useMessage()
+const dialog = useDialog()
 const versionStore = useVersionStore()
 
 const config = ref<AppConfig | null>(null)
 const manifestUrl = ref('')
 const maxConcurrent = ref(3)
 const showAboutDialog = ref(false)
+const appInfo = ref<{ version: string; repoOwner: string; repoName: string }>({
+  version: '0.0.1',
+  repoOwner: 'jxsm',
+  repoName: 'SCLauncher'
+})
 
 async function handleSaveManifestUrl() {
   if (!manifestUrl.value.trim()) {
@@ -141,8 +153,53 @@ function openGitHub() {
   window.open('https://github.com/jxsm/SCLauncher', '_blank')
 }
 
+async function handleCheckUpdate() {
+  try {
+    const updateInfo = await CheckUpdate()
+    console.log('[Update Check] Update info:', updateInfo)
+
+    if (updateInfo.hasUpdate) {
+      // 有新版本，显示更新对话框
+      dialog.create({
+        title: '发现新版本',
+        content: () => {
+          return h('div', [
+            h('p', { style: 'margin-bottom: 12px;' }, `当前版本: v${updateInfo.currentVersion}`),
+            h('p', { style: 'margin-bottom: 12px; font-weight: bold; color: #18a058;' }, `最新版本: v${updateInfo.latestVersion}`),
+            h('p', { style: 'margin-bottom: 12px;' }, `发布时间: ${new Date(updateInfo.publishedAt).toLocaleString()}`),
+            h(NAlert, {
+              type: 'info',
+              title: '更新内容'
+            }, {
+              default: () => h('pre', {
+                style: 'max-height: 200px; overflow-y: auto; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap;'
+              }, updateInfo.body || '暂无更新说明')
+            })
+          ])
+        },
+        positiveText: '前往下载',
+        negativeText: '关闭',
+        onPositiveClick: () => {
+          window.open(updateInfo.url, '_blank')
+        }
+      })
+    } else {
+      message.success('当前已是最新版本')
+    }
+  } catch (error) {
+    message.error('检查更新失败：' + error)
+  }
+}
+
 onMounted(async () => {
   try {
+    // 获取应用信息
+    const info = await GetAppInfo()
+    if (info) {
+      appInfo.value = info
+    }
+
+    // 获取配置
     config.value = await GetConfig()
     if (config.value) {
       manifestUrl.value = config.value.manifestUrl

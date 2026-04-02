@@ -1,6 +1,11 @@
 import { AppConfig } from '../types/config'
 import * as AppBindings from '../../wailsjs/go/main/App'
 
+// 获取应用信息
+export async function GetAppInfo(): Promise<any> {
+  return await AppBindings.GetAppInfo()
+}
+
 // 获取配置
 export async function GetConfig(): Promise<AppConfig> {
   const config = await AppBindings.GetConfig()
@@ -15,4 +20,9 @@ export async function SetManifestURL(url: string): Promise<void> {
 // 设置最大并发下载数
 export async function SetMaxConcurrent(max: number): Promise<void> {
   await AppBindings.SetMaxConcurrent(max)
+}
+
+// 检查更新
+export async function CheckUpdate(): Promise<any> {
+  return await AppBindings.CheckUpdate()
 }

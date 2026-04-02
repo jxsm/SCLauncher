@@ -48,9 +48,10 @@
 <script setup lang="ts">
 import { ref, h, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
-import { darkTheme, NAlert, NDialogProvider } from "naive-ui";
+import { darkTheme, NAlert, NDialogProvider, NButton } from "naive-ui";
 import { useGameStore } from "./stores/game";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
+import { CheckUpdate } from "./api/config";
 import HomeView from "./views/Home.vue";
 import InstalledVersionsView from "./views/InstalledVersions.vue";
 import VersionsView from "./views/Versions.vue";
@@ -132,6 +133,49 @@ onMounted(async () => {
     // 如果游戏正在运行，启动状态检查
     if (gameStore.status === "running") {
       gameStore.startStatusCheck?.();
+    }
+
+    // 检查更新
+    try {
+      const updateInfo = await CheckUpdate();
+      console.log("[Update Check] Update info:", updateInfo);
+
+      if (updateInfo.hasUpdate) {
+        // 有新版本，显示更新对话框
+        if (dialogProviderInst.value) {
+          const dialog = dialogProviderInst.value;
+          // @ts-ignore
+          dialog.create({
+            title: "发现新版本",
+            content: () => {
+              return h("div", [
+                h("p", { style: "margin-bottom: 12px;" }, `当前版本: ${updateInfo.currentVersion}`),
+                h("p", { style: "margin-bottom: 12px; font-weight: bold; color: #18a058;" }, `最新版本: ${updateInfo.latestVersion}`),
+                h("p", { style: "margin-bottom: 12px;" }, `发布时间: ${new Date(updateInfo.publishedAt).toLocaleString()}`),
+                h(NAlert, {
+                  type: "info",
+                  title: "更新内容"
+                }, {
+                  default: () => h("pre", {
+                    style: "max-height: 200px; overflow-y: auto; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap;"
+                  }, updateInfo.body || "暂无更新说明")
+                })
+              ]);
+            },
+            positiveText: "前往下载",
+            negativeText: "稍后提醒",
+            onPositiveClick: () => {
+              // 打开 GitHub releases 页面
+              window.open(updateInfo.url, "_blank");
+            }
+          });
+        }
+      } else {
+        console.log("[Update Check] No update available");
+      }
+    } catch (e) {
+      // 检查更新失败，不影响使用
+      console.warn("Failed to check for updates:", e);
     }
   } catch (e) {
     console.error("Failed to initialize game status:", e);

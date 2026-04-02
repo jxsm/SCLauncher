@@ -10,6 +10,10 @@ export function CancelDownload(arg1) {
   return window['go']['main']['App']['CancelDownload'](arg1);
 }
 
+export function CheckUpdate() {
+  return window['go']['main']['App']['CheckUpdate']();
+}
+
 export function DeleteMod(arg1, arg2) {
   return window['go']['main']['App']['DeleteMod'](arg1, arg2);
 }
@@ -32,6 +36,10 @@ export function FetchVersions() {
 
 export function FormatSize(arg1) {
   return window['go']['main']['App']['FormatSize'](arg1);
+}
+
+export function GetAppInfo() {
+  return window['go']['main']['App']['GetAppInfo']();
 }
 
 export function GetConfig() {

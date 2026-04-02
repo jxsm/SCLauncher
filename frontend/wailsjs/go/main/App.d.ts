@@ -7,6 +7,8 @@ export function AutoSetPrimaryVersion():Promise<void>;
 
 export function CancelDownload(arg1:string):Promise<void>;
 
+export function CheckUpdate():Promise<Record<string, any>>;
+
 export function DeleteMod(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteVersion(arg1:string):Promise<void>;
@@ -18,6 +20,8 @@ export function DownloadVersionWithCustomName(arg1:string,arg2:string):Promise<v
 export function FetchVersions():Promise<Array<version.Version>>;
 
 export function FormatSize(arg1:number):Promise<string>;
+
+export function GetAppInfo():Promise<Record<string, string>>;
 
 export function GetConfig():Promise<Record<string, any>>;
 
