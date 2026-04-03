@@ -170,7 +170,12 @@ const appInfo = ref<{ version: string; repoOwner: string; repoName: string }>({
 // 语言选项
 const languageOptions = [
   { label: '简体中文', value: 'zh-CN' },
-  { label: 'English', value: 'en-US' }
+  { label: 'English', value: 'en-US' },
+  { label: 'Русский', value: 'ru-RU' },
+  { label: 'Português (Brasil)', value: 'pt-BR' },
+  { label: 'हिन्दी', value: 'hi-IN' },
+  { label: 'Bahasa Indonesia', value: 'id-ID' },
+  { label: 'العربية', value: 'ar-SA' }
 ]
 
 // 加载背景图片预览
