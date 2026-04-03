@@ -9,13 +9,13 @@
               <template #icon>
                 <n-icon><AddIcon /></n-icon>
               </template>
-              导入皮肤
+              {{ t('skins.import') }}
             </n-button>
             <n-button @click="handleRefresh">
               <template #icon>
                 <n-icon><RefreshIcon /></n-icon>
               </template>
-              刷新
+              {{ t('common.refresh') }}
             </n-button>
           </n-space>
           <n-text depth="3">
@@ -59,10 +59,10 @@
                   <n-popconfirm @positive-click="handleDeleteSkin(skin)">
                     <template #trigger>
                       <n-button type="error" size="small" block>
-                        删除
+                        {{ t('common.delete') }}
                       </n-button>
                     </template>
-                    确定要删除这个皮肤吗？
+                    {{ t('skins.confirmDeleteMessage') }}
                   </n-popconfirm>
                 </n-space>
               </n-space>
@@ -72,7 +72,7 @@
 
         <n-empty
           v-if="skinStore.skins.length === 0 && !skinStore.loading"
-          description="暂无皮肤，点击上方按钮导入"
+          :description="t('skins.noSkins')"
         />
       </n-spin>
     </n-space>
@@ -81,11 +81,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSkinStore } from '../stores/skin'
 import { useMessage } from 'naive-ui'
 import { Add as AddIcon, Refresh as RefreshIcon, Image as ImageIcon } from '@vicons/ionicons5'
 import { formatSize } from '../utils/format'
 
+const { t } = useI18n()
 const skinStore = useSkinStore()
 const message = useMessage()
 const skinImages = ref<Record<string, string>>({})
@@ -99,10 +101,10 @@ async function handleImportSkin() {
 
     if (filePath) {
       await skinStore.importSkin(filePath)
-      message.success('皮肤导入成功')
+      message.success(t('skins.importSuccess'))
     }
   } catch (error) {
-    message.error('皮肤导入失败：' + error)
+    message.error(t('skins.importFailed') + '：' + error)
   }
 }
 
@@ -113,14 +115,14 @@ function handleRefresh() {
 function handleDeleteSkin(skin: any) {
   skinStore.deleteSkin(skin.fileName)
     .then(() => {
-      message.success('皮肤已删除')
+      message.success(t('skins.deleteSuccess'))
       // 清理缓存的图片
       if (skinImages.value[skin.fileName]) {
         delete skinImages.value[skin.fileName]
       }
     })
     .catch((error) => {
-      message.error('删除失败：' + error)
+      message.error(t('skins.deleteFailed') + '：' + error)
     })
 }
 
@@ -159,7 +161,7 @@ onMounted(async () => {
     // 预加载所有皮肤图片
     await preloadSkinImages()
   } catch (error) {
-    message.error('加载皮肤列表失败：' + error)
+    message.error(t('skins.loadFailed') + '：' + error)
   }
 })
 </script>

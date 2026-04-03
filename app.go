@@ -141,6 +141,11 @@ func (a *App) SetMaxConcurrent(max int) error {
 	return a.config.SetMaxConcurrent(max)
 }
 
+// SetLanguage 设置语言
+func (a *App) SetLanguage(lang string) error {
+	return a.config.SetLanguage(lang)
+}
+
 // SetCurrentVersion 设置当前选中的版本
 func (a *App) SetCurrentVersion(versionID string) error {
 	return a.config.SetCurrentVersion(versionID)

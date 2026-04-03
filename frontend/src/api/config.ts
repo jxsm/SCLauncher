@@ -22,6 +22,11 @@ export async function SetMaxConcurrent(max: number): Promise<void> {
   await AppBindings.SetMaxConcurrent(max)
 }
 
+// 设置语言
+export async function SetLanguage(lang: string): Promise<void> {
+  await AppBindings.SetLanguage(lang)
+}
+
 // 检查更新
 export async function CheckUpdate(): Promise<any> {
   return await AppBindings.CheckUpdate()

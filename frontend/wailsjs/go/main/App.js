@@ -150,6 +150,10 @@ export function SetCurrentVersion(arg1) {
   return window['go']['main']['App']['SetCurrentVersion'](arg1);
 }
 
+export function SetLanguage(arg1) {
+  return window['go']['main']['App']['SetLanguage'](arg1);
+}
+
 export function SetManifestURL(arg1) {
   return window['go']['main']['App']['SetManifestURL'](arg1);
 }

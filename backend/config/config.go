@@ -194,3 +194,9 @@ func (c *Config) SetMaxConcurrent(max int) error {
 	c.MaxConcurrent = max
 	return c.Save()
 }
+
+// SetLanguage 设置语言
+func (c *Config) SetLanguage(lang string) error {
+	c.Language = lang
+	return c.Save()
+}

@@ -5,10 +5,10 @@
       <n-card>
         <n-space justify="space-between">
           <n-space>
-            <n-text strong style="font-size: 18px;">已安装版本</n-text>
+            <n-text strong style="font-size: 18px;">{{ t('installed.title') }}</n-text>
           </n-space>
           <n-text depth="3">
-            共 {{ installedVersions.length }} 个已安装版本
+            {{ t('installed.totalInstalled') }} {{ installedVersions.length }}
           </n-text>
         </n-space>
       </n-card>
@@ -22,13 +22,13 @@
                 <n-space align="center">
                   <n-text strong style="font-size: 16px;">{{ version.name }}</n-text>
                   <n-tag v-if="version.isPrimary" type="success" size="small">
-                    主要
+                    {{ t('installed.primary') }}
                   </n-tag>
                   <n-tag :type="getVersionTypeColor(version.versionType)" size="small">
                     {{ getVersionTypeText(version.versionType) }}
                   </n-tag>
                   <n-tag type="success" size="small">
-                    已安装
+                    {{ t('versions.installed') }}
                   </n-tag>
                 </n-space>
               </template>
@@ -36,10 +36,10 @@
               <template #description>
                 <n-space vertical size="small">
                   <n-text depth="3">
-                    版本: {{ version.gameVersion }} - {{ version.subVersion }}
+                    {{ t('common.version') }}: {{ version.gameVersion }} - {{ version.subVersion }}
                   </n-text>
                   <n-text depth="3" v-if="version.localPath">
-                    路径: {{ version.localPath }}
+                    {{ t('common.path') }}: {{ version.localPath }}
                   </n-text>
                 </n-space>
               </template>
@@ -55,7 +55,7 @@
                     <template #icon>
                       <n-icon><PlayIcon /></n-icon>
                     </template>
-                    启动
+                    {{ t('installed.launchGame') }}
                   </n-button>
                   <n-button
                     size="medium"
@@ -66,7 +66,7 @@
                     <template #icon>
                       <n-icon><StarIcon /></n-icon>
                     </template>
-                    {{ version.isPrimary ? '已设为主要' : '设为主要' }}
+                    {{ version.isPrimary ? t('installed.alreadyPrimary') : t('versions.setAsPrimary') }}
                   </n-button>
                   <n-button
                     size="medium"
@@ -75,7 +75,7 @@
                     <template #icon>
                       <n-icon><FolderIcon /></n-icon>
                     </template>
-                    打开文件夹
+                    {{ t('versions.openFolder') }}
                   </n-button>
                   <n-button
                     size="medium"
@@ -84,7 +84,7 @@
                     <template #icon>
                       <n-icon><ModsIcon /></n-icon>
                     </template>
-                    模组管理
+                    {{ t('installed.manageMods') }}
                   </n-button>
                   <n-button
                     size="medium"
@@ -93,7 +93,7 @@
                     <template #icon>
                       <n-icon><EditIcon /></n-icon>
                     </template>
-                    改名
+                    {{ t('versions.rename') }}
                   </n-button>
                   <n-popconfirm
                     @positive-click="handleDelete(version)"
@@ -103,20 +103,20 @@
                         <template #icon>
                           <n-icon><TrashIcon /></n-icon>
                         </template>
-                        删除
+                        {{ t('common.delete') }}
                       </n-button>
                     </template>
-                    确定要删除版本"{{ version.name }}"吗？
+                    {{ t('installed.confirmDeleteVersion', { name: version.name }) }}
                   </n-popconfirm>
                 </n-space>
               </template>
             </n-thing>
           </n-list-item>
         </n-list>
-        <n-empty v-if="installedVersions.length === 0 && !loading" description="暂无已安装版本">
+        <n-empty v-if="installedVersions.length === 0 && !loading" :description="t('installed.noVersions')">
           <template #extra>
             <n-button type="primary" @click="$router.push('/versions')">
-              去下载版本
+              {{ t('installed.goToVersions') }}
             </n-button>
           </template>
         </n-empty>
@@ -128,6 +128,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
@@ -135,6 +136,7 @@ import { OpenVersionFolder } from '../api/version'
 import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon } from '@vicons/ionicons5'
 import type { Version } from '../types/version'
 
+const { t } = useI18n()
 const versionStore = useVersionStore()
 const gameStore = useGameStore()
 const message = useMessage()
@@ -149,9 +151,9 @@ const installedVersions = computed(() => versionStore.installedVersions)
 
 function getVersionTypeText(type: string): string {
   const types = {
-    api: '插件版',
-    net: '联机版',
-    original: '原版'
+    api: t('versions.apiVersion'),
+    net: t('versions.netVersion'),
+    original: t('versions.originalVersion')
   }
   return types[type as keyof typeof types] || type
 }
@@ -168,18 +170,18 @@ function getVersionTypeColor(type: string): 'info' | 'success' | 'warning' | 'de
 async function handleLaunch(version: Version) {
   try {
     await gameStore.launchGame(version.id)
-    message.success(`游戏 "${version.name}" 启动成功！`)
+    message.success(`${t('installed.launchSuccess')}: "${version.name}"`)
   } catch (error) {
-    message.error('游戏启动失败：' + error)
+    message.error(t('installed.launchFailed') + '：' + error)
   }
 }
 
 async function handleSetPrimary(version: Version) {
   try {
     await versionStore.setPrimaryVersion(version.id)
-    message.success(`已将 "${version.name}" 设为主要版本`)
+    message.success(`${t('installed.setPrimarySuccess')}: "${version.name}"`)
   } catch (error) {
-    message.error('设置失败：' + error)
+    message.error(t('installed.setPrimaryFailed') + '：' + error)
   }
 }
 
@@ -188,13 +190,13 @@ function handleRename(version: Version) {
   newName.value = version.name
 
   dialog.create({
-    title: '重命名版本',
+    title: t('installed.renameVersion'),
     content: () => {
       return h('div', [
-        h('div', { style: 'margin-bottom: 8px' }, '请输入新的版本名称：'),
+        h('div', { style: 'margin-bottom: 8px' }, t('installed.enterNewVersionName')),
         h(NInput, {
           value: newName.value,
-          placeholder: '请输入版本名称',
+          placeholder: t('installed.enterVersionName'),
           onUpdateValue: (value: string) => {
             newName.value = value
           },
@@ -206,11 +208,11 @@ function handleRename(version: Version) {
         })
       ])
     },
-    positiveText: '确定',
-    negativeText: '取消',
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       if (!newName.value.trim()) {
-        message.error('版本名称不能为空')
+        message.error(t('installed.nameCannotBeEmpty'))
         return false
       }
 
@@ -219,17 +221,17 @@ function handleRename(version: Version) {
         v => v.name === newName.value && v.id !== version.id
       )
       if (exists) {
-        message.error('版本名称已存在，请使用其他名称')
+        message.error(t('installed.nameAlreadyExists'))
         return false
       }
 
       try {
         await versionStore.renameVersion(version.id, newName.value)
-        message.success(`版本 "${version.name}" 已重命名为 "${newName.value}"`)
+        message.success(`${t('installed.renameSuccess')}: "${version.name}" → "${newName.value}"`)
         renamingVersion.value = null
         return true
       } catch (error) {
-        message.error('重命名失败：' + error)
+        message.error(t('installed.renameFailed') + '：' + error)
         return false
       }
     }
@@ -239,10 +241,10 @@ function handleRename(version: Version) {
 function handleDelete(version: Version) {
   versionStore.deleteVersion(version.id)
     .then(() => {
-      message.success(`版本 "${version.name}" 已删除`)
+      message.success(`${t('installed.deleteSuccess')}: "${version.name}"`)
     })
     .catch((error) => {
-      message.error('删除失败：' + error)
+      message.error(t('installed.deleteFailed') + '：' + error)
     })
 }
 
@@ -250,7 +252,7 @@ async function handleOpenFolder(version: Version) {
   try {
     await OpenVersionFolder(version.id)
   } catch (error) {
-    message.error('打开文件夹失败：' + error)
+    message.error(t('installed.openFolderFailed') + '：' + error)
   }
 }
 
@@ -267,7 +269,7 @@ onMounted(async () => {
     await versionStore.getVersions()
     await versionStore.getPrimaryVersion()
   } catch (error) {
-    message.error('加载数据失败：' + error)
+    message.error(t('errors.loadDataFailed') + '：' + error)
   } finally {
     loading.value = false
   }

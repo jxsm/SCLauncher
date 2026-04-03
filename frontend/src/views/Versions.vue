@@ -9,7 +9,7 @@
               <template #icon>
                 <n-icon><RefreshIcon /></n-icon>
               </template>
-              刷新版本列表
+              {{ t('versions.refresh') }}
             </n-button>
             <n-select
               v-model:value="filterType"
@@ -18,7 +18,7 @@
             />
           </n-space>
           <n-text depth="3">
-            共 {{ groupedVersions.reduce((sum, g) => sum + g.versions.length, 0) }} 个版本可下载
+            {{ t('versions.totalVersions') }} {{ groupedVersions.reduce((sum, g) => sum + g.versions.length, 0) }}
           </n-text>
         </n-space>
       </n-card>
@@ -33,7 +33,7 @@
                   {{ group.gameVersion }}
                 </n-text>
                 <n-tag size="small" type="info">
-                  {{ group.versions.length }} 个版本
+                  {{ group.versions.length }} {{ t('versions.versionsCount') }}
                 </n-tag>
               </n-space>
             </template>
@@ -53,10 +53,10 @@
                   <template #description>
                     <n-space vertical size="small">
                       <n-text depth="3">
-                        大小: {{ formatSize(version.size) }}
+                        {{ t('common.size') }}: {{ formatSize(version.size) }}
                       </n-text>
                       <n-text v-if="version.illustrate" depth="3">
-                        说明: {{ version.illustrate }}
+                        {{ t('common.description') }}: {{ version.illustrate }}
                       </n-text>
                     </n-space>
                   </template>
@@ -73,7 +73,7 @@
                         <template #icon>
                           <n-icon><DownloadIcon /></n-icon>
                         </template>
-                        下载
+                        {{ t('versions.download') }}
                       </n-button>
                       <n-progress
                         v-else
@@ -90,7 +90,7 @@
             </n-list>
           </n-collapse-item>
         </n-collapse>
-        <n-empty v-if="groupedVersions.length === 0 && !loading" description="暂无版本" />
+        <n-empty v-if="groupedVersions.length === 0 && !loading" :description="t('versions.noVersions')" />
       </n-spin>
     </n-space>
   </div>
@@ -98,6 +98,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, h } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import { Refresh as RefreshIcon, CloudDownload as DownloadIcon } from '@vicons/ionicons5'
@@ -105,6 +106,7 @@ import { formatSize } from '../utils/format'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import type { Version } from '../types/version'
 
+const { t } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
 const dialog = useDialog()
@@ -119,10 +121,10 @@ const originalToUniqueId = ref<Record<string, string>>({})
 // Manifest versions list (only contains original versions, not custom named ones)
 const manifestVersions = ref<Version[]>([])
 
-const typeOptions = [
-  { label: '插件版', value: 'api' },
-  { label: '联机版', value: 'net' }
-]
+const typeOptions = computed(() => [
+  { label: t('versions.apiVersion'), value: 'api' },
+  { label: t('versions.netVersion'), value: 'net' }
+])
 
 // 版本号比较函数，用于正确排序（例如：2.4 > 2.3 > 2.2）
 function compareVersion(v1: string, v2: string): number {
@@ -188,9 +190,9 @@ const groupedVersions = computed(() => {
 
 function getTypeText(type: string): string {
   const types = {
-    api: '插件版',
-    net: '联机版',
-    original: '原版'
+    api: t('versions.apiVersion'),
+    net: t('versions.netVersion'),
+    original: t('versions.originalVersion')
   }
   return types[type as keyof typeof types] || type
 }
@@ -271,9 +273,9 @@ async function handleFetchVersions() {
     // 获取清单文件中的版本列表（只包含原始版本）
     const versions = await versionStore.fetchVersions()
     manifestVersions.value = versions
-    message.success('版本列表已更新')
+    message.success(t('versions.versionListUpdated'))
   } catch (error) {
-    message.error('获取版本列表失败：' + error)
+    message.error(t('versions.loadFailed') + '：' + error)
   } finally {
     loading.value = false
   }
@@ -288,7 +290,7 @@ async function handleDownload(version: Version) {
   try {
     await versionStore.downloadVersionWithCustomName(version.id, customName)
   } catch (error) {
-    message.error('下载失败：' + error)
+    message.error(t('versions.downloadFailed') + '：' + error)
   }
 }
 
@@ -306,10 +308,10 @@ async function getCustomVersionName(defaultName: string): Promise<string | null>
     }
 
     const d = dialog.create({
-      title: '输入版本名称',
+      title: t('versions.enterVersionName'),
       content: () => {
         return h('div', [
-          h('p', { style: 'margin-bottom: 12px;' }, '请输入这个版本的名称（用于区分不同配置）'),
+          h('p', { style: 'margin-bottom: 12px;' }, t('versions.enterVersionNameDesc')),
           h(NInput, {
             placeholder: defaultName,
             defaultValue: defaultName,
@@ -317,7 +319,7 @@ async function getCustomVersionName(defaultName: string): Promise<string | null>
             onUpdateValue: (value: string) => {
               name = value
               if (checkDuplicate(value)) {
-                errorMessage = '该名称已存在，请使用其他名称'
+                errorMessage = t('versions.nameAlreadyExists')
               } else {
                 errorMessage = ''
               }
@@ -325,7 +327,7 @@ async function getCustomVersionName(defaultName: string): Promise<string | null>
             onKeyup: (e: KeyboardEvent) => {
               if (e.key === 'Enter') {
                 if (checkDuplicate(name)) {
-                  errorMessage = '该名称已存在，请使用其他名称'
+                  errorMessage = t('versions.nameAlreadyExists')
                 } else {
                   resolve(name.trim() || null)
                 }
@@ -337,11 +339,11 @@ async function getCustomVersionName(defaultName: string): Promise<string | null>
           }, errorMessage) : null
         ])
       },
-      positiveText: '确定',
-      negativeText: '取消',
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
       onPositiveClick: () => {
         if (checkDuplicate(name)) {
-          errorMessage = '该名称已存在，请使用其他名称'
+          errorMessage = t('versions.nameAlreadyExists')
         } else {
           resolve(name.trim() || null)
         }
@@ -395,7 +397,7 @@ function handleDownloadComplete(data: any) {
 
   versionStore.installVersion(versionId)
     .then(async () => {
-      message.success('安装完成！')
+      message.success(t('versions.installComplete'))
 
       // 清理所有相关的进度状态
       versionStore.clearDownloadProgress(versionId)
@@ -417,7 +419,7 @@ function handleDownloadComplete(data: any) {
     })
     .catch((error) => {
       console.error(`[Download] Version ${versionId} installation failed:`, error)
-      message.error('安装失败：' + error)
+      message.error(t('versions.installFailed') + '：' + error)
 
       // 清理所有相关的进度状态
       versionStore.clearDownloadProgress(versionId)
@@ -460,7 +462,7 @@ onMounted(async () => {
     const versions = await versionStore.fetchVersions()
     manifestVersions.value = versions
   } catch (error) {
-    message.error('加载版本列表失败：' + error)
+    message.error(t('versions.loadFailed') + '：' + error)
   } finally {
     loading.value = false
   }

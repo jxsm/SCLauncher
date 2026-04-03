@@ -18,27 +18,27 @@
                   animated
                   @update:value="handleTabChange"
                 >
-                  <n-tab-pane name="home" tab="首页">
+                  <n-tab-pane name="home" :tab="t('nav.home')">
                     <HomeView />
                   </n-tab-pane>
 
-                  <n-tab-pane name="installed" tab="已安装版本">
+                  <n-tab-pane name="installed" :tab="t('nav.installed')">
                     <InstalledVersionsView />
                   </n-tab-pane>
 
-                  <n-tab-pane name="versions" tab="版本下载">
+                  <n-tab-pane name="versions" :tab="t('nav.versions')">
                     <VersionsView />
                   </n-tab-pane>
 
-                  <n-tab-pane name="mods" tab="模组管理">
+                  <n-tab-pane name="mods" :tab="t('nav.mods')">
                     <ModsView />
                   </n-tab-pane>
 
-                  <n-tab-pane name="skins" tab="皮肤管理">
+                  <n-tab-pane name="skins" :tab="t('nav.skins')">
                     <SkinsView />
                   </n-tab-pane>
 
-                  <n-tab-pane name="settings" tab="设置">
+                  <n-tab-pane name="settings" :tab="t('nav.settings')">
                     <SettingsView />
                   </n-tab-pane>
                 </n-tabs>
@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { ref, h, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 import { darkTheme, NAlert, NDialogProvider, NButton } from "naive-ui";
 import { useGameStore } from "./stores/game";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
@@ -69,6 +70,7 @@ import SkinsView from "./views/Skins.vue";
 import SettingsView from "./views/Settings.vue";
 import BackToTop from "./components/BackToTop.vue";
 
+const { t, locale } = useI18n();
 const router = useRouter();
 const gameStore = useGameStore();
 const activeTab = ref("home");
@@ -78,10 +80,15 @@ const dialogProviderInst = ref<InstanceType<typeof NDialogProvider> | null>(
   null,
 );
 
-// 加载背景图片
+// 加载背景图片和语言设置
 async function loadBackgroundImage() {
   try {
     const config = await GetConfig();
+    // 加载语言设置
+    if (config?.language) {
+      locale.value = config.language;
+    }
+    // 加载背景图片
     if (config?.backgroundImage) {
       const base64 = await GetBackgroundImageBase64();
       backgroundImage.value = base64;
@@ -108,21 +115,21 @@ function handleGameCrash(data: any) {
     // 通过 create 方法创建对话框
     // @ts-ignore
     dialog.create({
-      title: "游戏崩溃",
+      title: t('home.gameCrash') || "游戏崩溃",
       content: () => {
         return h("div", [
           h(
             "p",
             { style: "margin-bottom: 12px; font-weight: bold;" },
-            `版本: ${versionName}`,
+            `${t('versions.version')}: ${versionName}`,
           ),
-          h("p", { style: "margin-bottom: 12px;" }, `退出码: ${exitCode}`),
-          h("p", { style: "margin-bottom: 12px;" }, `崩溃时间: ${crashTime}`),
+          h("p", { style: "margin-bottom: 12px;" }, `${t('installed.exitCode')}: ${exitCode}`),
+          h("p", { style: "margin-bottom: 12px;" }, `${t('installed.crashTime')}: ${crashTime}`),
           h(
             NAlert,
             {
               type: "error",
-              title: "运行日志",
+              title: t('home.gameLog') || "运行日志",
             },
             {
               default: () =>
@@ -138,7 +145,7 @@ function handleGameCrash(data: any) {
           ),
         ]);
       },
-      positiveText: "确定",
+      positiveText: t('common.confirm'),
     });
   }
 }
@@ -181,24 +188,24 @@ onMounted(async () => {
           const dialog = dialogProviderInst.value;
           // @ts-ignore
           dialog.create({
-            title: "发现新版本",
+            title: t('settings.updateAvailable') || "发现新版本",
             content: () => {
               return h("div", [
-                h("p", { style: "margin-bottom: 12px;" }, `当前版本: ${updateInfo.currentVersion}`),
-                h("p", { style: "margin-bottom: 12px; font-weight: bold; color: #18a058;" }, `最新版本: ${updateInfo.latestVersion}`),
-                h("p", { style: "margin-bottom: 12px;" }, `发布时间: ${new Date(updateInfo.publishedAt).toLocaleString()}`),
+                h("p", { style: "margin-bottom: 12px;" }, `${t('settings.currentVersion')}: ${updateInfo.currentVersion}`),
+                h("p", { style: "margin-bottom: 12px; font-weight: bold; color: #18a058;" }, `${t('settings.latestVersion')}: ${updateInfo.latestVersion}`),
+                h("p", { style: "margin-bottom: 12px;" }, `${t('settings.releaseDate')}: ${new Date(updateInfo.publishedAt).toLocaleString()}`),
                 h(NAlert, {
                   type: "info",
-                  title: "更新内容"
+                  title: t('settings.updateContent') || "更新内容"
                 }, {
                   default: () => h("pre", {
                     style: "max-height: 200px; overflow-y: auto; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap;"
-                  }, updateInfo.body || "暂无更新说明")
+                  }, updateInfo.body || t('settings.noUpdateContent') || "暂无更新说明")
                 })
               ]);
             },
-            positiveText: "前往下载",
-            negativeText: "稍后提醒",
+            positiveText: t('settings.goToDownload') || "前往下载",
+            negativeText: t('common.later') || "稍后提醒",
             onPositiveClick: () => {
               // 打开 GitHub releases 页面
               window.open(updateInfo.url, "_blank");

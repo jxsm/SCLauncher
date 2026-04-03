@@ -15,7 +15,7 @@
             </n-text>
           </div>
         </div>
-        <n-empty v-else description="未设置主要版本" size="small" />
+        <n-empty v-else :description="t('home.notSet')" size="small" />
       </div>
 
       <!-- 核心操作按钮区 - 固定在底部 -->
@@ -29,7 +29,7 @@
           @click="handleLaunch"
         >
           <div class="launch-btn-content">
-            <span class="launch-btn-text">启动游戏</span>
+            <span class="launch-btn-text">{{ t('home.launchGame') }}</span>
             <span class="launch-btn-subtitle">Star Technology</span>
           </div>
         </n-button>
@@ -42,18 +42,18 @@
           @click="handleStop"
         >
           <div class="launch-btn-content">
-            <span class="launch-btn-text">停止游戏</span>
-            <span class="launch-btn-subtitle">游戏运行中</span>
+            <span class="launch-btn-text">{{ t('installed.stopGame') }}</span>
+            <span class="launch-btn-subtitle">{{ t('installed.gameRunning') }}</span>
           </div>
         </n-button>
 
         <!-- 两个小按钮 -->
         <n-space class="secondary-actions">
           <n-button class="secondary-btn" @click="$router.push('/installed')">
-            版本选择
+            {{ t('versions.selectVersion') }}
           </n-button>
           <n-button class="secondary-btn" @click="$router.push('/mods')">
-            模组管理
+            {{ t('nav.mods') }}
           </n-button>
         </n-space>
       </div>
@@ -68,10 +68,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage } from 'naive-ui'
 
+const { t } = useI18n()
 const versionStore = useVersionStore()
 const gameStore = useGameStore()
 const message = useMessage()
@@ -100,16 +102,16 @@ function getVersionTypeColor(type: string): 'info' | 'success' | 'warning' | 'de
 
 async function handleLaunch() {
   if (!primaryVersion.value) {
-    message.error('请先设置主要版本')
+    message.error(t('home.setPrimaryFirst') || '请先设置主要版本')
     return
   }
 
   launching.value = true
   try {
     await gameStore.launchGame(primaryVersion.value.id)
-    message.success(`游戏 "${primaryVersion.value.name}" 启动成功！`)
+    message.success(`${t('home.launchSuccess') || '游戏启动成功'}: "${primaryVersion.value.name}"`)
   } catch (error) {
-    message.error('游戏启动失败：' + error)
+    message.error(t('errors.launchFailed') + '：' + error)
   } finally {
     launching.value = false
   }
@@ -118,9 +120,9 @@ async function handleLaunch() {
 async function handleStop() {
   try {
     await gameStore.stopGame()
-    message.success('游戏已停止')
+    message.success(t('installed.gameStopped') || '游戏已停止')
   } catch (error) {
-    message.error('停止游戏失败：' + error)
+    message.error(t('errors.stopFailed') || '停止游戏失败：' + error)
   }
 }
 
@@ -130,7 +132,7 @@ onMounted(async () => {
     await versionStore.getPrimaryVersion()
     await gameStore.updateStatus()
   } catch (error) {
-    message.error('加载数据失败：' + error)
+    message.error(t('errors.loadDataFailed') || '加载数据失败：' + error)
   }
 })
 </script>

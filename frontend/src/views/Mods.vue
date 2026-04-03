@@ -9,7 +9,7 @@
               <n-select
                 v-model:value="selectedVersion"
                 :options="installedVersionOptions"
-                placeholder="选择版本"
+                :placeholder="t('mods.selectVersion')"
                 style="width: 300px"
                 @update:value="handleVersionChange"
               />
@@ -21,7 +21,7 @@
                 <template #icon>
                   <n-icon><AddIcon /></n-icon>
                 </template>
-                导入模组
+                {{ t('mods.importMod') }}
               </n-button>
               <n-button
                 @click="handleOpenModsFolder"
@@ -30,11 +30,11 @@
                 <template #icon>
                   <n-icon><FolderIcon /></n-icon>
                 </template>
-                打开文件夹
+                {{ t('mods.openModsFolder') }}
               </n-button>
             </n-space>
             <n-text depth="3">
-              共 {{ modStore.mods.length }} 个模组，显示 {{ filteredMods.length }} 个
+              {{ t('mods.totalMods', { total: modStore.mods.length, displayed: filteredMods.length }) }}
             </n-text>
           </n-space>
 
@@ -42,7 +42,7 @@
           <n-space>
             <n-input
               v-model:value="searchText"
-              placeholder="搜索模组名称..."
+              :placeholder="t('mods.searchPlaceholder')"
               clearable
               style="width: 300px"
             >
@@ -73,7 +73,7 @@
                     <n-text strong>{{ mod.name }}</n-text>
                   </n-checkbox>
                   <n-tag :type="mod.enabled ? 'success' : 'default'" size="small">
-                    {{ mod.enabled ? '已启用' : '已禁用' }}
+                    {{ mod.enabled ? t('mods.enabled') : t('mods.disabled') }}
                   </n-tag>
                 </n-space>
               </template>
@@ -81,10 +81,10 @@
               <template #description>
                 <n-space vertical size="small">
                   <n-text depth="3">
-                    大小: {{ formatSize(mod.size) }}
+                    {{ t('common.size') }}: {{ formatSize(mod.size) }}
                   </n-text>
                   <n-text depth="3">
-                    安装日期: {{ new Date(mod.installDate).toLocaleString() }}
+                    {{ t('mods.installDate') }}: {{ new Date(mod.installDate).toLocaleString() }}
                   </n-text>
                 </n-space>
               </template>
@@ -96,10 +96,10 @@
                   >
                     <template #trigger>
                       <n-button type="error" size="small">
-                        删除
+                        {{ t('common.delete') }}
                       </n-button>
                     </template>
-                    确定要删除这个模组吗？
+                    {{ t('mods.confirmDeleteMessage') }}
                   </n-popconfirm>
                 </n-space>
               </template>
@@ -108,7 +108,7 @@
         </n-list>
         <n-empty
           v-if="filteredMods.length === 0 && !modStore.loading"
-          :description="searchText || filterType !== 'all' ? '没有找到匹配的模组' : '暂无模组'"
+          :description="searchText || filterType !== 'all' ? t('mods.noMatchingMods') : t('mods.noMods')"
         />
       </n-spin>
     </n-space>
@@ -117,6 +117,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n' 
 import { useRouter, useRoute } from 'vue-router'
 import { useModStore } from '../stores/mod'
 import { useVersionStore } from '../stores/version'
@@ -125,6 +126,7 @@ import { Add as AddIcon, Search as SearchIcon, FolderOpen as FolderIcon } from '
 import { formatSize } from '../utils/format'
 import { OpenVersionModsFolder } from '../api/version'
 
+const { t } = useI18n()
 const modStore = useModStore()
 const versionStore = useVersionStore()
 const message = useMessage()
@@ -136,11 +138,11 @@ const searchText = ref<string>('')
 const filterType = ref<string>('all')
 
 // Filter options
-const filterOptions = [
-  { label: '全部', value: 'all' },
-  { label: '已启用', value: 'enabled' },
-  { label: '已禁用', value: 'disabled' }
-]
+const filterOptions = computed(() => [
+  { label: t('mods.all'), value: 'all' },
+  { label: t('mods.enabled'), value: 'enabled' },
+  { label: t('mods.disabled'), value: 'disabled' }
+])
 
 // Installed version options
 const installedVersionOptions = computed(() => {
@@ -183,7 +185,7 @@ function handleVersionChange() {
 
 async function handleImportMod() {
   if (!selectedVersion.value) {
-    message.warning('请先选择一个版本')
+    message.warning(t('mods.noVersionSelected'))
     return
   }
 
@@ -194,30 +196,30 @@ async function handleImportMod() {
 
     if (filePath) {
       await modStore.importMod(selectedVersion.value, filePath)
-      message.success('模组导入成功')
+      message.success(t('mods.importSuccess'))
     }
   } catch (error) {
-    message.error('模组导入失败：' + error)
+    message.error(t('mods.importFailed') + '：' + error)
   }
 }
 
 async function handleOpenModsFolder() {
   if (!selectedVersion.value) {
-    message.warning('请先选择一个版本')
+    message.warning(t('mods.noVersionSelected'))
     return
   }
 
   try {
     await OpenVersionModsFolder(selectedVersion.value)
   } catch (error) {
-    message.error('打开文件夹失败：' + error)
+    message.error(t('mods.openFolderFailed') + '：' + error)
   }
 }
 
 function handleToggleMod(mod: any, enabled: boolean) {
   modStore.toggleMod(selectedVersion.value, mod.id, enabled)
     .catch((error) => {
-      message.error('操作失败：' + error)
+      message.error(t('mods.toggleFailed') + '：' + error)
       // Revert the UI change on error
       mod.enabled = !enabled
     })
@@ -226,10 +228,10 @@ function handleToggleMod(mod: any, enabled: boolean) {
 function handleDeleteMod(mod: any) {
   modStore.deleteMod(selectedVersion.value, mod.id)
     .then(() => {
-      message.success('模组已删除')
+      message.success(t('mods.deleteSuccess'))
     })
     .catch((error) => {
-      message.error('删除失败：' + error)
+      message.error(t('mods.deleteFailed') + '：' + error)
     })
 }
 
@@ -260,7 +262,7 @@ onMounted(async () => {
       await modStore.loadMods(selectedVersion.value)
     }
   } catch (error) {
-    message.error('加载版本列表失败：' + error)
+    message.error(t('mods.loadVersionsFailed') + '：' + error)
   }
 })
 </script>

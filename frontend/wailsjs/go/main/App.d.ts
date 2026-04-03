@@ -78,6 +78,8 @@ export function SetBackground(arg1:string):Promise<string>;
 
 export function SetCurrentVersion(arg1:string):Promise<void>;
 
+export function SetLanguage(arg1:string):Promise<void>;
+
 export function SetManifestURL(arg1:string):Promise<void>;
 
 export function SetMaxConcurrent(arg1:number):Promise<void>;
