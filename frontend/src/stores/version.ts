@@ -183,7 +183,7 @@ export const useVersionStore = defineStore('version', () => {
 
   async function setCurrentVersion(versionId: string) {
     try {
-      await versionApi.SetCurrentVersion(versionId)
+      await versionApi.SetPrimaryVersion(versionId)
       currentVersion.value = versionId
     } catch (e) {
       console.error('Failed to set current version:', e)

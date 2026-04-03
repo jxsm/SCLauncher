@@ -51,9 +51,9 @@ export async function CancelDownload(versionId: string): Promise<void> {
   await AppBindings.CancelDownload(versionId)
 }
 
-// 设置当前版本
-export async function SetCurrentVersion(versionId: string): Promise<void> {
-  await AppBindings.SetCurrentVersion(versionId)
+// 设置主要版本
+export async function SetPrimaryVersion(versionId: string): Promise<void> {
+  await AppBindings.SetPrimaryVersion(versionId)
 }
 
 // 检查版本是否存在
@@ -75,11 +75,6 @@ export async function GetPrimaryVersion(): Promise<Version | null> {
   } catch (e) {
     return null
   }
-}
-
-// 设置主要版本
-export async function SetPrimaryVersion(versionId: string): Promise<void> {
-  await AppBindings.SetPrimaryVersion(versionId)
 }
 
 // 打开版本文件夹

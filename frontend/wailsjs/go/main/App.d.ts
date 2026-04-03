@@ -4,6 +4,8 @@ import {version} from '../models';
 import {mod} from '../models';
 import {skin} from '../models';
 
+export function AutoDetectLanguage():Promise<void>;
+
 export function AutoSetPrimaryVersion():Promise<void>;
 
 export function CancelDownload(arg1:string):Promise<void>;
@@ -48,6 +50,8 @@ export function GetSkinImage(arg1:string):Promise<string>;
 
 export function GetSkins():Promise<Array<skin.Skin>>;
 
+export function GetSystemLanguage():Promise<string>;
+
 export function GetVersions():Promise<Array<version.Version>>;
 
 export function GetVersionsByType(arg1:string):Promise<Array<version.Version>>;
@@ -75,8 +79,6 @@ export function SelectModFile():Promise<string>;
 export function SelectSkinFile():Promise<string>;
 
 export function SetBackground(arg1:string):Promise<string>;
-
-export function SetCurrentVersion(arg1:string):Promise<void>;
 
 export function SetLanguage(arg1:string):Promise<void>;
 

@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
+	stdruntime "runtime"
 	"path/filepath"
 	"strings"
 	"time"
@@ -63,6 +66,11 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.config = cfg
 	a.paths = config.NewPaths(cfg)
+
+	// 自动检测并设置语言（仅在首次启动时）
+	if err := a.AutoDetectLanguage(); err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("自动检测语言失败: %v", err))
+	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("版本目录: %s", cfg.VersionsDir))
 	runtime.LogInfo(a.ctx, fmt.Sprintf("下载目录: %s", cfg.DownloadsDir))
@@ -146,9 +154,128 @@ func (a *App) SetLanguage(lang string) error {
 	return a.config.SetLanguage(lang)
 }
 
-// SetCurrentVersion 设置当前选中的版本
-func (a *App) SetCurrentVersion(versionID string) error {
-	return a.config.SetCurrentVersion(versionID)
+// GetSystemLanguage 获取系统语言
+func (a *App) GetSystemLanguage() string {
+	// 获取系统语言环境变量
+	lang := os.Getenv("LANG")
+	if lang == "" {
+		lang = os.Getenv("LANGUAGE")
+	}
+
+	// 如果环境变量也没有，尝试通过平台特定方法获取
+	if lang == "" {
+		lang = a.detectSystemLanguage()
+	}
+
+	// 格式化语言代码 (例如: "zh_CN.UTF-8" -> "zh-CN")
+	return a.formatSystemLanguage(lang)
+}
+
+// detectSystemLanguage 平台特定方法检测系统语言
+func (a *App) detectSystemLanguage() string {
+	switch stdruntime.GOOS {
+	case "windows":
+		return a.getWindowsLanguage()
+	case "darwin":
+		return a.getMacOSLanguage()
+	default: // Linux 和其他
+		return "en-US" // Linux 默认英语
+	}
+}
+
+// getWindowsLanguage 获取Windows系统语言
+func (a *App) getWindowsLanguage() string {
+	// 尝试通过 PowerShell 获取语言列表
+	cmd := exec.Command("powershell", "-Command", "Get-WinSystemLanguageList")
+	output, err := cmd.Output()
+	if err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("Failed to get Windows language: %v", err))
+		return "en-US"
+	}
+
+	// 解析输出，获取第一个语言
+	langs := strings.Split(string(output), "\n")
+	if len(langs) > 0 {
+		// PowerShell 返回格式如 "en-US"
+		langCode := strings.TrimSpace(langs[0])
+		return a.formatSystemLanguage(langCode)
+	}
+
+	return "en-US"
+}
+
+// getMacOSLanguage 获取macOS系统语言
+func (a *App) getMacOSLanguage() string {
+	// 使用 defaults 命令获取系统语言
+	cmd := exec.Command("defaults", "read", "-g", "AppleLanguages")
+	output, err := cmd.Output()
+	if err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("Failed to get macOS language: %v", err))
+		return "en-US"
+	}
+
+	// 解析输出，提取语言代码
+	langs := strings.Split(string(output), ",")
+	if len(langs) > 0 {
+		// 返回第一个语言代码
+		langCode := strings.Replace(strings.TrimSpace(langs[0]), "\"", "", -1)
+		return a.formatSystemLanguage(langCode)
+	}
+
+	return "en-US"
+}
+
+// formatSystemLanguage 格式化系统语言代码为应用语言代码
+func (a *App) formatSystemLanguage(systemLang string) string {
+	// 移除编码部分 (例如: "zh_CN.UTF-8" -> "zh_CN")
+	systemLang = strings.Split(systemLang, ".")[0]
+	systemLang = strings.ReplaceAll(systemLang, "_", "-")
+	systemLang = strings.ToLower(systemLang)
+
+	// 语言映射表：系统语言代码 -> 应用语言代码
+	langMap := map[string]string{
+		"zh-cn": "zh-CN",
+		"zh":    "zh-CN",
+		"en-us": "en-US",
+		"en":    "en-US",
+		"en-gb": "en-US",
+		"ru-ru": "ru-RU",
+		"ru":    "ru-RU",
+		"pt-br": "pt-BR",
+		"pt":    "pt-BR",
+		"hi-in": "hi-IN",
+		"hi":    "hi-IN",
+		"id-id": "id-ID",
+		"id":    "id-ID",
+		"ar-sa": "ar-SA",
+		"ar":    "ar-SA",
+	}
+
+	// 查找映射
+	for sysLang, appLang := range langMap {
+		if strings.HasPrefix(systemLang, sysLang) {
+			return appLang
+		}
+	}
+
+	// 如果没有找到匹配的语言，返回默认的英语
+	return "en-US"
+}
+
+// AutoDetectLanguage 自动检测并设置语言（仅在首次启动时）
+func (a *App) AutoDetectLanguage() error {
+	// 如果配置文件中语言已设置且不为空，则不覆盖
+	if a.config.Language != "" {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("Language already set to: %s", a.config.Language))
+		return nil
+	}
+
+	// 获取系统语言
+	systemLang := a.GetSystemLanguage()
+	runtime.LogInfo(a.ctx, fmt.Sprintf("Auto-detected system language: %s", systemLang))
+
+	// 设置语言
+	return a.config.SetLanguage(systemLang)
 }
 
 // GetPrimaryVersion 获取主要版本

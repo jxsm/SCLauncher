@@ -27,6 +27,11 @@ export async function SetLanguage(lang: string): Promise<void> {
   await AppBindings.SetLanguage(lang)
 }
 
+// 自动检测系统语言（首次启动时调用）
+export async function AutoDetectLanguage(): Promise<void> {
+  await AppBindings.AutoDetectLanguage()
+}
+
 // 检查更新
 export async function CheckUpdate(): Promise<any> {
   return await AppBindings.CheckUpdate()
