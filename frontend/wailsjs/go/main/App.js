@@ -18,6 +18,10 @@ export function DeleteMod(arg1, arg2) {
   return window['go']['main']['App']['DeleteMod'](arg1, arg2);
 }
 
+export function DeleteSkin(arg1) {
+  return window['go']['main']['App']['DeleteSkin'](arg1);
+}
+
 export function DeleteVersion(arg1) {
   return window['go']['main']['App']['DeleteVersion'](arg1);
 }
@@ -66,6 +70,14 @@ export function GetPrimaryVersion() {
   return window['go']['main']['App']['GetPrimaryVersion']();
 }
 
+export function GetSkinImage(arg1) {
+  return window['go']['main']['App']['GetSkinImage'](arg1);
+}
+
+export function GetSkins() {
+  return window['go']['main']['App']['GetSkins']();
+}
+
 export function GetVersions() {
   return window['go']['main']['App']['GetVersions']();
 }
@@ -76,6 +88,10 @@ export function GetVersionsByType(arg1) {
 
 export function ImportMod(arg1, arg2) {
   return window['go']['main']['App']['ImportMod'](arg1, arg2);
+}
+
+export function ImportSkin(arg1) {
+  return window['go']['main']['App']['ImportSkin'](arg1);
 }
 
 export function InstallVersion(arg1) {
@@ -102,6 +118,10 @@ export function SelectModFile() {
   return window['go']['main']['App']['SelectModFile']();
 }
 
+export function SelectSkinFile() {
+  return window['go']['main']['App']['SelectSkinFile']();
+}
+
 export function SetCurrentVersion(arg1) {
   return window['go']['main']['App']['SetCurrentVersion'](arg1);
 }
@@ -120,6 +140,10 @@ export function SetPrimaryVersion(arg1) {
 
 export function StopGame() {
   return window['go']['main']['App']['StopGame']();
+}
+
+export function SyncSkinsToGame(arg1) {
+  return window['go']['main']['App']['SyncSkinsToGame'](arg1);
 }
 
 export function ToggleMod(arg1, arg2, arg3) {

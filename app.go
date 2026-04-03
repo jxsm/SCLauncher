@@ -12,6 +12,7 @@ import (
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
+	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
 	"SCLauncher/backend/version"
 
@@ -28,6 +29,7 @@ type App struct {
 	versionMgr *version.Manager
 	gameMgr    *game.GameManager
 	modMgr     *mod.Manager
+	skinMgr    *skin.Manager
 }
 
 // NewApp 创建应用实例
@@ -77,6 +79,7 @@ func (a *App) startup(ctx context.Context) {
 	a.gameMgr = game.NewGameManager(cfg, a.repository)
 	a.gameMgr.SetContext(ctx) // 设置上下文用于发送事件
 	a.modMgr = mod.NewManager(cfg)
+	a.skinMgr = skin.NewManager(cfg)
 
 	// 自动设置主要版本（如果没有的话）
 	if err := a.versionMgr.AutoSetPrimaryVersion(); err != nil {
@@ -477,4 +480,49 @@ func (a *App) ToggleMod(versionID, modID string, enabled bool) error {
 // DeleteMod 删除模组
 func (a *App) DeleteMod(versionID, modID string) error {
 	return a.modMgr.DeleteMod(versionID, modID)
+}
+
+// ========== 皮肤管理 API ==========
+
+// SelectSkinFile 选择皮肤文件
+func (a *App) SelectSkinFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择皮肤文件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "皮肤文件",
+				Pattern:     "*.scskin",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	return filename, err
+}
+
+// GetSkins 获取所有皮肤列表
+func (a *App) GetSkins() ([]skin.Skin, error) {
+	return a.skinMgr.GetSkins()
+}
+
+// ImportSkin 导入皮肤
+func (a *App) ImportSkin(sourcePath string) error {
+	return a.skinMgr.UploadSkin(sourcePath)
+}
+
+// DeleteSkin 删除皮肤
+func (a *App) DeleteSkin(fileName string) error {
+	return a.skinMgr.DeleteSkin(fileName)
+}
+
+// SyncSkinsToGame 同步皮肤到游戏目录
+func (a *App) SyncSkinsToGame(versionID string) error {
+	return a.skinMgr.SyncSkinsToGame(versionID)
+}
+
+// GetSkinImage 获取皮肤图片的base64编码
+func (a *App) GetSkinImage(fileName string) (string, error) {
+	return a.skinMgr.GetSkinImage(fileName)
 }

@@ -27,6 +27,27 @@ export namespace mod {
 
 }
 
+export namespace skin {
+	
+	export class Skin {
+	    fileName: string;
+	    size: number;
+	    importDate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Skin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fileName = source["fileName"];
+	        this.size = source["size"];
+	        this.importDate = source["importDate"];
+	    }
+	}
+
+}
+
 export namespace version {
 	
 	export class Version {

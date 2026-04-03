@@ -29,6 +29,10 @@
                     <ModsView />
                   </n-tab-pane>
 
+                  <n-tab-pane name="skins" tab="皮肤管理">
+                    <SkinsView />
+                  </n-tab-pane>
+
                   <n-tab-pane name="settings" tab="设置">
                     <SettingsView />
                   </n-tab-pane>
@@ -56,6 +60,7 @@ import HomeView from "./views/Home.vue";
 import InstalledVersionsView from "./views/InstalledVersions.vue";
 import VersionsView from "./views/Versions.vue";
 import ModsView from "./views/Mods.vue";
+import SkinsView from "./views/Skins.vue";
 import SettingsView from "./views/Settings.vue";
 import BackToTop from "./components/BackToTop.vue";
 

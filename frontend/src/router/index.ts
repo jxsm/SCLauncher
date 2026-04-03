@@ -22,6 +22,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/Mods.vue')
   },
   {
+    path: '/skins',
+    name: 'Skins',
+    component: () => import('../views/Skins.vue')
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/Settings.vue')

@@ -183,3 +183,18 @@ func (p *Paths) IsVersionInstalled(versionID string) bool {
 	execPath, err := p.GetGameExecutablePath(versionID)
 	return err == nil && execPath != ""
 }
+
+// GetSkinsDir 获取皮肤存储目录
+func (p *Paths) GetSkinsDir() string {
+	return filepath.Join(p.config.DataDir, "Skins")
+}
+
+// GetGameCharacterSkinsDir 获取游戏角色皮肤目录
+func (p *Paths) GetGameCharacterSkinsDir(versionID string) string {
+	return filepath.Join(p.GetVersionPath(versionID), "CharacterSkins")
+}
+
+// GetGameDocCharacterSkinsDir 获取游戏doc目录下的角色皮肤目录
+func (p *Paths) GetGameDocCharacterSkinsDir(versionID string) string {
+	return filepath.Join(p.GetVersionPath(versionID), "doc", "CharacterSkins")
+}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"SCLauncher/backend/config"
+	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -89,6 +90,16 @@ func (g *GameManager) Launch(versionID string) error {
 	exePath, err := g.findGameExecutable(versionID)
 	if err != nil {
 		return fmt.Errorf("game executable not found: %w", err)
+	}
+
+	// 同步皮肤到游戏目录
+	skinManager := skin.NewManager(g.config)
+	if err := skinManager.SyncSkinsToGame(versionID); err != nil {
+		// 皮肤同步失败不阻塞游戏启动，只记录警告
+		if g.ctx != nil {
+			runtime.LogWarning(g.ctx, fmt.Sprintf("皮肤同步失败: %v", err))
+		}
+		fmt.Printf("Warning: failed to sync skins: %v\n", err)
 	}
 
 	// 清空日志缓冲区

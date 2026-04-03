@@ -2,7 +2,6 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)
 ![Vue](https://img.shields.io/badge/Vue-3.3+-4FC08D?logo=vue.js)
 ![Wails](https://img.shields.io/badge/Wails-v2.0+-5A5DF5)
