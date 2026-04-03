@@ -9,6 +9,29 @@ import (
 	"SCLauncher/backend/config"
 )
 
+// getImportedVersionOriginalPath 获取导入版本的原始路径
+func getImportedVersionOriginalPath(versionPath string) (string, error) {
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				return originalPath, nil
+			}
+		}
+
+		return "", fmt.Errorf("invalid import metadata file")
+	}
+	return "", nil // 不是导入版本
+}
+
 // Manager 模组管理器
 type Manager struct {
 	config *config.Config
@@ -34,9 +57,24 @@ func NewManager(cfg *config.Config) *Manager {
 	}
 }
 
+// getModPath 获取模组目录路径（处理导入版本）
+func (m *Manager) getModPath(versionID string) string {
+	versionPath := m.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	originalPath, err := getImportedVersionOriginalPath(versionPath)
+	if err == nil && originalPath != "" {
+		// 是导入版本，使用原始路径的mods目录
+		return filepath.Join(originalPath, "mods")
+	}
+
+	// 正常版本，使用标准路径
+	return m.paths.GetModPath(versionID)
+}
+
 // GetMods 获取指定版本的模组列表
 func (m *Manager) GetMods(versionID string) ([]Mod, error) {
-	modsDir := m.paths.GetModPath(versionID)
+	modsDir := m.getModPath(versionID)
 
 	// 检查目录是否存在
 	if _, err := os.Stat(modsDir); os.IsNotExist(err) {
@@ -102,7 +140,7 @@ func (m *Manager) ImportMod(versionID, sourcePath string) error {
 	}
 
 	// 确保模组目录存在
-	modsDir := m.paths.GetModPath(versionID)
+	modsDir := m.getModPath(versionID)
 	if err := os.MkdirAll(modsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create mods directory: %w", err)
 	}
@@ -120,7 +158,7 @@ func (m *Manager) ImportMod(versionID, sourcePath string) error {
 
 // ToggleMod 切换模组启用/禁用状态
 func (m *Manager) ToggleMod(versionID, modID string, enabled bool) error {
-	modsDir := m.paths.GetModPath(versionID)
+	modsDir := m.getModPath(versionID)
 
 	// 查找模组文件
 	mods, err := m.GetMods(versionID)
@@ -167,7 +205,7 @@ func (m *Manager) ToggleMod(versionID, modID string, enabled bool) error {
 
 // DeleteMod 删除模组
 func (m *Manager) DeleteMod(versionID, modID string) error {
-	modsDir := m.paths.GetModPath(versionID)
+	modsDir := m.getModPath(versionID)
 
 	// 查找模组文件
 	mods, err := m.GetMods(versionID)

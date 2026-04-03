@@ -110,6 +110,10 @@ export function HasBackground() {
   return window['go']['main']['App']['HasBackground']();
 }
 
+export function ImportGameVersion(arg1) {
+  return window['go']['main']['App']['ImportGameVersion'](arg1);
+}
+
 export function ImportMod(arg1, arg2) {
   return window['go']['main']['App']['ImportMod'](arg1, arg2);
 }
@@ -140,6 +144,10 @@ export function RenameVersion(arg1, arg2) {
 
 export function SelectBackgroundFile() {
   return window['go']['main']['App']['SelectBackgroundFile']();
+}
+
+export function SelectGameFolder() {
+  return window['go']['main']['App']['SelectGameFolder']();
 }
 
 export function SelectModFile() {

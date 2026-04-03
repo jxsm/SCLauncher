@@ -167,7 +167,12 @@ export default {
     renameFailed: 'Failed to rename',
     deleteSuccess: 'Version deleted',
     deleteFailed: 'Failed to delete',
-    openFolderFailed: 'Failed to open folder'
+    openFolderFailed: 'Failed to open folder',
+    importGame: 'Import Game',
+    importing: 'Importing game...',
+    importSuccess: 'Game imported successfully',
+    importFailed: 'Failed to import game',
+    selectFolderFailed: 'Failed to select folder'
   },
   mods: {
     title: 'Mod Management',

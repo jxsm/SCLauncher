@@ -86,3 +86,13 @@ export async function OpenVersionFolder(versionId: string): Promise<void> {
 export async function OpenVersionModsFolder(versionId: string): Promise<void> {
   await AppBindings.OpenVersionModsFolder(versionId)
 }
+
+// 选择游戏文件夹
+export async function SelectGameFolder(): Promise<string> {
+  return await AppBindings.SelectGameFolder()
+}
+
+// 导入游戏版本
+export async function ImportGameVersion(folderPath: string): Promise<string> {
+  return await AppBindings.ImportGameVersion(folderPath)
+}

@@ -92,6 +92,9 @@ func (g *GameManager) Launch(versionID string) error {
 		return fmt.Errorf("game executable not found: %w", err)
 	}
 
+	// 获取工作目录
+	workDir := g.getGameWorkDirectory(versionID, exePath)
+
 	// 同步皮肤到游戏目录
 	skinManager := skin.NewManager(g.config)
 	if err := skinManager.SyncSkinsToGame(versionID); err != nil {
@@ -107,7 +110,7 @@ func (g *GameManager) Launch(versionID string) error {
 
 	// 创建进程
 	cmd := exec.Command(exePath)
-	cmd.Dir = g.paths.GetVersionPath(versionID)
+	cmd.Dir = workDir
 
 	// 不要捕获输出，这对GUI程序会有影响
 	// 只记录日志到文件，不重定向stdout/stderr
@@ -207,6 +210,31 @@ func (g *GameManager) GetProcessInfo() (*ProcessInfo, error) {
 func (g *GameManager) findGameExecutable(versionID string) (string, error) {
 	versionPath := g.paths.GetVersionPath(versionID)
 
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取exe路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "exe_path=") {
+				exePath := strings.TrimPrefix(line, "exe_path=")
+				// 验证exe文件是否仍然存在
+				if _, err := os.Stat(exePath); err != nil {
+					return "", fmt.Errorf("imported game executable not found: %s", exePath)
+				}
+				return exePath, nil
+			}
+		}
+
+		return "", fmt.Errorf("invalid import metadata file")
+	}
+
+	// 正常安装的版本，在版本目录中查找
 	var exePath string
 
 	err := filepath.Walk(versionPath, func(path string, info os.FileInfo, err error) error {
@@ -233,6 +261,21 @@ func (g *GameManager) findGameExecutable(versionID string) (string, error) {
 	}
 
 	return exePath, nil
+}
+
+// getGameWorkDirectory 获取游戏工作目录
+func (g *GameManager) getGameWorkDirectory(versionID string, exePath string) string {
+	versionPath := g.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，使用exe文件所在的目录
+		return filepath.Dir(exePath)
+	}
+
+	// 正常安装的版本，使用版本目录
+	return versionPath
 }
 
 // monitorProcess 监控进程

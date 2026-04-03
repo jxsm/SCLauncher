@@ -11,6 +11,29 @@ import (
 	"SCLauncher/backend/config"
 )
 
+// getImportedVersionOriginalPath 获取导入版本的原始路径
+func getImportedVersionOriginalPath(versionPath string) (string, error) {
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return "", fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				return originalPath, nil
+			}
+		}
+
+		return "", fmt.Errorf("invalid import metadata file")
+	}
+	return "", nil // 不是导入版本
+}
+
 // Skin 皮肤信息
 type Skin struct {
 	FileName   string `json:"fileName"`   // 文件名
@@ -153,9 +176,9 @@ func (m *Manager) SyncSkinsToGame(versionID string) error {
 		return nil
 	}
 
-	// 获取游戏皮肤目录
-	charSkinsDir := m.paths.GetGameCharacterSkinsDir(versionID)
-	docCharSkinsDir := m.paths.GetGameDocCharacterSkinsDir(versionID)
+	// 检查是否是导入的版本，获取正确的游戏目录
+	versionPath := m.paths.GetVersionPath(versionID)
+	charSkinsDir, docCharSkinsDir := m.getGameSkinsDirs(versionPath, versionID)
 
 	// 确保目标目录存在
 	if err := os.MkdirAll(charSkinsDir, 0755); err != nil {
@@ -185,6 +208,23 @@ func (m *Manager) SyncSkinsToGame(versionID string) error {
 	}
 
 	return nil
+}
+
+// getGameSkinsDirs 获取游戏皮肤目录（处理导入版本）
+func (m *Manager) getGameSkinsDirs(versionPath, versionID string) (charSkinsDir, docCharSkinsDir string) {
+	// 检查是否是导入的版本
+	originalPath, err := getImportedVersionOriginalPath(versionPath)
+	if err == nil && originalPath != "" {
+		// 是导入版本，使用原始路径
+		charSkinsDir = filepath.Join(originalPath, "CharacterSkins")
+		docCharSkinsDir = filepath.Join(originalPath, "doc", "CharacterSkins")
+		return
+	}
+
+	// 正常版本，使用标准路径
+	charSkinsDir = m.paths.GetGameCharacterSkinsDir(versionID)
+	docCharSkinsDir = m.paths.GetGameDocCharacterSkinsDir(versionID)
+	return
 }
 
 // linkOrCopyToGame 创建硬链接或复制文件到游戏目录

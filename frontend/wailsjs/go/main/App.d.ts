@@ -58,6 +58,8 @@ export function GetVersionsByType(arg1:string):Promise<Array<version.Version>>;
 
 export function HasBackground():Promise<boolean>;
 
+export function ImportGameVersion(arg1:string):Promise<string>;
+
 export function ImportMod(arg1:string,arg2:string):Promise<void>;
 
 export function ImportSkin(arg1:string):Promise<void>;
@@ -73,6 +75,8 @@ export function OpenVersionModsFolder(arg1:string):Promise<void>;
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
 
 export function SelectBackgroundFile():Promise<string>;
+
+export function SelectGameFolder():Promise<string>;
 
 export function SelectModFile():Promise<string>;
 

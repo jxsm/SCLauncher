@@ -7,9 +7,17 @@
           <n-space>
             <n-text strong style="font-size: 18px;">{{ t('installed.title') }}</n-text>
           </n-space>
-          <n-text depth="3">
-            {{ t('installed.totalInstalled') }} {{ installedVersions.length }}
-          </n-text>
+          <n-space>
+            <n-button type="primary" @click="handleImportGame">
+              <template #icon>
+                <n-icon><ImportIcon /></n-icon>
+              </template>
+              {{ t('installed.importGame') }}
+            </n-button>
+            <n-text depth="3">
+              {{ t('installed.totalInstalled') }} {{ installedVersions.length }}
+            </n-text>
+          </n-space>
         </n-space>
       </n-card>
 
@@ -24,7 +32,7 @@
                   <n-tag v-if="version.isPrimary" type="success" size="small">
                     {{ t('installed.primary') }}
                   </n-tag>
-                  <n-tag :type="getVersionTypeColor(version.versionType)" size="small">
+                  <n-tag v-if="!isImportedVersion(version)" :type="getVersionTypeColor(version.versionType)" size="small">
                     {{ getVersionTypeText(version.versionType) }}
                   </n-tag>
                   <n-tag type="success" size="small">
@@ -132,8 +140,8 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder } from '../api/version'
-import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon } from '@vicons/ionicons5'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion } from '../api/version'
+import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon, Download as ImportIcon } from '@vicons/ionicons5'
 import type { Version } from '../types/version'
 
 const { t } = useI18n()
@@ -261,6 +269,42 @@ function handleManageMods(version: Version) {
     name: 'Mods',
     query: { versionId: version.id }
   })
+}
+
+async function handleImportGame() {
+  try {
+    // 选择游戏文件夹
+    const folderPath = await SelectGameFolder()
+    if (!folderPath) {
+      return
+    }
+
+    // 显示正在导入的消息
+    const loadingMsg = message.loading(t('installed.importing'), { duration: 0 })
+
+    try {
+      // 导入游戏版本
+      const versionId = await ImportGameVersion(folderPath)
+
+      loadingMsg.destroy()
+      message.success(t('installed.importSuccess'))
+
+      // 重新加载版本列表
+      await versionStore.getVersions()
+      await versionStore.getPrimaryVersion()
+    } catch (error) {
+      loadingMsg.destroy()
+      message.error(t('installed.importFailed') + '：' + error)
+    }
+  } catch (error) {
+    message.error(t('installed.selectFolderFailed') + '：' + error)
+  }
+}
+
+// 判断是否为导入的版本
+function isImportedVersion(version: Version): boolean {
+  // 导入的版本ID以"imported-"开头，或者版本类型为"unknown"
+  return version.id.startsWith('imported-') || version.versionType === 'unknown'
 }
 
 onMounted(async () => {

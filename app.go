@@ -427,19 +427,166 @@ func (a *App) CancelDownload(versionID string) error {
 
 // OpenVersionFolder 打开版本文件夹
 func (a *App) OpenVersionFolder(versionID string) error {
+	// 检查是否是导入的版本
 	versionPath := a.paths.GetVersionPath(versionID)
-	runtime.BrowserOpenURL(a.ctx, "file:///"+versionPath)
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+
+	var folderPath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				folderPath = originalPath
+				break
+			}
+		}
+
+		if folderPath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		folderPath = versionPath
+	}
+
+	runtime.BrowserOpenURL(a.ctx, "file:///"+folderPath)
 	return nil
 }
 
 // OpenVersionModsFolder 打开版本的mods文件夹
 func (a *App) OpenVersionModsFolder(versionID string) error {
-	modsPath := filepath.Join(a.paths.GetVersionPath(versionID), "mods")
+	// 检查是否是导入的版本
+	versionPath := a.paths.GetVersionPath(versionID)
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	modsPath := filepath.Join(basePath, "mods")
 	runtime.BrowserOpenURL(a.ctx, "file:///"+modsPath)
 	return nil
 }
 
 // ========== 游戏管理 API ==========
+
+// SelectGameFolder 选择游戏文件夹
+func (a *App) SelectGameFolder() (string, error) {
+	selection, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择游戏文件夹",
+	})
+	if err != nil {
+		return "", err
+	}
+	return selection, nil
+}
+
+// ImportGameVersion 导入游戏版本
+func (a *App) ImportGameVersion(folderPath string) (string, error) {
+	// 验证文件夹是否存在
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("文件夹不存在: %s", folderPath)
+	}
+
+	// 查找游戏可执行文件
+	exePath, err := a.findGameExecutableInFolder(folderPath)
+	if err != nil {
+		return "", fmt.Errorf("未找到游戏文件: %v", err)
+	}
+
+	// 生成版本ID（使用时间戳）
+	versionID := fmt.Sprintf("imported-%d", time.Now().UnixNano())
+
+	// 创建版本模型
+	versionModel := &storage.VersionModel{
+		ID:          versionID,
+		Name:        fmt.Sprintf("导入的游戏 (%s)", filepath.Base(folderPath)),
+		VersionType: "unknown", // 未知版本类型
+		GameVersion: "unknown", // 未知游戏版本
+		Installed:   true,
+		LocalPath:   folderPath, // 存储原始路径
+		Illustrate:  fmt.Sprintf("从外部导入的游戏文件\n原始路径: %s\n游戏文件: %s", folderPath, filepath.Base(exePath)),
+	}
+
+	// 保存到数据库
+	if err := a.repository.CreateVersion(versionModel); err != nil {
+		return "", fmt.Errorf("保存版本信息失败: %v", err)
+	}
+
+	// 创建版本目录（用于存储元数据）
+	versionPath := a.paths.GetVersionPath(versionID)
+	if err := os.MkdirAll(versionPath, 0755); err != nil {
+		return "", fmt.Errorf("创建版本目录失败: %v", err)
+	}
+
+	// 创建标记文件来记录原始路径和exe路径
+	metaFile := filepath.Join(versionPath, ".imported")
+	metaContent := fmt.Sprintf("original_path=%s\nexe_path=%s\n", folderPath, exePath)
+	if err := os.WriteFile(metaFile, []byte(metaContent), 0644); err != nil {
+		return "", fmt.Errorf("写入元数据失败: %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功导入游戏版本: %s from %s", versionID, folderPath))
+	return versionID, nil
+}
+
+// findGameExecutableInFolder 在指定文件夹中查找游戏可执行文件
+func (a *App) findGameExecutableInFolder(folderPath string) (string, error) {
+	var exePath string
+
+	err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+
+		// 检查是否是 .exe 文件且文件名包含 "Survivalcraft"
+		if strings.HasSuffix(strings.ToLower(info.Name()), ".exe") &&
+			strings.Contains(strings.ToLower(info.Name()), "survivalcraft") {
+			exePath = path
+			return filepath.SkipDir // 找到了，停止遍历
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if exePath == "" {
+		return "", fmt.Errorf("在文件夹中未找到Survivalcraft游戏文件")
+	}
+
+	return exePath, nil
+}
 
 // LaunchGame 启动游戏
 func (a *App) LaunchGame(versionID string) error {

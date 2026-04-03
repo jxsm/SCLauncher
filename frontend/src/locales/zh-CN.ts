@@ -167,7 +167,12 @@ export default {
     renameFailed: '重命名失败',
     deleteSuccess: '版本已删除',
     deleteFailed: '删除失败',
-    openFolderFailed: '打开文件夹失败'
+    openFolderFailed: '打开文件夹失败',
+    importGame: '导入游戏',
+    importing: '正在导入游戏...',
+    importSuccess: '游戏导入成功',
+    importFailed: '游戏导入失败',
+    selectFolderFailed: '选择文件夹失败'
   },
   mods: {
     title: '模组管理',
