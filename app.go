@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"SCLauncher/backend/appinfo"
+	"SCLauncher/backend/background"
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
@@ -21,15 +22,16 @@ import (
 
 // App 应用结构体
 type App struct {
-	ctx        context.Context
-	config     *config.Config
-	paths      *config.Paths
-	db         *storage.Database
-	repository *storage.Repository
-	versionMgr *version.Manager
-	gameMgr    *game.GameManager
-	modMgr     *mod.Manager
-	skinMgr    *skin.Manager
+	ctx         context.Context
+	config      *config.Config
+	paths       *config.Paths
+	db          *storage.Database
+	repository  *storage.Repository
+	versionMgr  *version.Manager
+	gameMgr     *game.GameManager
+	modMgr      *mod.Manager
+	skinMgr     *skin.Manager
+	backgroundMgr *background.Manager
 }
 
 // NewApp 创建应用实例
@@ -80,6 +82,7 @@ func (a *App) startup(ctx context.Context) {
 	a.gameMgr.SetContext(ctx) // 设置上下文用于发送事件
 	a.modMgr = mod.NewManager(cfg)
 	a.skinMgr = skin.NewManager(cfg)
+	a.backgroundMgr = background.NewManager(cfg)
 
 	// 自动设置主要版本（如果没有的话）
 	if err := a.versionMgr.AutoSetPrimaryVersion(); err != nil {
@@ -116,14 +119,15 @@ func (a *App) GetAppInfo() map[string]string {
 // GetConfig 获取配置
 func (a *App) GetConfig() map[string]interface{} {
 	return map[string]interface{}{
-		"manifestUrl":    a.config.ManifestURL,
-		"versionsDir":    a.config.VersionsDir,
-		"dataDir":        a.config.DataDir,
-		"downloadsDir":   a.config.DownloadsDir,
-		"maxConcurrent":  a.config.MaxConcurrent,
-		"currentVersion": a.config.CurrentVersion,
-		"theme":          a.config.Theme,
-		"language":       a.config.Language,
+		"manifestUrl":     a.config.ManifestURL,
+		"versionsDir":     a.config.VersionsDir,
+		"dataDir":         a.config.DataDir,
+		"downloadsDir":    a.config.DownloadsDir,
+		"maxConcurrent":   a.config.MaxConcurrent,
+		"currentVersion":  a.config.CurrentVersion,
+		"theme":           a.config.Theme,
+		"language":        a.config.Language,
+		"backgroundImage": a.config.BackgroundImage,
 	}
 }
 
@@ -525,4 +529,49 @@ func (a *App) SyncSkinsToGame(versionID string) error {
 // GetSkinImage 获取皮肤图片的base64编码
 func (a *App) GetSkinImage(fileName string) (string, error) {
 	return a.skinMgr.GetSkinImage(fileName)
+}
+
+// ========== 背景图片管理 API ==========
+
+// SelectBackgroundFile 选择背景图片文件
+func (a *App) SelectBackgroundFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择背景图片",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "图片文件",
+				Pattern:     "*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	return filename, err
+}
+
+// SetBackground 设置背景图片
+func (a *App) SetBackground(sourcePath string) (string, error) {
+	return a.backgroundMgr.SetBackground(sourcePath)
+}
+
+// ClearBackground 清除背景图片
+func (a *App) ClearBackground() error {
+	return a.backgroundMgr.ClearBackground()
+}
+
+// GetBackgroundImage 获取背景图片路径
+func (a *App) GetBackgroundImage() string {
+	return a.backgroundMgr.GetBackgroundImage()
+}
+
+// HasBackground 检查是否设置了背景图片
+func (a *App) HasBackground() bool {
+	return a.backgroundMgr.HasBackground()
+}
+
+// GetBackgroundImageBase64 获取背景图片的base64编码
+func (a *App) GetBackgroundImageBase64() (string, error) {
+	return a.backgroundMgr.GetBackgroundImageBase64()
 }

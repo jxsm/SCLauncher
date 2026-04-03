@@ -198,3 +198,16 @@ func (p *Paths) GetGameCharacterSkinsDir(versionID string) string {
 func (p *Paths) GetGameDocCharacterSkinsDir(versionID string) string {
 	return filepath.Join(p.GetVersionPath(versionID), "doc", "CharacterSkins")
 }
+
+// GetBackgroundImageDir 获取背景图片存储目录
+func (p *Paths) GetBackgroundImageDir() string {
+	return filepath.Join(p.config.DataDir, "Backgrounds")
+}
+
+// GetBackgroundImagePath 获取背景图片的完整路径
+func (p *Paths) GetBackgroundImagePath(filename string) string {
+	if filename == "" {
+		return ""
+	}
+	return filepath.Join(p.GetBackgroundImageDir(), filename)
+}

@@ -48,6 +48,38 @@
         </n-button>
       </n-card>
 
+      <!-- 背景设置 -->
+      <n-card title="背景设置">
+        <n-space vertical>
+          <n-form-item label="背景图片">
+            <n-space>
+              <n-button @click="handleSelectBackground">
+                <template #icon>
+                  <n-icon><ImageIcon /></n-icon>
+                </template>
+                选择图片
+              </n-button>
+              <n-button v-if="config?.backgroundImage" type="error" @click="handleClearBackground">
+                <template #icon>
+                  <n-icon><TrashIcon /></n-icon>
+                </template>
+                清除背景
+              </n-button>
+            </n-space>
+          </n-form-item>
+
+          <!-- 背景预览 -->
+          <div v-if="backgroundImagePreview" class="background-preview">
+            <n-image
+              :src="backgroundImagePreview"
+              object-fit="cover"
+              style="width: 100%; height: 200px; border-radius: 4px;"
+            />
+          </div>
+          <n-text v-else depth="3">未设置背景图片</n-text>
+        </n-space>
+      </n-card>
+
       <!-- 关于 -->
       <div class="about-section">
         <n-button text @click="showAboutDialog = true">
@@ -100,8 +132,8 @@
 <script setup lang="ts">
 import { ref, onMounted, h } from 'vue'
 import { useMessage, useDialog, NAlert } from 'naive-ui'
-import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon, RefreshOutline as UpdateIcon } from '@vicons/ionicons5'
-import { GetConfig, SetManifestURL, SetMaxConcurrent, GetAppInfo, CheckUpdate } from '../api/config'
+import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon, RefreshOutline as UpdateIcon, ImageOutline as ImageIcon, TrashOutline as TrashIcon } from '@vicons/ionicons5'
+import { GetConfig, SetManifestURL, SetMaxConcurrent, GetAppInfo, CheckUpdate, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
 import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
 
@@ -113,11 +145,29 @@ const config = ref<AppConfig | null>(null)
 const manifestUrl = ref('')
 const maxConcurrent = ref(3)
 const showAboutDialog = ref(false)
+const backgroundImagePreview = ref('')
 const appInfo = ref<{ version: string; repoOwner: string; repoName: string }>({
   version: '0.0.1',
   repoOwner: 'jxsm',
   repoName: 'SCLauncher'
 })
+
+// 加载背景图片预览
+async function loadBackgroundPreview() {
+  if (!config.value?.backgroundImage) {
+    backgroundImagePreview.value = ''
+    return
+  }
+
+  try {
+    const { GetBackgroundImageBase64 } = await import('../api/config')
+    const base64 = await GetBackgroundImageBase64()
+    backgroundImagePreview.value = base64
+  } catch (error) {
+    console.error('Failed to load background image:', error)
+    backgroundImagePreview.value = ''
+  }
+}
 
 async function handleSaveManifestUrl() {
   if (!manifestUrl.value.trim()) {
@@ -147,6 +197,47 @@ async function handleSaveSettings() {
   } catch (error) {
     message.error('保存失败：' + error)
   }
+}
+
+async function handleSelectBackground() {
+  try {
+    const filename = await SelectBackgroundFile()
+    if (!filename) {
+      return
+    }
+
+    message.info('正在设置背景图片...')
+    await SetBackground(filename)
+
+    // 重新加载配置
+    config.value = await GetConfig()
+    // 加载背景预览
+    await loadBackgroundPreview()
+    message.success('背景图片设置成功')
+  } catch (error) {
+    message.error('设置背景图片失败：' + error)
+  }
+}
+
+async function handleClearBackground() {
+  dialog.warning({
+    title: '确认清除',
+    content: '确定要清除背景图片吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await ClearBackground()
+        // 重新加载配置
+        config.value = await GetConfig()
+        // 清除预览
+        backgroundImagePreview.value = ''
+        message.success('背景图片已清除')
+      } catch (error) {
+        message.error('清除失败：' + error)
+      }
+    }
+  })
 }
 
 function openGitHub() {
@@ -205,6 +296,9 @@ onMounted(async () => {
       manifestUrl.value = config.value.manifestUrl
       maxConcurrent.value = config.value.maxConcurrent
     }
+
+    // 加载背景图片预览
+    await loadBackgroundPreview()
   } catch (error) {
     message.error('加载配置失败：' + error)
   }
@@ -226,5 +320,13 @@ onMounted(async () => {
 
 .about-section:hover {
   opacity: 1;
+}
+
+.background-preview {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #f5f5f5;
 }
 </style>

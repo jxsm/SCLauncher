@@ -36,6 +36,9 @@ type Config struct {
 	// 自动检查更新
 	AutoCheckUpdates bool `json:"autoCheckUpdates"`
 
+	// 背景图片路径
+	BackgroundImage string `json:"backgroundImage"`
+
 	// 配置文件路径
 	configPath string
 }
@@ -54,6 +57,7 @@ func DefaultConfig() *Config {
 		Theme:            "dark",
 		Language:         "zh-CN",
 		AutoCheckUpdates: true,
+		BackgroundImage:  "",
 	}
 }
 

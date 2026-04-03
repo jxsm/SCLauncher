@@ -26,3 +26,33 @@ export async function SetMaxConcurrent(max: number): Promise<void> {
 export async function CheckUpdate(): Promise<any> {
   return await AppBindings.CheckUpdate()
 }
+
+// 选择背景图片文件
+export async function SelectBackgroundFile(): Promise<string> {
+  return await AppBindings.SelectBackgroundFile()
+}
+
+// 设置背景图片
+export async function SetBackground(sourcePath: string): Promise<string> {
+  return await AppBindings.SetBackground(sourcePath)
+}
+
+// 清除背景图片
+export async function ClearBackground(): Promise<void> {
+  await AppBindings.ClearBackground()
+}
+
+// 获取背景图片路径
+export async function GetBackgroundImage(): Promise<string> {
+  return await AppBindings.GetBackgroundImage()
+}
+
+// 检查是否设置了背景图片
+export async function HasBackground(): Promise<boolean> {
+  return await AppBindings.HasBackground()
+}
+
+// 获取背景图片的base64编码
+export async function GetBackgroundImageBase64(): Promise<string> {
+  return await AppBindings.GetBackgroundImageBase64()
+}

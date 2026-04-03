@@ -10,6 +10,8 @@ export function CancelDownload(arg1:string):Promise<void>;
 
 export function CheckUpdate():Promise<Record<string, any>>;
 
+export function ClearBackground():Promise<void>;
+
 export function DeleteMod(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteSkin(arg1:string):Promise<void>;
@@ -25,6 +27,10 @@ export function FetchVersions():Promise<Array<version.Version>>;
 export function FormatSize(arg1:number):Promise<string>;
 
 export function GetAppInfo():Promise<Record<string, string>>;
+
+export function GetBackgroundImage():Promise<string>;
+
+export function GetBackgroundImageBase64():Promise<string>;
 
 export function GetConfig():Promise<Record<string, any>>;
 
@@ -46,6 +52,8 @@ export function GetVersions():Promise<Array<version.Version>>;
 
 export function GetVersionsByType(arg1:string):Promise<Array<version.Version>>;
 
+export function HasBackground():Promise<boolean>;
+
 export function ImportMod(arg1:string,arg2:string):Promise<void>;
 
 export function ImportSkin(arg1:string):Promise<void>;
@@ -60,9 +68,13 @@ export function OpenVersionModsFolder(arg1:string):Promise<void>;
 
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
 
+export function SelectBackgroundFile():Promise<string>;
+
 export function SelectModFile():Promise<string>;
 
 export function SelectSkinFile():Promise<string>;
+
+export function SetBackground(arg1:string):Promise<string>;
 
 export function SetCurrentVersion(arg1:string):Promise<void>;
 

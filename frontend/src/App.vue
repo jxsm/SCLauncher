@@ -1,5 +1,10 @@
 <template>
   <div class="app-box">
+    <!-- 背景图片层 -->
+    <div v-if="backgroundImage" class="background-layer" :style="{ backgroundImage: `url(${backgroundImage})` }">
+      <div class="background-overlay"></div>
+    </div>
+
     <n-config-provider :theme="darkTheme">
       <n-message-provider>
         <n-dialog-provider ref="dialogProviderInst">
@@ -55,7 +60,7 @@ import { useRouter } from "vue-router";
 import { darkTheme, NAlert, NDialogProvider, NButton } from "naive-ui";
 import { useGameStore } from "./stores/game";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
-import { CheckUpdate } from "./api/config";
+import { CheckUpdate, GetConfig, GetBackgroundImageBase64 } from "./api/config";
 import HomeView from "./views/Home.vue";
 import InstalledVersionsView from "./views/InstalledVersions.vue";
 import VersionsView from "./views/Versions.vue";
@@ -67,10 +72,27 @@ import BackToTop from "./components/BackToTop.vue";
 const router = useRouter();
 const gameStore = useGameStore();
 const activeTab = ref("home");
+const backgroundImage = ref("");
 
 const dialogProviderInst = ref<InstanceType<typeof NDialogProvider> | null>(
   null,
 );
+
+// 加载背景图片
+async function loadBackgroundImage() {
+  try {
+    const config = await GetConfig();
+    if (config?.backgroundImage) {
+      const base64 = await GetBackgroundImageBase64();
+      backgroundImage.value = base64;
+    } else {
+      backgroundImage.value = "";
+    }
+  } catch (error) {
+    console.error("Failed to load background image:", error);
+    backgroundImage.value = "";
+  }
+}
 
 function handleTabChange(value: string) {
   router.push({ name: value.charAt(0).toUpperCase() + value.slice(1) });
@@ -122,12 +144,20 @@ function handleGameCrash(data: any) {
 }
 
 onMounted(async () => {
+  // 加载背景图片
+  await loadBackgroundImage();
+
   // 监听游戏崩溃事件
   EventsOn("game:crashed", handleGameCrash);
 
   // 监听路由变化
   router.afterEach((to) => {
     activeTab.value = to.name?.toString().toLowerCase() || "home";
+
+    // 当从设置页面离开时，重新加载背景图片
+    if (to.name !== "Settings") {
+      loadBackgroundImage();
+    }
   });
 
   // 初始化时检查游戏状态
@@ -245,5 +275,41 @@ body {
 
 .app-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* 背景图片层 */
+.background-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* 背景图片遮罩层 - 降低透明度 */
+.background-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* 50% 黑色遮罩，可根据需要调整 */
+  backdrop-filter: blur(2px); /* 轻微模糊效果 */
+}
+
+/* 确保内容在背景之上 */
+.app-box,
+.n-config-provider,
+.n-message-provider,
+.n-dialog-provider,
+.n-notification-provider,
+.app-container {
+  position: relative;
+  z-index: 1;
 }
 </style>

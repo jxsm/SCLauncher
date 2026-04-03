@@ -8,4 +8,5 @@ export interface AppConfig {
   currentVersion: string
   theme: string
   language: string
+  backgroundImage: string
 }

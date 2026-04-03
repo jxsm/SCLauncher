@@ -14,6 +14,10 @@ export function CheckUpdate() {
   return window['go']['main']['App']['CheckUpdate']();
 }
 
+export function ClearBackground() {
+  return window['go']['main']['App']['ClearBackground']();
+}
+
 export function DeleteMod(arg1, arg2) {
   return window['go']['main']['App']['DeleteMod'](arg1, arg2);
 }
@@ -44,6 +48,14 @@ export function FormatSize(arg1) {
 
 export function GetAppInfo() {
   return window['go']['main']['App']['GetAppInfo']();
+}
+
+export function GetBackgroundImage() {
+  return window['go']['main']['App']['GetBackgroundImage']();
+}
+
+export function GetBackgroundImageBase64() {
+  return window['go']['main']['App']['GetBackgroundImageBase64']();
 }
 
 export function GetConfig() {
@@ -86,6 +98,10 @@ export function GetVersionsByType(arg1) {
   return window['go']['main']['App']['GetVersionsByType'](arg1);
 }
 
+export function HasBackground() {
+  return window['go']['main']['App']['HasBackground']();
+}
+
 export function ImportMod(arg1, arg2) {
   return window['go']['main']['App']['ImportMod'](arg1, arg2);
 }
@@ -114,12 +130,20 @@ export function RenameVersion(arg1, arg2) {
   return window['go']['main']['App']['RenameVersion'](arg1, arg2);
 }
 
+export function SelectBackgroundFile() {
+  return window['go']['main']['App']['SelectBackgroundFile']();
+}
+
 export function SelectModFile() {
   return window['go']['main']['App']['SelectModFile']();
 }
 
 export function SelectSkinFile() {
   return window['go']['main']['App']['SelectSkinFile']();
+}
+
+export function SetBackground(arg1) {
+  return window['go']['main']['App']['SetBackground'](arg1);
 }
 
 export function SetCurrentVersion(arg1) {
