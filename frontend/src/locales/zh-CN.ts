@@ -228,6 +228,8 @@ export default {
     preview: '预览',
     skinName: '皮肤名称',
     fileSize: '文件大小',
+    importDate: '导入日期',
+    totalSkins: '共 {count} 个皮肤',
     loadFailed: '加载皮肤列表失败'
   },
   settings: {

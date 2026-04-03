@@ -228,6 +228,8 @@ export default {
     preview: 'Preview',
     skinName: 'Skin Name',
     fileSize: 'File Size',
+    importDate: 'Import Date',
+    totalSkins: 'Total {count} skins',
     loadFailed: 'Failed to load skin list'
   },
   settings: {

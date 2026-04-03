@@ -19,7 +19,7 @@
             </n-button>
           </n-space>
           <n-text depth="3">
-            共 {{ skinStore.skins.length }} 个皮肤
+            {{ t('skins.totalSkins', { count: skinStore.skins.length }) }}
           </n-text>
         </n-space>
       </n-card>
@@ -47,10 +47,10 @@
                 <n-space vertical size="small">
                   <n-text strong>{{ skin.fileName }}</n-text>
                   <n-text depth="3">
-                    大小: {{ formatSize(skin.size) }}
+                    {{ t('skins.fileSize') }}: {{ formatSize(skin.size) }}
                   </n-text>
                   <n-text depth="3">
-                    导入日期: {{ skin.importDate }}
+                    {{ t('skins.importDate') }}: {{ skin.importDate }}
                   </n-text>
                 </n-space>
 

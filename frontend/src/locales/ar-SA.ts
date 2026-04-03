@@ -167,7 +167,12 @@ export default {
     renameFailed: 'فشلت إعادة التسمية',
     deleteSuccess: 'تم حذف الإصدار',
     deleteFailed: 'فشل الحذف',
-    openFolderFailed: 'فشل فتح المجلد'
+    openFolderFailed: 'فشل فتح المجلد',
+    importGame: 'استيراد لعبة',
+    importing: 'جاري استيراد اللعبة...',
+    importSuccess: 'تم استيراد اللعبة بنجاح',
+    importFailed: 'فشل استيراد اللعبة',
+    selectFolderFailed: 'فشل اختيار المجلد'
   },
   mods: {
     title: 'إدارة التعديلات',
@@ -223,6 +228,8 @@ export default {
     preview: 'معاينة',
     skinName: 'اسم الskin',
     fileSize: 'حجم الملف',
+    importDate: 'تاريخ الاستيراد',
+    totalSkins: 'المجموع {count} skins',
     loadFailed: 'فشل تحميل قائمة الskins'
   },
   settings: {

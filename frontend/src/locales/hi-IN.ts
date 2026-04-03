@@ -167,7 +167,12 @@ export default {
     renameFailed: 'नाम बदलने में विफल',
     deleteSuccess: 'संस्करण हटा दिया गया',
     deleteFailed: 'हटाने में विफल',
-    openFolderFailed: 'फ़ोल्डर खोलने में विफल'
+    openFolderFailed: 'फ़ोल्डर खोलने में विफल',
+    importGame: 'गेम आयात करें',
+    importing: 'गेम आयात हो रहा है...',
+    importSuccess: 'गेम सफलतापूर्वक आयात किया गया',
+    importFailed: 'गेम आयात करने में विफल',
+    selectFolderFailed: 'फ़ोल्डर चुनने में विफल'
   },
   mods: {
     title: 'मॉड प्रबंधन',
@@ -223,6 +228,8 @@ export default {
     preview: 'पूर्वावलोकन',
     skinName: 'स्किन नाम',
     fileSize: 'फ़ाइल आकार',
+    importDate: 'आयात तिथि',
+    totalSkins: 'कुल {count} स्किन',
     loadFailed: 'स्किन सूची लोड करने में विफल'
   },
   settings: {

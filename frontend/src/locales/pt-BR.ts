@@ -167,7 +167,12 @@ export default {
     renameFailed: 'Falha ao renomear',
     deleteSuccess: 'Versão excluída',
     deleteFailed: 'Falha ao excluir',
-    openFolderFailed: 'Falha ao abrir pasta'
+    openFolderFailed: 'Falha ao abrir pasta',
+    importGame: 'Importar Jogo',
+    importing: 'Importando jogo...',
+    importSuccess: 'Jogo importado com sucesso',
+    importFailed: 'Falha ao importar jogo',
+    selectFolderFailed: 'Falha ao selecionar pasta'
   },
   mods: {
     title: 'Gerenciamento de Mods',
@@ -223,6 +228,8 @@ export default {
     preview: 'Visualizar',
     skinName: 'Nome da Skin',
     fileSize: 'Tamanho do Arquivo',
+    importDate: 'Data de Importação',
+    totalSkins: 'Total de {count} skins',
     loadFailed: 'Falha ao carregar lista de skins'
   },
   settings: {

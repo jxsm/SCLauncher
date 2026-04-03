@@ -167,7 +167,12 @@ export default {
     renameFailed: 'Не удалось переименовать',
     deleteSuccess: 'Версия удалена',
     deleteFailed: 'Не удалось удалить',
-    openFolderFailed: 'Не удалось открыть папку'
+    openFolderFailed: 'Не удалось открыть папку',
+    importGame: 'Импортировать игру',
+    importing: 'Импортирование игры...',
+    importSuccess: 'Игра успешно импортирована',
+    importFailed: 'Не удалось импортировать игру',
+    selectFolderFailed: 'Не удалось выбрать папку'
   },
   mods: {
     title: 'Управление модами',
@@ -223,6 +228,8 @@ export default {
     preview: 'Предпросмотр',
     skinName: 'Название скина',
     fileSize: 'Размер файла',
+    importDate: 'Дата импорта',
+    totalSkins: 'Всего {count} скинов',
     loadFailed: 'Не удалось загрузить список скинов'
   },
   settings: {

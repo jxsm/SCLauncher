@@ -167,7 +167,12 @@ export default {
     renameFailed: 'Gagal mengganti nama',
     deleteSuccess: 'Versi dihapus',
     deleteFailed: 'Gagal menghapus',
-    openFolderFailed: 'Gagal membuka folder'
+    openFolderFailed: 'Gagal membuka folder',
+    importGame: 'Impor Game',
+    importing: 'Mengimpor game...',
+    importSuccess: 'Game berhasil diimpor',
+    importFailed: 'Gagal mengimpor game',
+    selectFolderFailed: 'Gagal memilih folder'
   },
   mods: {
     title: 'Manajemen Mod',
@@ -223,6 +228,8 @@ export default {
     preview: 'Pratinjau',
     skinName: 'Nama Kulit',
     fileSize: 'Ukuran File',
+    importDate: 'Tanggal Impor',
+    totalSkins: 'Total {count} kulit',
     loadFailed: 'Gagal memuat daftar kulit'
   },
   settings: {
