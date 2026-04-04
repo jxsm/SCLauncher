@@ -172,7 +172,13 @@ export default {
     importing: '正在导入游戏...',
     importSuccess: '游戏导入成功',
     importFailed: '游戏导入失败',
-    selectFolderFailed: '选择文件夹失败'
+    selectFolderFailed: '选择文件夹失败',
+    localInstall: '本地安装',
+    installing: '正在安装...',
+    installSuccess: '安装成功',
+    installFailed: '安装失败',
+    selectArchiveFailed: '选择压缩包失败',
+    enterVersionNameDesc: '请输入这个版本的名称（用于区分不同配置）'
   },
   mods: {
     title: '模组管理',

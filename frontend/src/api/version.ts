@@ -96,3 +96,13 @@ export async function SelectGameFolder(): Promise<string> {
 export async function ImportGameVersion(folderPath: string): Promise<string> {
   return await AppBindings.ImportGameVersion(folderPath)
 }
+
+// 选择压缩包文件
+export async function SelectArchiveFile(): Promise<string> {
+  return await AppBindings.SelectArchiveFile()
+}
+
+// 从压缩包安装游戏
+export async function InstallFromArchive(archivePath: string, customName: string): Promise<string> {
+  return await AppBindings.InstallFromArchive(archivePath, customName)
+}

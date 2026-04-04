@@ -14,6 +14,12 @@
               </template>
               {{ t('installed.importGame') }}
             </n-button>
+            <n-button type="success" @click="handleLocalInstall">
+              <template #icon>
+                <n-icon><ArchiveIcon /></n-icon>
+              </template>
+              {{ t('installed.localInstall') }}
+            </n-button>
             <n-text depth="3">
               {{ t('installed.totalInstalled') }} {{ installedVersions.length }}
             </n-text>
@@ -140,8 +146,8 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder, SelectGameFolder, ImportGameVersion } from '../api/version'
-import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon, Download as ImportIcon } from '@vicons/ionicons5'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive } from '../api/version'
+import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon, Download as ImportIcon, Archive as ArchiveIcon } from '@vicons/ionicons5'
 import type { Version } from '../types/version'
 
 const { t } = useI18n()
@@ -299,6 +305,104 @@ async function handleImportGame() {
   } catch (error) {
     message.error(t('installed.selectFolderFailed') + '：' + error)
   }
+}
+
+async function handleLocalInstall() {
+  try {
+    // 选择压缩包文件
+    const archivePath = await SelectArchiveFile()
+    if (!archivePath) {
+      return
+    }
+
+    // 获取自定义名称
+    const defaultName = archivePath.split('\\').pop()?.split('/').pop()?.replace(/\.(zip|7z|rar)$/i, '') || '本地安装的游戏'
+    const customName = await getCustomVersionName(defaultName)
+    if (!customName) {
+      return
+    }
+
+    // 显示正在安装的消息
+    const loadingMsg = message.loading(t('installed.installing'), { duration: 0 })
+
+    try {
+      // 从压缩包安装游戏
+      const versionId = await InstallFromArchive(archivePath, customName)
+
+      loadingMsg.destroy()
+      message.success(t('installed.installSuccess'))
+
+      // 重新加载版本列表
+      await versionStore.getVersions()
+      await versionStore.getPrimaryVersion()
+    } catch (error) {
+      loadingMsg.destroy()
+      message.error(t('installed.installFailed') + '：' + error)
+    }
+  } catch (error) {
+    message.error(t('installed.selectArchiveFailed') + '：' + error)
+  }
+}
+
+async function getCustomVersionName(defaultName: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let name = defaultName
+    let errorMessage = ''
+
+    function checkDuplicate(inputName: string): boolean {
+      const trimmed = inputName.trim()
+      if (!trimmed) return false
+      return versionStore.installedVersions.some(v =>
+        v.name === trimmed
+      )
+    }
+
+    const d = dialog.create({
+      title: t('installed.enterVersionName'),
+      content: () => {
+        return h('div', [
+          h('p', { style: 'margin-bottom: 12px;' }, t('installed.enterVersionNameDesc')),
+          h(NInput, {
+            placeholder: defaultName,
+            defaultValue: defaultName,
+            status: errorMessage ? 'error' : undefined,
+            onUpdateValue: (value: string) => {
+              name = value
+              if (checkDuplicate(value)) {
+                errorMessage = t('installed.nameAlreadyExists')
+              } else {
+                errorMessage = ''
+              }
+            },
+            onKeyup: (e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                if (checkDuplicate(name)) {
+                  errorMessage = t('installed.nameAlreadyExists')
+                } else {
+                  resolve(name.trim() || null)
+                }
+              }
+            }
+          }),
+          errorMessage ? h('p', {
+            style: 'margin-top: 8px; color: #f56c6c; font-size: 12px;'
+          }, errorMessage) : null
+        ])
+      },
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => {
+        if (checkDuplicate(name)) {
+          errorMessage = t('installed.nameAlreadyExists')
+        } else {
+          resolve(name.trim() || null)
+        }
+      },
+      onNegativeClick: () => {
+        resolve(null)
+      }
+    })
+  })
 }
 
 // 判断是否为导入的版本

@@ -558,6 +558,114 @@ func (a *App) ImportGameVersion(folderPath string) (string, error) {
 	return versionID, nil
 }
 
+// SelectArchiveFile 选择压缩包文件
+func (a *App) SelectArchiveFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择游戏压缩包",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "压缩包文件",
+				Pattern:     "*.zip;*.7z;*.rar",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	return filename, err
+}
+
+// InstallFromArchive 从压缩包安装游戏
+func (a *App) InstallFromArchive(archivePath string, customName string) (string, error) {
+	// 验证文件是否存在
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("文件不存在: %s", archivePath)
+	}
+
+	// 生成版本ID
+	versionID := fmt.Sprintf("local-%d", time.Now().UnixNano())
+
+	// 创建临时目录用于解压
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("sc-install-%s", versionID))
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir) // 清理临时目录
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始解压文件: %s 到 %s", archivePath, tempDir))
+
+	// 解压文件（支持 zip、7z、rar 等多种格式）
+	installer := version.NewInstaller()
+
+	// 检查文件类型（仅用于提示信息）
+	ext := strings.ToLower(filepath.Ext(archivePath))
+	runtime.LogInfo(a.ctx, fmt.Sprintf("检测到压缩包格式: %s", ext))
+
+	// 解压文件
+	if err := installer.Install(archivePath, tempDir, func(current, total int64) {
+		// 发送解压进度事件到前端
+		runtime.EventsEmit(a.ctx, "install:progress", map[string]interface{}{
+			"versionId": versionID,
+			"current":   current,
+			"total":     total,
+		})
+	}); err != nil {
+		return "", fmt.Errorf("解压文件失败: %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("解压完成，检查游戏文件..."))
+
+	// 检查解压后的目录是否包含游戏可执行文件
+	exePath, err := a.findGameExecutableInFolder(tempDir)
+	if err != nil {
+		return "", fmt.Errorf("压缩包中未找到游戏文件(Survivalcraft.exe): %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("找到游戏文件: %s", exePath))
+
+	// 创建最终版本目录
+	versionPath := a.paths.GetVersionPath(versionID)
+	if err := os.MkdirAll(filepath.Dir(versionPath), 0755); err != nil {
+		return "", fmt.Errorf("创建版本目录失败: %v", err)
+	}
+
+	// 移动解压的文件到最终目录
+	if err := os.Rename(tempDir, versionPath); err != nil {
+		// 如果重命名失败（可能在不同的驱动器），尝试复制
+		runtime.LogWarning(a.ctx, fmt.Sprintf("重命名失败，尝试复制文件: %v", err))
+		if err := installer.Install(archivePath, versionPath, nil); err != nil {
+			return "", fmt.Errorf("移动文件到最终目录失败: %v", err)
+		}
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("文件已移动到: %s", versionPath))
+
+	// 如果没有提供自定义名称，使用压缩包文件名
+	if customName == "" {
+		customName = strings.TrimSuffix(filepath.Base(archivePath), filepath.Ext(archivePath))
+	}
+
+	// 创建版本模型
+	versionModel := &storage.VersionModel{
+		ID:          versionID,
+		Name:        customName,
+		VersionType: "unknown", // 未知版本类型
+		GameVersion: "unknown", // 未知游戏版本
+		Installed:   true,
+		LocalPath:   versionPath,
+		Illustrate:  fmt.Sprintf("从压缩包安装\n原始文件: %s\n游戏文件: %s", filepath.Base(archivePath), filepath.Base(exePath)),
+	}
+
+	// 保存到数据库
+	if err := a.repository.CreateVersion(versionModel); err != nil {
+		return "", fmt.Errorf("保存版本信息失败: %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功从压缩包安装游戏版本: %s", versionID))
+	return versionID, nil
+}
+
 // findGameExecutableInFolder 在指定文件夹中查找游戏可执行文件
 func (a *App) findGameExecutableInFolder(folderPath string) (string, error) {
 	var exePath string

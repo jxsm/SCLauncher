@@ -172,7 +172,13 @@ export default {
     importing: 'Importing game...',
     importSuccess: 'Game imported successfully',
     importFailed: 'Failed to import game',
-    selectFolderFailed: 'Failed to select folder'
+    selectFolderFailed: 'Failed to select folder',
+    localInstall: 'Local Install',
+    installing: 'Installing...',
+    installSuccess: 'Installation successful',
+    installFailed: 'Installation failed',
+    selectArchiveFailed: 'Failed to select archive file',
+    enterVersionNameDesc: 'Please enter a name for this version (to distinguish different configurations)'
   },
   mods: {
     title: 'Mod Management',

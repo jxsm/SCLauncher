@@ -122,6 +122,10 @@ export function ImportSkin(arg1) {
   return window['go']['main']['App']['ImportSkin'](arg1);
 }
 
+export function InstallFromArchive(arg1, arg2) {
+  return window['go']['main']['App']['InstallFromArchive'](arg1, arg2);
+}
+
 export function InstallVersion(arg1) {
   return window['go']['main']['App']['InstallVersion'](arg1);
 }
@@ -140,6 +144,10 @@ export function OpenVersionModsFolder(arg1) {
 
 export function RenameVersion(arg1, arg2) {
   return window['go']['main']['App']['RenameVersion'](arg1, arg2);
+}
+
+export function SelectArchiveFile() {
+  return window['go']['main']['App']['SelectArchiveFile']();
 }
 
 export function SelectBackgroundFile() {

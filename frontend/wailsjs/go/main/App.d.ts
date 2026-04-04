@@ -64,6 +64,8 @@ export function ImportMod(arg1:string,arg2:string):Promise<void>;
 
 export function ImportSkin(arg1:string):Promise<void>;
 
+export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
+
 export function InstallVersion(arg1:string):Promise<void>;
 
 export function LaunchGame(arg1:string):Promise<void>;
@@ -73,6 +75,8 @@ export function OpenVersionFolder(arg1:string):Promise<void>;
 export function OpenVersionModsFolder(arg1:string):Promise<void>;
 
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
+
+export function SelectArchiveFile():Promise<string>;
 
 export function SelectBackgroundFile():Promise<string>;
 
