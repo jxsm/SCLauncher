@@ -178,7 +178,9 @@ export default {
     installSuccess: 'स्थापना सफल',
     installFailed: 'स्थापना विफल',
     selectArchiveFailed: 'अभिलेख फ़ाइल चुनने में विफल',
-    enterVersionNameDesc: 'कृपया इस संस्करण के लिए एक नाम दर्ज करें (विभिन्न कॉन्फ़िगरेशन को अलग करने के लिए)'
+    enterVersionNameDesc: 'कृपया इस संस्करण के लिए एक नाम दर्ज करें (विभिन्न कॉन्फ़िगरेशन को अलग करने के लिए)',
+    pathMissing: 'फ़ाइलें नहीं मिलीं',
+    pathMissingMessage: 'फ़ाइलें नहीं मिलीं, गेम फ़ोल्डर को मैन्युअल रूप से हटाया गया हो सकता है'
   },
   mods: {
     title: 'मॉड प्रबंधन',

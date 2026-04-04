@@ -30,7 +30,11 @@
       <!-- 版本列表 -->
       <n-spin :show="loading">
         <n-list hoverable clickable>
-          <n-list-item v-for="version in installedVersions" :key="version.id">
+          <n-list-item
+            v-for="version in installedVersions"
+            :key="version.id"
+            :style="isPathMissing(version) ? 'background-color: rgba(255, 0, 0, 0.05);' : ''"
+          >
             <n-thing>
               <template #header>
                 <n-space align="center">
@@ -41,8 +45,11 @@
                   <n-tag v-if="!isImportedVersion(version)" :type="getVersionTypeColor(version.versionType)" size="small">
                     {{ getVersionTypeText(version.versionType) }}
                   </n-tag>
-                  <n-tag type="success" size="small">
+                  <n-tag v-if="!isPathMissing(version)" type="success" size="small">
                     {{ t('versions.installed') }}
+                  </n-tag>
+                  <n-tag v-if="isPathMissing(version)" type="error" size="small">
+                    {{ t('installed.pathMissing') }}
                   </n-tag>
                 </n-space>
               </template>
@@ -52,63 +59,66 @@
                   <n-text depth="3">
                     {{ t('common.version') }}: {{ version.gameVersion }} - {{ version.subVersion }}
                   </n-text>
-                  <n-text depth="3" v-if="version.localPath">
-                    {{ t('common.path') }}: {{ version.localPath }}
+                  <n-text v-if="isPathMissing(version)" type="error" style="margin-top: 8px;">
+                    ⚠️ {{ t('installed.pathMissingMessage') }}
                   </n-text>
                 </n-space>
               </template>
 
               <template #action>
                 <n-space>
-                  <n-button
-                    type="success"
-                    size="medium"
-                    :disabled="gameStore.isRunning"
-                    @click="handleLaunch(version)"
-                  >
-                    <template #icon>
-                      <n-icon><PlayIcon /></n-icon>
-                    </template>
-                    {{ t('installed.launchGame') }}
-                  </n-button>
-                  <n-button
-                    size="medium"
-                    @click="handleSetPrimary(version)"
-                    :disabled="version.isPrimary"
-                    :type="version.isPrimary ? 'success' : 'default'"
-                  >
-                    <template #icon>
-                      <n-icon><StarIcon /></n-icon>
-                    </template>
-                    {{ version.isPrimary ? t('installed.alreadyPrimary') : t('versions.setAsPrimary') }}
-                  </n-button>
-                  <n-button
-                    size="medium"
-                    @click="handleOpenFolder(version)"
-                  >
-                    <template #icon>
-                      <n-icon><FolderIcon /></n-icon>
-                    </template>
-                    {{ t('versions.openFolder') }}
-                  </n-button>
-                  <n-button
-                    size="medium"
-                    @click="handleManageMods(version)"
-                  >
-                    <template #icon>
-                      <n-icon><ModsIcon /></n-icon>
-                    </template>
-                    {{ t('installed.manageMods') }}
-                  </n-button>
-                  <n-button
-                    size="medium"
-                    @click="handleRename(version)"
-                  >
-                    <template #icon>
-                      <n-icon><EditIcon /></n-icon>
-                    </template>
-                    {{ t('versions.rename') }}
-                  </n-button>
+                  <!-- 路径不存在时，隐藏所有按钮除了删除按钮 -->
+                  <template v-if="!isPathMissing(version)">
+                    <n-button
+                      type="success"
+                      size="medium"
+                      :disabled="gameStore.isRunning"
+                      @click="handleLaunch(version)"
+                    >
+                      <template #icon>
+                        <n-icon><PlayIcon /></n-icon>
+                      </template>
+                      {{ t('installed.launchGame') }}
+                    </n-button>
+                    <n-button
+                      size="medium"
+                      @click="handleSetPrimary(version)"
+                      :disabled="version.isPrimary"
+                      :type="version.isPrimary ? 'success' : 'default'"
+                    >
+                      <template #icon>
+                        <n-icon><StarIcon /></n-icon>
+                      </template>
+                      {{ version.isPrimary ? t('installed.alreadyPrimary') : t('versions.setAsPrimary') }}
+                    </n-button>
+                    <n-button
+                      size="medium"
+                      @click="handleOpenFolder(version)"
+                    >
+                      <template #icon>
+                        <n-icon><FolderIcon /></n-icon>
+                      </template>
+                      {{ t('versions.openFolder') }}
+                    </n-button>
+                    <n-button
+                      size="medium"
+                      @click="handleManageMods(version)"
+                    >
+                      <template #icon>
+                        <n-icon><ModsIcon /></n-icon>
+                      </template>
+                      {{ t('installed.manageMods') }}
+                    </n-button>
+                    <n-button
+                      size="medium"
+                      @click="handleRename(version)"
+                    >
+                      <template #icon>
+                        <n-icon><EditIcon /></n-icon>
+                      </template>
+                      {{ t('versions.rename') }}
+                    </n-button>
+                  </template>
                   <n-popconfirm
                     @positive-click="handleDelete(version)"
                   >
@@ -179,6 +189,15 @@ function getVersionTypeColor(type: string): 'info' | 'success' | 'warning' | 'de
     case 'original': return 'success'
     default: return 'default'
   }
+}
+
+// 判断路径是否缺失
+function isPathMissing(version: Version): boolean {
+  // 调试日志
+  console.log('[isPathMissing] Checking version:', version.id, 'pathExists:', version.pathExists, 'type:', typeof version.pathExists)
+
+  // pathExists 为 false 或 undefined 表示路径不存在（如果字段不存在，默认认为不存在）
+  return version.pathExists === false || version.pathExists === undefined
 }
 
 async function handleLaunch(version: Version) {

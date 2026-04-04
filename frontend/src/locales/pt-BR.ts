@@ -178,7 +178,9 @@ export default {
     installSuccess: 'Instalação bem-sucedida',
     installFailed: 'Falha na instalação',
     selectArchiveFailed: 'Falha ao selecionar arquivo de arquivo',
-    enterVersionNameDesc: 'Por favor, digite um nome para esta versão (para distinguir diferentes configurações)'
+    enterVersionNameDesc: 'Por favor, digite um nome para esta versão (para distinguir diferentes configurações)',
+    pathMissing: 'Arquivos Não Encontrados',
+    pathMissingMessage: 'Arquivos não encontrados, a pasta do jogo pode ter sido excluída manualmente'
   },
   mods: {
     title: 'Gerenciamento de Mods',

@@ -17,6 +17,7 @@ export interface Version {
   installed?: boolean      // 是否已安装
   isPrimary?: boolean      // 是否为主要版本
   localPath?: string       // 本地路径
+  pathExists?: boolean     // 路径是否存在（用于检测手动删除的情况）
 }
 
 // 下载进度

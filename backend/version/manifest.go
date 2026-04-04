@@ -49,6 +49,7 @@ type Version struct {
 	ReleaseDate time.Time  `json:"releaseDate"` // 发布日期
 	Installed   bool       `json:"installed"`   // 是否已安装（运行时计算）
 	LocalPath   string     `json:"localPath,omitempty"` // 本地路径（运行时计算）
+	PathExists  bool       `json:"pathExists"` // 路径是否存在（用于检测手动删除）
 }
 
 // ManifestParser 清单解析器

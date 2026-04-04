@@ -178,7 +178,9 @@ export default {
     installSuccess: '安装成功',
     installFailed: '安装失败',
     selectArchiveFailed: '选择压缩包失败',
-    enterVersionNameDesc: '请输入这个版本的名称（用于区分不同配置）'
+    enterVersionNameDesc: '请输入这个版本的名称（用于区分不同配置）',
+    pathMissing: '文件不存在',
+    pathMissingMessage: '文件不存在，游戏文件夹可能已被手动删除'
   },
   mods: {
     title: '模组管理',

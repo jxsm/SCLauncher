@@ -178,7 +178,9 @@ export default {
     installSuccess: 'Installation successful',
     installFailed: 'Installation failed',
     selectArchiveFailed: 'Failed to select archive file',
-    enterVersionNameDesc: 'Please enter a name for this version (to distinguish different configurations)'
+    enterVersionNameDesc: 'Please enter a name for this version (to distinguish different configurations)',
+    pathMissing: 'Files Not Found',
+    pathMissingMessage: 'Files not found, game folder may have been manually deleted'
   },
   mods: {
     title: 'Mod Management',

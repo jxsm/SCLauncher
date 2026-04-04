@@ -3,6 +3,8 @@ package version
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/storage"
 )
@@ -340,6 +342,9 @@ func (m *Manager) versionToModel(v *Version) *storage.VersionModel {
 
 // modelToVersion 转换 VersionModel 到 Version
 func (m *Manager) modelToVersion(model *storage.VersionModel) Version {
+	// 检查版本路径是否存在
+	pathExists := m.checkVersionPathExists(model.ID, model.LocalPath)
+
 	return Version{
 		ID:          model.ID,
 		VersionType: VersionType(model.VersionType),
@@ -353,7 +358,98 @@ func (m *Manager) modelToVersion(model *storage.VersionModel) Version {
 		Illustrate:  model.Illustrate,
 		ReleaseDate: model.CreatedAt,
 		Installed:   model.Installed,
+		LocalPath:   model.LocalPath,
+		PathExists:  pathExists,
 	}
+}
+
+// checkVersionPathExists 检查版本路径是否存在
+func (m *Manager) checkVersionPathExists(versionID string, localPath string) bool {
+	fmt.Printf("[PathCheck] Checking version: %s, localPath: %s\n", versionID, localPath)
+
+	// 对于导入的版本，检查导入的元数据文件
+	if strings.HasPrefix(versionID, "imported-") {
+		fmt.Println("[PathCheck] This is an imported version")
+		// 检查元数据文件是否存在
+		versionPath := m.paths.GetVersionPath(versionID)
+		metaFile := filepath.Join(versionPath, ".imported")
+		fmt.Printf("[PathCheck] Meta file: %s\n", metaFile)
+
+		// 先检查元数据文件是否存在
+		_, statErr := os.Stat(metaFile)
+		if os.IsNotExist(statErr) {
+			// 元数据文件不存在，说明导入的版本有问题
+			fmt.Println("[PathCheck] Meta file does not exist")
+			return false
+		}
+
+		// 读取元数据文件中的原始路径
+		content, readErr := os.ReadFile(metaFile)
+		if readErr != nil {
+			fmt.Printf("[PathCheck] Failed to read meta file: %v\n", readErr)
+			return false
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				fmt.Printf("[PathCheck] Original path from meta: %s\n", originalPath)
+				// 检查原始路径是否存在
+				_, pathErr := os.Stat(originalPath)
+				if pathErr == nil {
+					fmt.Println("[PathCheck] Original path exists")
+					return true
+				}
+				// 原始路径不存在
+				fmt.Printf("[PathCheck] Original path does not exist: %v\n", pathErr)
+				return false
+			}
+		}
+
+		// 没有找到原始路径信息
+		fmt.Println("[PathCheck] No original_path found in meta file")
+		return false
+	}
+
+	// 对于本地安装的版本（从压缩包安装的）
+	if strings.HasPrefix(versionID, "local-") {
+		fmt.Println("[PathCheck] This is a local installed version")
+		// localPath 应该指向安装目录
+		if localPath != "" {
+			fmt.Printf("[PathCheck] Checking localPath: %s\n", localPath)
+			_, statErr := os.Stat(localPath)
+			if statErr == nil {
+				fmt.Println("[PathCheck] localPath exists")
+				return true
+			}
+			fmt.Printf("[PathCheck] localPath does not exist: %v\n", statErr)
+			return false
+		}
+
+		// 如果没有localPath，尝试检查版本目录
+		versionPath := m.paths.GetVersionPath(versionID)
+		fmt.Printf("[PathCheck] No localPath, checking versionPath: %s\n", versionPath)
+		_, statErr := os.Stat(versionPath)
+		if statErr == nil {
+			fmt.Println("[PathCheck] versionPath exists")
+			return true
+		}
+		fmt.Printf("[PathCheck] versionPath does not exist: %v\n", statErr)
+		return false
+	}
+
+	// 对于正常下载安装的版本，检查版本目录
+	fmt.Println("[PathCheck] This is a normal installed version")
+	versionPath := m.paths.GetVersionPath(versionID)
+	fmt.Printf("[PathCheck] Checking versionPath: %s\n", versionPath)
+	_, statErr := os.Stat(versionPath)
+	if statErr == nil {
+		fmt.Println("[PathCheck] versionPath exists")
+		return true
+	}
+	fmt.Printf("[PathCheck] versionPath does not exist: %v\n", statErr)
+	return false
 }
 
 // getVersion 获取版本（带已安装状态检查）

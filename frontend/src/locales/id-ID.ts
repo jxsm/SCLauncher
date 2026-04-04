@@ -178,7 +178,9 @@ export default {
     installSuccess: 'Instalasi berhasil',
     installFailed: 'Instalasi gagal',
     selectArchiveFailed: 'Gagal memilih file arsip',
-    enterVersionNameDesc: 'Silakan masukkan nama untuk versi ini (untuk membedakan konfigurasi yang berbeda)'
+    enterVersionNameDesc: 'Silakan masukkan nama untuk versi ini (untuk membedakan konfigurasi yang berbeda)',
+    pathMissing: 'File Tidak Ditemukan',
+    pathMissingMessage: 'File tidak ditemukan, folder game mungkin telah dihapus secara manual'
   },
   mods: {
     title: 'Manajemen Mod',

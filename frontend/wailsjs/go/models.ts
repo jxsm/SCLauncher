@@ -65,6 +65,7 @@ export namespace version {
 	    releaseDate: any;
 	    installed: boolean;
 	    localPath?: string;
+	    pathExists: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Version(source);
@@ -85,6 +86,7 @@ export namespace version {
 	        this.releaseDate = this.convertValues(source["releaseDate"], null);
 	        this.installed = source["installed"];
 	        this.localPath = source["localPath"];
+	        this.pathExists = source["pathExists"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

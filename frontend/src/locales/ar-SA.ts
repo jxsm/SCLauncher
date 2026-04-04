@@ -178,7 +178,9 @@ export default {
     installSuccess: 'تم التثبيت بنجاح',
     installFailed: 'فشل التثبيت',
     selectArchiveFailed: 'فشل اختيار ملف الأرشيف',
-    enterVersionNameDesc: 'الرجاء إدخال اسم لهذا الإصدار (لتمييز التكوينات المختلفة)'
+    enterVersionNameDesc: 'الرجاء إدخال اسم لهذا الإصدار (لتمييز التكوينات المختلفة)',
+    pathMissing: 'الملف غير موجود',
+    pathMissingMessage: 'الملف غير موجود، قد تم حذف مجلد اللعبة يدوياً'
   },
   mods: {
     title: 'إدارة التعديلات',
