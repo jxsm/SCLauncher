@@ -213,7 +213,9 @@ export default {
     noMatchingMods: 'Tidak ada mod yang cocok ditemukan',
     totalMods: 'Total {total} mod, menampilkan {displayed}',
     openFolderFailed: 'Gagal membuka folder',
-    loadVersionsFailed: 'Gagal memuat daftar versi'
+    loadVersionsFailed: 'Gagal memuat daftar versi',
+    versionPathMissing: 'Jalur versi tidak ada, dilewati secara otomatis',
+    noValidVersions: 'Tidak ditemukan versi game yang valid'
   },
   skins: {
     title: 'Manajemen Kulit',

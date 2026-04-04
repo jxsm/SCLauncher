@@ -213,7 +213,9 @@ export default {
     noMatchingMods: 'कोई मिलाने वाले मॉड नहीं मिले',
     totalMods: 'कुल {total} मॉड, {displayed} दिखा रहे हैं',
     openFolderFailed: 'फ़ोल्डर खोलने में विफल',
-    loadVersionsFailed: 'संस्करण सूची लोड करने में विफल'
+    loadVersionsFailed: 'संस्करण सूची लोड करने में विफल',
+    versionPathMissing: 'संस्करण पथ मौजूद नहीं है, स्वचालित रूप से छोड़ दिया गया',
+    noValidVersions: 'कोई मान्य गेम संस्करण नहीं मिला'
   },
   skins: {
     title: 'स्किन प्रबंधन',

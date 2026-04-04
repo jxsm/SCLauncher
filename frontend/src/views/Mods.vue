@@ -144,12 +144,14 @@ const filterOptions = computed(() => [
   { label: t('mods.disabled'), value: 'disabled' }
 ])
 
-// Installed version options
+// Installed version options (filter out versions with missing paths)
 const installedVersionOptions = computed(() => {
-  return versionStore.installedVersions.map(v => ({
-    label: v.name,
-    value: v.id
-  }))
+  return versionStore.installedVersions
+    .filter(v => v.pathExists !== false && v.pathExists !== undefined)
+    .map(v => ({
+      label: v.name,
+      value: v.id
+    }))
 })
 
 // Filtered mods based on search and filter
@@ -240,26 +242,33 @@ onMounted(async () => {
     await versionStore.getVersions()
     await versionStore.getPrimaryVersion()
 
+    // Get valid versions (paths exist)
+    const validVersions = versionStore.installedVersions.filter(v => v.pathExists !== false && v.pathExists !== undefined)
+
     // Check if versionId is provided in route query
     const versionIdFromRoute = route.query.versionId as string
     if (versionIdFromRoute) {
-      // Check if the version exists and is installed
-      const version = versionStore.installedVersions.find(v => v.id === versionIdFromRoute)
+      // Check if the version exists and path exists
+      const version = validVersions.find(v => v.id === versionIdFromRoute)
       if (version) {
         selectedVersion.value = versionIdFromRoute
         await modStore.loadMods(selectedVersion.value)
         return
       }
+      message.warning(t('mods.versionPathMissing'))
     }
 
-    // Select primary version by default
-    if (versionStore.primaryVersion) {
+    // Select primary version by default (if path exists)
+    if (versionStore.primaryVersion && versionStore.primaryVersion.pathExists !== false && versionStore.primaryVersion.pathExists !== undefined) {
       selectedVersion.value = versionStore.primaryVersion.id
       await modStore.loadMods(selectedVersion.value)
-    } else if (versionStore.installedVersions.length > 0) {
-      // If no primary version, select the first installed version
-      selectedVersion.value = versionStore.installedVersions[0].id
+    } else if (validVersions.length > 0) {
+      // If no primary version or primary version path missing, select the first valid version
+      selectedVersion.value = validVersions[0].id
       await modStore.loadMods(selectedVersion.value)
+    } else {
+      // No valid versions found
+      message.warning(t('mods.noValidVersions'))
     }
   } catch (error) {
     message.error(t('mods.loadVersionsFailed') + '：' + error)

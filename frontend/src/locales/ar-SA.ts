@@ -213,7 +213,9 @@ export default {
     noMatchingMods: 'لم يتم العثور على تعديلات مطابقة',
     totalMods: 'المجموع {total} تعديلات، عرض {displayed}',
     openFolderFailed: 'فشل فتح المجلد',
-    loadVersionsFailed: 'فشل تحميل قائمة الإصدارات'
+    loadVersionsFailed: 'فشل تحميل قائمة الإصدارات',
+    versionPathMissing: 'مسار الإصدار غير موجود، تم التخطي تلقائياً',
+    noValidVersions: 'لم يتم العثور على إصدارات لعبة صالحة'
   },
   skins: {
     title: 'إدارة الأskins',

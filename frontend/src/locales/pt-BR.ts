@@ -213,7 +213,9 @@ export default {
     noMatchingMods: 'Nenhum mod correspondente encontrado',
     totalMods: 'Total {total} mods, exibindo {displayed}',
     openFolderFailed: 'Falha ao abrir pasta',
-    loadVersionsFailed: 'Falha ao carregar lista de versões'
+    loadVersionsFailed: 'Falha ao carregar lista de versões',
+    versionPathMissing: 'Caminho da versão não existe, automaticamente ignorado',
+    noValidVersions: 'Nenhuma versão de jogo válida encontrada'
   },
   skins: {
     title: 'Gerenciamento de Skins',

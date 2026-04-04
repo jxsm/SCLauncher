@@ -213,7 +213,9 @@ export default {
     noMatchingMods: 'Соответствующие моды не найдены',
     totalMods: 'Всего {total} модов, отображено {displayed}',
     openFolderFailed: 'Не удалось открыть папку',
-    loadVersionsFailed: 'Не удалось загрузить список версий'
+    loadVersionsFailed: 'Не удалось загрузить список версий',
+    versionPathMissing: 'Путь к версии не существует, автоматически пропущен',
+    noValidVersions: 'Не найдено допустимых версий игры'
   },
   skins: {
     title: 'Управление скинами',

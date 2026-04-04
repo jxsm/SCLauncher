@@ -213,7 +213,9 @@ export default {
     noMatchingMods: '没有找到匹配的模组',
     totalMods: '共 {total} 个模组，显示 {displayed} 个',
     openFolderFailed: '打开文件夹失败',
-    loadVersionsFailed: '加载版本列表失败'
+    loadVersionsFailed: '加载版本列表失败',
+    versionPathMissing: '版本路径不存在，已自动跳过',
+    noValidVersions: '没有找到有效的游戏版本'
   },
   skins: {
     title: '皮肤管理',
