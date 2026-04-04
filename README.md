@@ -8,7 +8,7 @@
 
 A modern launcher for Survivalcraft game
 
-[**简体中文**](README_ZH.md) | **English**
+[**简体中文**](docs/README_ZH.md) | **English**
 
 </div>
 
@@ -40,6 +40,20 @@ SCLauncher is a modern launcher designed specifically for the game "Survivalcraf
 - **Lightweight** - Small size, fast startup
 - **High Performance** - Native performance, smooth experience
 - **Data Persistence** - Local database, safe and reliable
+
+## 📸 Preview Images
+
+### Home Page
+![Home Page](docs/img/HomePage.png)
+
+### Versions Management
+![Versions Management](docs/img/VersionsPage.png)
+
+### Version Download
+![Version Download](docs/img/installPage.png)
+
+### Mods Management
+![Mods Management](docs/img/modsPage.png)
 
 ## 🚀 Quick Start
 

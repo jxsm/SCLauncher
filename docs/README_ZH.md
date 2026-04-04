@@ -8,7 +8,7 @@
 
 一个现代化的生存战争（SurvivalCraft）游戏启动器
 
-[**English**](README.md) | **简体中文**
+[**English**](../README.md) | **简体中文**
 
 </div>
 
@@ -40,6 +40,20 @@ SCLauncher 是一个专为《生存战争》游戏设计的现代化启动器，
 - **轻量级** - 体积小、启动快
 - **高性能** - 原生性能，流畅体验
 - **数据持久化** - 本地数据库，安全可靠
+
+## 📸 预览图片
+
+### 首页
+![首页](img/HomePage.png)
+
+### 版本管理
+![版本管理](img/VersionsPage.png)
+
+### 版本下载
+![版本下载](img/installPage.png)
+
+### 模组管理
+![模组管理](img/modsPage.png)
 
 ## 🚀 快速开始
 
