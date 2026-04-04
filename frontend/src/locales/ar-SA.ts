@@ -249,6 +249,7 @@ export default {
     selectLanguage: 'اختيار اللغة',
     languageSaved: 'تم حفظ إعدادات اللغة. أعد التشغيل لتطبيق التغييرات.',
     paths: 'معلومات المسار',
+    pathsPortableInfo: 'جميع البيانات مخزنة في مجلد .Survivalcraft بجانب المشغل، مما يسهل نقله ونسخه احتياطياً',
     dataDir: 'دليل البيانات',
     versionsDir: 'دليل الإصدارات',
     downloadsDir: 'دليل التحميلات',

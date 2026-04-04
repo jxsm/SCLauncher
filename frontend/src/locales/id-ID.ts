@@ -249,6 +249,7 @@ export default {
     selectLanguage: 'Pilih Bahasa',
     languageSaved: 'Pengaturan bahasa disimpan. Restart untuk menerapkan perubahan.',
     paths: 'Informasi Jalur',
+    pathsPortableInfo: 'Semua data disimpan di folder .Survivalcraft di samping launcher, memudahkan untuk dibawa dan dibackup',
     dataDir: 'Direktori Data',
     versionsDir: 'Direktori Versi',
     downloadsDir: 'Direktori Unduhan',

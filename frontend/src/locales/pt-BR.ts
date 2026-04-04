@@ -249,6 +249,7 @@ export default {
     selectLanguage: 'Selecione o idioma',
     languageSaved: 'Configurações de idioma salvas. Reinicie para aplicar as mudanças.',
     paths: 'Informações de Caminho',
+    pathsPortableInfo: 'Todos os dados são armazenados na pasta .Survivalcraft ao lado do launcher, facilitando o transporte e backup',
     dataDir: 'Diretório de Dados',
     versionsDir: 'Diretório de Versões',
     downloadsDir: 'Diretório de Downloads',

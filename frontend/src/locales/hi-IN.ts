@@ -249,6 +249,7 @@ export default {
     selectLanguage: 'भाषा चुनें',
     languageSaved: 'भाषा सेटिंग्स सहेज गई। बदलावों को लागू करने के लिए पुनरारंभ करें।',
     paths: 'पथ जानकारी',
+    pathsPortableInfo: 'सभी डेटा लॉन्चर के पास .Survivalcraft फ़ोल्डर में संग्रहीत है, जिससे ले जाना और बैकअप लेना आसान हो जाता है',
     dataDir: 'डेटा निर्देशिका',
     versionsDir: 'संस्करण निर्देशिका',
     downloadsDir: 'डाउनलोड निर्देशिका',

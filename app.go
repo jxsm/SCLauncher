@@ -72,8 +72,8 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogWarning(a.ctx, fmt.Sprintf("自动检测语言失败: %v", err))
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("版本目录: %s", cfg.VersionsDir))
-	runtime.LogInfo(a.ctx, fmt.Sprintf("下载目录: %s", cfg.DownloadsDir))
+	runtime.LogInfo(a.ctx, fmt.Sprintf("版本目录: %s", cfg.GetVersionsDir()))
+	runtime.LogInfo(a.ctx, fmt.Sprintf("下载目录: %s", cfg.GetDownloadsDir()))
 
 	// 初始化数据库
 	db, err := storage.New(appDataDir)
@@ -124,13 +124,13 @@ func (a *App) GetAppInfo() map[string]string {
 	}
 }
 
-// GetConfig 获取配置
+// GetConfig 获取配置（返回相对路径格式给前端显示）
 func (a *App) GetConfig() map[string]interface{} {
 	return map[string]interface{}{
 		"manifestUrl":     a.config.ManifestURL,
-		"versionsDir":     a.config.VersionsDir,
-		"dataDir":         a.config.DataDir,
-		"downloadsDir":    a.config.DownloadsDir,
+		"versionsDir":     a.config.GetRelativePathForDisplay(a.config.GetVersionsDir()),
+		"dataDir":         a.config.GetRelativePathForDisplay(a.config.GetDataDir()),
+		"downloadsDir":    a.config.GetRelativePathForDisplay(a.config.GetDownloadsDir()),
 		"maxConcurrent":   a.config.MaxConcurrent,
 		"currentVersion":  a.config.CurrentVersion,
 		"theme":           a.config.Theme,

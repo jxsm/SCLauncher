@@ -45,14 +45,14 @@ func NewPaths(config *Config) *Paths {
 	return &Paths{config: config}
 }
 
-// GetVersionsDir 获取版本根目录
+// GetVersionsDir 获取版本根目录（绝对路径）
 func (p *Paths) GetVersionsDir() string {
-	return p.config.VersionsDir
+	return p.config.GetVersionsDir()
 }
 
-// GetVersionPath 获取指定版本的根目录
+// GetVersionPath 获取指定版本的根目录（绝对路径）
 func (p *Paths) GetVersionPath(versionID string) string {
-	return filepath.Join(p.config.VersionsDir, versionID)
+	return filepath.Join(p.GetVersionsDir(), versionID)
 }
 
 // GetGameExecutablePath 查找游戏可执行文件路径
@@ -88,7 +88,7 @@ func (p *Paths) GetGameExecutablePath(versionID string) (string, error) {
 	return "", os.ErrNotExist
 }
 
-// GetModPath 获取模组目录路径
+// GetModPath 获取模组目录路径（绝对路径）
 func (p *Paths) GetModPath(versionID string) string {
 	return filepath.Join(p.GetVersionPath(versionID), "mods")
 }
@@ -99,7 +99,7 @@ func (p *Paths) EnsureModDir(versionID string) error {
 	return os.MkdirAll(modPath, 0755)
 }
 
-// GetGameDataPath 获取游戏数据目录
+// GetGameDataPath 获取游戏数据目录（绝对路径）
 func (p *Paths) GetGameDataPath(versionID string) string {
 	return filepath.Join(p.GetVersionPath(versionID), "data")
 }
@@ -110,14 +110,14 @@ func (p *Paths) EnsureGameDataDir(versionID string) error {
 	return os.MkdirAll(dataPath, 0755)
 }
 
-// GetDownloadTempPath 获取下载临时文件路径
+// GetDownloadTempPath 获取下载临时文件路径（绝对路径）
 func (p *Paths) GetDownloadTempPath(filename string) string {
-	return filepath.Join(p.config.DownloadsDir, ".tmp", filename)
+	return filepath.Join(p.config.GetDownloadsDir(), ".tmp", filename)
 }
 
-// GetDownloadTempDir 获取下载临时目录
+// GetDownloadTempDir 获取下载临时目录（绝对路径）
 func (p *Paths) GetDownloadTempDir() string {
-	return filepath.Join(p.config.DownloadsDir, ".tmp")
+	return filepath.Join(p.config.GetDownloadsDir(), ".tmp")
 }
 
 // EnsureDownloadTempDir 确保下载临时目录存在
@@ -126,14 +126,14 @@ func (p *Paths) EnsureDownloadTempDir() error {
 	return os.MkdirAll(tempDir, 0755)
 }
 
-// GetDatabasePath 获取数据库文件路径
+// GetDatabasePath 获取数据库文件路径（绝对路径）
 func (p *Paths) GetDatabasePath() string {
-	return filepath.Join(p.config.DataDir, "database.db")
+	return filepath.Join(p.config.GetDataDir(), "database.db")
 }
 
-// GetLogPath 获取日志文件路径
+// GetLogPath 获取日志文件路径（绝对路径）
 func (p *Paths) GetLogPath() string {
-	return filepath.Join(p.config.DataDir, "launcher.log")
+	return filepath.Join(p.config.GetDataDir(), "launcher.log")
 }
 
 // GetConfigPath 获取配置文件路径
@@ -184,9 +184,9 @@ func (p *Paths) IsVersionInstalled(versionID string) bool {
 	return err == nil && execPath != ""
 }
 
-// GetSkinsDir 获取皮肤存储目录
+// GetSkinsDir 获取皮肤存储目录（绝对路径）
 func (p *Paths) GetSkinsDir() string {
-	return filepath.Join(p.config.DataDir, "Skins")
+	return filepath.Join(p.config.GetDataDir(), "Skins")
 }
 
 // GetGameCharacterSkinsDir 获取游戏角色皮肤目录
@@ -199,12 +199,12 @@ func (p *Paths) GetGameDocCharacterSkinsDir(versionID string) string {
 	return filepath.Join(p.GetVersionPath(versionID), "doc", "CharacterSkins")
 }
 
-// GetBackgroundImageDir 获取背景图片存储目录
+// GetBackgroundImageDir 获取背景图片存储目录（绝对路径）
 func (p *Paths) GetBackgroundImageDir() string {
-	return filepath.Join(p.config.DataDir, "Backgrounds")
+	return filepath.Join(p.config.GetDataDir(), "Backgrounds")
 }
 
-// GetBackgroundImagePath 获取背景图片的完整路径
+// GetBackgroundImagePath 获取背景图片的完整路径（绝对路径）
 func (p *Paths) GetBackgroundImagePath(filename string) string {
 	if filename == "" {
 		return ""

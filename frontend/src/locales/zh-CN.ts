@@ -249,6 +249,7 @@ export default {
     selectLanguage: '选择语言',
     languageSaved: '语言设置已保存，重启后生效',
     paths: '路径信息',
+    pathsPortableInfo: '所有数据存储在启动器旁边的 .Survivalcraft 文件夹中，便于携带和备份',
     dataDir: '数据目录',
     versionsDir: '版本目录',
     downloadsDir: '下载目录',
