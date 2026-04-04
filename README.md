@@ -1,4 +1,4 @@
-# SCLauncher - 生存战争启动器
+# SCLauncher - Survivalcraft Launcher
 
 <div align="center">
 
@@ -6,112 +6,112 @@
 ![Vue](https://img.shields.io/badge/Vue-3.3+-4FC08D?logo=vue.js)
 ![Wails](https://img.shields.io/badge/Wails-v2.0+-5A5DF5)
 
-一个现代化的生存战争（SurvivalCraft）游戏启动器
+A modern launcher for Survivalcraft game
 
-[**English**](README_EN.md) | **简体中文**
+[**简体中文**](README_ZH.md) | **English**
 
 </div>
 
-## 📖 项目简介
+## 📖 Project Introduction
 
-SCLauncher 是一个专为《生存战争》游戏设计的现代化启动器，提供版本管理、模组安装、皮肤管理、一键启动等功能，让游戏管理更加简单便捷。
+SCLauncher is a modern launcher designed specifically for the game "Survivalcraft". It provides features such as version management, mod installation, skin management, and one-click launch, making game management simpler and more convenient.
 
-### ✨ 功能特性
+### ✨ Features
 
-#### 🎮 核心功能
-- **一键启动** - 快速启动游戏，支持多版本管理
-- **版本管理** - 安装多个游戏版本，轻松切换
-- **版本下载** - 自动从清单文件下载游戏版本，支持断点续传
-- **模组管理** - 简单的模组安装/卸载功能，支持启用/禁用
-- **皮肤管理** - 统一管理游戏皮肤，支持导入 `.scskin` 格式皮肤文件
-- **导入游戏** - 支持导入已安装的 Survivalcraft 游戏版本到启动器管理
-- **多语言支持** - 支持7种语言（简体中文、英语、俄语、葡萄牙语、印地语、印尼语、阿拉伯语）
-- **智能同步** - 启动游戏时自动将皮肤同步到游戏目录，使用硬链接节省空间
-- **进度显示** - 实时显示下载和安装进度
-- **主要版本** - 设置默认启动版本
+#### 🎮 Core Features
+- **One-Click Launch** - Quick game launch with multi-version management support
+- **Version Management** - Install multiple game versions and switch between them easily
+- **Version Download** - Automatically download game versions from manifest files with resume support
+- **Mod Management** - Simple mod installation/uninstallation with enable/disable functionality
+- **Skin Management** - Unified management of game skins, supporting `.scskin` format skin files
+- **Import Game** - Import installed Survivalcraft game versions into the launcher for management
+- **Multi-language Support** - Supports 7 languages (Chinese, English, Russian, Portuguese, Hindi, Indonesian, Arabic)
+- **Smart Sync** - Automatically sync skins to game directory on launch using hard links to save space
+- **Progress Display** - Real-time download and installation progress
+- **Primary Version** - Set default launch version
 
-#### 🎨 界面设计
-- **简洁现代** - 扁平化设计，清爽的视觉体验
-- **响应式布局** - 适配不同分辨率
-- **流畅动画** - 细腻的交互体验
-- **暗色主题** - 护眼的暗色界面
+#### 🎨 Interface Design
+- **Clean & Modern** - Flat design with refreshing visual experience
+- **Responsive Layout** - Adapts to different resolutions
+- **Smooth Animations** - Delicate interactive experience
+- **Dark Theme** - Eye-friendly dark interface
 
-#### 🔧 技术特性
-- **轻量级** - 体积小、启动快
-- **高性能** - 原生性能，流畅体验
-- **数据持久化** - 本地数据库，安全可靠
+#### 🔧 Technical Features
+- **Lightweight** - Small size, fast startup
+- **High Performance** - Native performance, smooth experience
+- **Data Persistence** - Local database, safe and reliable
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-1. 下载最新版本的 SCLauncher 的 exe 文件
-2. 首次运行会自动检测系统语言并设置界面语言
-3. 打开"设置"页面配置清单文件 URL
-4. 在"版本下载"页面选择并下载游戏版本
-5. （可选）在"皮肤管理"页面导入游戏皮肤文件
-6. 在"首页"或"已安装版本"页面启动游戏
+1. Download the latest version of SCLauncher exe file
+2. First run will automatically detect system language and set interface language
+3. Open "Settings" page to configure manifest file URL
+4. Select and download game versions from "Versions Download" page
+5. (Optional) Import game skin files in "Skin Management" page
+6. Launch game from "Home" or "Installed Versions" page
 
-## 📁 目录结构
+## 📁 Directory Structure
 
 ```
 SCLauncher/
-├── versions/             # 游戏版本目录
-│   └── [版本ID]/        # 各个版本的独立目录
-│       ├── game.exe     # 游戏可执行文件
-│       ├── data/        # 游戏数据
-│       ├── mods/        # 模组目录
-│       ├── CharacterSkins/  # 游戏角色皮肤（自动同步）
+├── versions/             # Game versions directory
+│   └── [version_id]/    # Individual version directories
+│       ├── game.exe     # Game executable
+│       ├── data/        # Game data
+│       ├── mods/        # Mods directory
+│       ├── CharacterSkins/  # Game character skins (auto-synced)
 │       └── doc/
-│           └── CharacterSkins/  # 游戏文档皮肤（自动同步）
-├── Skins/               # 皮肤文件存储目录（统一管理）
-│   └── *.scskin        # 皮肤文件（实际为PNG格式）
-└── downloads/            # 临时下载目录
+│           └── CharacterSkins/  # Game doc skins (auto-synced)
+├── Skins/               # Skin file storage directory (unified management)
+│   └── *.scskin        # Skin files (actually PNG format)
+└── downloads/            # Temporary download directory
 ```
 
-## ⚠️ 注意事项
+## ⚠️ Important Notes
 
-1. **首次使用**：需要先配置清单文件 URL 才能下载游戏版本
-2. **网络连接**：下载游戏版本需要稳定的网络连接
-3. **磁盘空间**：确保有足够的磁盘空间存储游戏文件
-4. **版本隔离**：每个版本独立安装，互不影响
-5. **模组兼容**：请注意模组与游戏版本的兼容性
+1. **First Use**: Need to configure manifest file URL before downloading game versions
+2. **Network Connection**: Stable network connection required for downloading game versions
+3. **Disk Space**: Ensure sufficient disk space for game files
+4. **Version Isolation**: Each version is installed independently and does not affect others
+5. **Mod Compatibility**: Pay attention to mod compatibility with game versions
 
-## 🐛 常见问题
+## 🐛 FAQ
 
-**Q: 下载失败怎么办？**
-A: 检查网络连接和清单文件 URL 是否正确，可以尝试重新下载。
+**Q: What to do if download fails?**
+A: Check network connection and manifest file URL, try downloading again.
 
-**Q: 游戏无法启动？**
-A: 确认游戏文件完整，可以在已安装页面打开文件夹检查文件是否存在。也有可能提供的游戏版本文件不完整，可以反馈一下
+**Q: Game won't launch?**
+A: Confirm game files are complete. You can open the folder in the installed versions page to check if files exist. It's also possible the provided game version files are incomplete, please provide feedback.
 
-**Q: 模组不生效？**
-A: 确认模组已启用（复选框勾选），且模组与游戏版本兼容。
+**Q: Mods not working?**
+A: Confirm mods are enabled (checkbox checked) and compatible with the game version.
 
-**Q: 如何切换游戏版本？**
-A: 在首页或已安装版本页面选择要启动的版本，点击"启动"按钮即可。
+**Q: How to switch game versions?**
+A: Select the version you want to launch from the home page or installed versions page, then click "Launch" button.
 
-**Q: 如何使用皮肤功能？**
-A: 在"皮肤管理"页面点击"导入皮肤"，选择 `.scskin` 格式的皮肤文件。启动游戏时会自动将皮肤同步到游戏目录。
+**Q: How to use skin feature?**
+A: Click "Import Skin" in "Skin Management" page and select `.scskin` format skin files. Skins will be automatically synced to game directory when launching.
 
-**Q: 什么是 .scskin 文件？**
-A: `.scskin` 文件是生存战争游戏的皮肤文件格式，实际上是 PNG 图片文件。启动器会自动识别并正确处理这些文件。
+**Q: What is .scskin file?**
+A: `.scskin` file is the skin file format for Survivalcraft game, actually a PNG image file. The launcher will automatically recognize and properly handle these files.
 
-**Q: 皮肤文件存储在哪里？**
-A: 所有皮肤文件统一存储在 `Skins/` 目录中，游戏目录中的皮肤文件是通过硬链接方式引用的(有可能会降级为复制文件)，节省磁盘空间。
+**Q: Where are skin files stored?**
+A: All skin files are uniformly stored in the `Skins/` directory. Skin files in game directory are referenced via hard links (may downgrade to copy), saving disk space.
 
-**Q: 支持哪些语言？**
-A: 目前支持7种语言：简体中文、英语、俄语、葡萄牙语（巴西）、印地语、印尼语、阿拉伯语。启动器会根据系统语言自动选择界面语言，也可以在设置中手动更改。
+**Q: Which languages are supported?**
+A: Currently supports 7 languages: Simplified Chinese, English, Russian, Portuguese (Brazil), Hindi, Indonesian, Arabic. The launcher will automatically select interface language based on system language, or you can manually change it in settings.
 
-**Q: 如何更改界面语言？**
-A: 在"设置"页面的"语言设置"部分选择您需要的语言，更改后立即生效。
+**Q: How to change interface language?**
+A: Select your desired language in the "Language Settings" section of the "Settings" page. Changes take effect immediately.
 
-**Q: 如何导入已有的游戏？**
-A: 在"已安装版本"页面点击"导入游戏"按钮，选择包含 Survivalcraft.exe 的游戏文件夹。导入后的游戏版本可以像正常下载的版本一样进行管理。
+**Q: How to import existing games?**
+A: Click "Import Game" button in "Installed Versions" page and select the game folder containing Survivalcraft.exe. Imported game versions can be managed just like normally downloaded versions.
 
 ---
 
 <div align="center">
 
-**[⬆ 回到顶部](#sclauncher---生存战争启动器)**
+**[⬆ Back to Top](#sclauncher---survivalcraft-launcher)**
 
 Made with ❤️
 

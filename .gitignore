@@ -2,7 +2,10 @@ build/bin
 node_modules
 frontend/dist
 
-# Ignore all markdown files except README.md and README_EN.md
+# Ignore .claude directory
+.claude/
+
+# Ignore all markdown files except README.md and README_ZH.md
 *.md
 !README.md
-!README_EN.md
+!README_ZH.md
