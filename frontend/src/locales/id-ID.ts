@@ -172,7 +172,13 @@ export default {
     importing: 'Mengimpor game...',
     importSuccess: 'Game berhasil diimpor',
     importFailed: 'Gagal mengimpor game',
-    selectFolderFailed: 'Gagal memilih folder'
+    selectFolderFailed: 'Gagal memilih folder',
+    localInstall: 'Instalasi Lokal',
+    installing: 'Menginstal...',
+    installSuccess: 'Instalasi berhasil',
+    installFailed: 'Instalasi gagal',
+    selectArchiveFailed: 'Gagal memilih file arsip',
+    enterVersionNameDesc: 'Silakan masukkan nama untuk versi ini (untuk membedakan konfigurasi yang berbeda)'
   },
   mods: {
     title: 'Manajemen Mod',

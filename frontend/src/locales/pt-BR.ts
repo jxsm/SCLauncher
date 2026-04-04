@@ -172,7 +172,13 @@ export default {
     importing: 'Importando jogo...',
     importSuccess: 'Jogo importado com sucesso',
     importFailed: 'Falha ao importar jogo',
-    selectFolderFailed: 'Falha ao selecionar pasta'
+    selectFolderFailed: 'Falha ao selecionar pasta',
+    localInstall: 'Instalação Local',
+    installing: 'Instalando...',
+    installSuccess: 'Instalação bem-sucedida',
+    installFailed: 'Falha na instalação',
+    selectArchiveFailed: 'Falha ao selecionar arquivo de arquivo',
+    enterVersionNameDesc: 'Por favor, digite um nome para esta versão (para distinguir diferentes configurações)'
   },
   mods: {
     title: 'Gerenciamento de Mods',

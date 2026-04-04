@@ -172,7 +172,13 @@ export default {
     importing: 'गेम आयात हो रहा है...',
     importSuccess: 'गेम सफलतापूर्वक आयात किया गया',
     importFailed: 'गेम आयात करने में विफल',
-    selectFolderFailed: 'फ़ोल्डर चुनने में विफल'
+    selectFolderFailed: 'फ़ोल्डर चुनने में विफल',
+    localInstall: 'स्थानीय इंस्टॉल',
+    installing: 'स्थापित कर रहा है...',
+    installSuccess: 'स्थापना सफल',
+    installFailed: 'स्थापना विफल',
+    selectArchiveFailed: 'अभिलेख फ़ाइल चुनने में विफल',
+    enterVersionNameDesc: 'कृपया इस संस्करण के लिए एक नाम दर्ज करें (विभिन्न कॉन्फ़िगरेशन को अलग करने के लिए)'
   },
   mods: {
     title: 'मॉड प्रबंधन',

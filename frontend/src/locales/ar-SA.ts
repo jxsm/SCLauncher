@@ -172,7 +172,13 @@ export default {
     importing: 'جاري استيراد اللعبة...',
     importSuccess: 'تم استيراد اللعبة بنجاح',
     importFailed: 'فشل استيراد اللعبة',
-    selectFolderFailed: 'فشل اختيار المجلد'
+    selectFolderFailed: 'فشل اختيار المجلد',
+    localInstall: 'التثبيت المحلي',
+    installing: 'جاري التثبيت...',
+    installSuccess: 'تم التثبيت بنجاح',
+    installFailed: 'فشل التثبيت',
+    selectArchiveFailed: 'فشل اختيار ملف الأرشيف',
+    enterVersionNameDesc: 'الرجاء إدخال اسم لهذا الإصدار (لتمييز التكوينات المختلفة)'
   },
   mods: {
     title: 'إدارة التعديلات',

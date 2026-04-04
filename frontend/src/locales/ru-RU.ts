@@ -172,7 +172,13 @@ export default {
     importing: 'Импортирование игры...',
     importSuccess: 'Игра успешно импортирована',
     importFailed: 'Не удалось импортировать игру',
-    selectFolderFailed: 'Не удалось выбрать папку'
+    selectFolderFailed: 'Не удалось выбрать папку',
+    localInstall: 'Локальная установка',
+    installing: 'Установка...',
+    installSuccess: 'Установка прошла успешно',
+    installFailed: 'Ошибка установки',
+    selectArchiveFailed: 'Не удалось выбрать архивный файл',
+    enterVersionNameDesc: 'Пожалуйста, введите название для этой версии (для различения разных конфигураций)'
   },
   mods: {
     title: 'Управление модами',
