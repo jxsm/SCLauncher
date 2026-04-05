@@ -337,6 +337,7 @@ export default {
     updateContent: 'Conteúdo da Atualização',
     noUpdateContent: 'Nenhuma informação de atualização disponível',
     goToDownload: 'Ir para Download',
+    dontRemindFor30Days: 'Não lembrar por 30 dias',
     checkUpdateFailed: 'Falha ao verificar atualização',
     loadConfigFailed: 'Falha ao carregar configuração',
     saveFailed: 'Falha ao salvar',

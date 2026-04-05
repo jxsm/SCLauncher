@@ -15,6 +15,8 @@ export function CancelDownload(arg1:string):Promise<void>;
 
 export function CheckUpdate():Promise<Record<string, any>>;
 
+export function CheckUpdateWithForce(arg1:boolean):Promise<Record<string, any>>;
+
 export function ClearBackground():Promise<void>;
 
 export function DeleteMod(arg1:string,arg2:string):Promise<void>;
@@ -114,6 +116,8 @@ export function SetManifestURL(arg1:string):Promise<void>;
 export function SetMaxConcurrent(arg1:number):Promise<void>;
 
 export function SetPrimaryVersion(arg1:string):Promise<void>;
+
+export function SetUpdateRemindDisabled(arg1:boolean):Promise<void>;
 
 export function StopGame():Promise<void>;
 

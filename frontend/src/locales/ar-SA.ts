@@ -337,6 +337,7 @@ export default {
     updateContent: 'محتوى التحديث',
     noUpdateContent: 'لا توجد معلومات تحديث متاحة',
     goToDownload: 'الذهاب إلى التحميل',
+    dontRemindFor30Days: 'لا تذكر لمدة 30 يومًا',
     checkUpdateFailed: 'فشل التحقق من التحديثات',
     loadConfigFailed: 'فشل تحميل التكوين',
     saveFailed: 'فشل الحفظ',

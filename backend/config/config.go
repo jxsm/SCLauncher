@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Config 应用配置
@@ -39,6 +40,9 @@ type Config struct {
 	// 背景图片路径（相对路径）
 	BackgroundImage string `json:"backgroundImage"`
 
+	// 不再提醒更新的时间戳（Unix时间戳，0表示未设置）
+	UpdateRemindDisableUntil int64 `json:"updateRemindDisableUntil"`
+
 	// 配置文件路径
 	configPath string
 
@@ -58,10 +62,11 @@ func DefaultConfig() *Config {
 		MaxConcurrent:    3,
 		CurrentVersion:   "",
 		Theme:            "dark",
-		Language:         "zh-CN",
-		AutoCheckUpdates: true,
-		BackgroundImage:  "",
-		execDir:          execDir,
+		Language:                  "zh-CN",
+		AutoCheckUpdates:           true,
+		BackgroundImage:            "",
+		UpdateRemindDisableUntil:   0,
+		execDir:                    execDir,
 	}
 }
 
@@ -169,27 +174,29 @@ func (c *Config) Save() error {
 
 	// 创建临时配置对象用于序列化（只保存相对路径）
 	tempConfig := struct {
-		ManifestURL      string `json:"manifestUrl"`
-		VersionsDir      string `json:"versionsDir"`
-		DataDir          string `json:"dataDir"`
-		DownloadsDir     string `json:"downloadsDir"`
-		MaxConcurrent    int    `json:"maxConcurrent"`
-		CurrentVersion   string `json:"currentVersion"`
-		Theme            string `json:"theme"`
-		Language         string `json:"language"`
-		AutoCheckUpdates bool   `json:"autoCheckUpdates"`
-		BackgroundImage  string `json:"backgroundImage"`
+		ManifestURL               string `json:"manifestUrl"`
+		VersionsDir               string `json:"versionsDir"`
+		DataDir                   string `json:"dataDir"`
+		DownloadsDir              string `json:"downloadsDir"`
+		MaxConcurrent             int    `json:"maxConcurrent"`
+		CurrentVersion            string `json:"currentVersion"`
+		Theme                     string `json:"theme"`
+		Language                  string `json:"language"`
+		AutoCheckUpdates          bool   `json:"autoCheckUpdates"`
+		BackgroundImage           string `json:"backgroundImage"`
+		UpdateRemindDisableUntil  int64  `json:"updateRemindDisableUntil"`
 	}{
-		ManifestURL:      c.ManifestURL,
-		VersionsDir:      c.toRelativePath(c.VersionsDir),
-		DataDir:          c.toRelativePath(c.DataDir),
-		DownloadsDir:     c.toRelativePath(c.DownloadsDir),
-		MaxConcurrent:    c.MaxConcurrent,
-		CurrentVersion:   c.CurrentVersion,
-		Theme:            c.Theme,
-		Language:         c.Language,
-		AutoCheckUpdates: c.AutoCheckUpdates,
-		BackgroundImage:  c.toRelativePath(c.BackgroundImage),
+		ManifestURL:               c.ManifestURL,
+		VersionsDir:               c.toRelativePath(c.VersionsDir),
+		DataDir:                   c.toRelativePath(c.DataDir),
+		DownloadsDir:              c.toRelativePath(c.DownloadsDir),
+		MaxConcurrent:             c.MaxConcurrent,
+		CurrentVersion:            c.CurrentVersion,
+		Theme:                     c.Theme,
+		Language:                  c.Language,
+		AutoCheckUpdates:          c.AutoCheckUpdates,
+		BackgroundImage:           c.toRelativePath(c.BackgroundImage),
+		UpdateRemindDisableUntil:  c.UpdateRemindDisableUntil,
 	}
 
 	// 序列化为 JSON（带缩进）
@@ -316,4 +323,21 @@ func (c *Config) SetLanguage(lang string) error {
 func (c *Config) SetBackgroundImage(relativePath string) error {
 	c.BackgroundImage = relativePath
 	return c.Save()
+}
+
+// SetUpdateRemindDisableUntil 设置不再提醒更新的截止时间戳
+func (c *Config) SetUpdateRemindDisableUntil(timestamp int64) error {
+	c.UpdateRemindDisableUntil = timestamp
+	return c.Save()
+}
+
+// ShouldCheckUpdate 是否应该检查更新（考虑不再提醒期限）
+func (c *Config) ShouldCheckUpdate() bool {
+	// 如果未设置不再提醒，则应该检查
+	if c.UpdateRemindDisableUntil == 0 {
+		return true
+	}
+	// 检查当前时间是否已超过截止时间
+	currentTime := time.Now().Unix()
+	return currentTime > c.UpdateRemindDisableUntil
 }

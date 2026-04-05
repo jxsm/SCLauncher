@@ -337,6 +337,7 @@ export default {
     updateContent: 'Содержимое обновления',
     noUpdateContent: 'Нет информации об обновлении',
     goToDownload: 'Перейти к загрузке',
+    dontRemindFor30Days: 'Не напоминать 30 дней',
     checkUpdateFailed: 'Не удалось проверить обновление',
     loadConfigFailed: 'Не удалось загрузить конфигурацию',
     saveFailed: 'Не удалось сохранить',

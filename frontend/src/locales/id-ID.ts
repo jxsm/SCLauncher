@@ -337,6 +337,7 @@ export default {
     updateContent: 'Konten Pembaruan',
     noUpdateContent: 'Tidak ada informasi pembaruan tersedia',
     goToDownload: 'Buka Unduhan',
+    dontRemindFor30Days: 'Jangan ingatkan selama 30 hari',
     checkUpdateFailed: 'Gagal memeriksa pembaruan',
     loadConfigFailed: 'Gagal memuat konfigurasi',
     saveFailed: 'Gagal menyimpan',

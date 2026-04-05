@@ -22,6 +22,10 @@ export function CheckUpdate() {
   return window['go']['main']['App']['CheckUpdate']();
 }
 
+export function CheckUpdateWithForce(arg1) {
+  return window['go']['main']['App']['CheckUpdateWithForce'](arg1);
+}
+
 export function ClearBackground() {
   return window['go']['main']['App']['ClearBackground']();
 }
@@ -220,6 +224,10 @@ export function SetMaxConcurrent(arg1) {
 
 export function SetPrimaryVersion(arg1) {
   return window['go']['main']['App']['SetPrimaryVersion'](arg1);
+}
+
+export function SetUpdateRemindDisabled(arg1) {
+  return window['go']['main']['App']['SetUpdateRemindDisabled'](arg1);
 }
 
 export function StopGame() {

@@ -337,6 +337,7 @@ export default {
     updateContent: 'अपडेट सामग्री',
     noUpdateContent: 'कोई अपडेट जानकारी उपलब्ध नहीं',
     goToDownload: 'डाउनलोड पर जाएं',
+    dontRemindFor30Days: '30 दिनों तक याद न दिलाएं',
     checkUpdateFailed: 'अपडेट जांचने में विफल',
     loadConfigFailed: 'कॉन्फ़िगरेशन लोड करने में विफल',
     saveFailed: 'सहेजने में विफल',

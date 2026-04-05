@@ -839,6 +839,22 @@ type GitHubRelease struct {
 
 // CheckUpdate 检查更新
 func (a *App) CheckUpdate() (map[string]interface{}, error) {
+	return a.CheckUpdateWithForce(false)
+}
+
+// CheckUpdateWithForce 检查更新（可强制检查）
+func (a *App) CheckUpdateWithForce(force bool) (map[string]interface{}, error) {
+	// 如果不是强制检查，检查是否应该在期限内跳过
+	if !force && !a.config.ShouldCheckUpdate() {
+		runtime.LogInfo(a.ctx, "Update check is disabled by user preference")
+		return map[string]interface{}{
+			"currentVersion": appinfo.Version,
+			"latestVersion":  appinfo.Version,
+			"hasUpdate":      false,
+			"skipped":        true,
+		}, nil
+	}
+
 	// 获取最新 release
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", appinfo.RepoOwner, appinfo.RepoName)
 
@@ -914,6 +930,18 @@ func compareVersions(current, latest string) bool {
 	}
 
 	return false
+}
+
+// SetUpdateRemindDisabled 设置不再提醒更新（30天内不再检查）
+func (a *App) SetUpdateRemindDisabled(disabled bool) error {
+	var timestamp int64
+	if disabled {
+		// 设置为30天后的时间戳
+		timestamp = time.Now().Add(30 * 24 * time.Hour).Unix()
+	} else {
+		timestamp = 0
+	}
+	return a.config.SetUpdateRemindDisableUntil(timestamp)
 }
 
 // ========== 模组管理 API ==========

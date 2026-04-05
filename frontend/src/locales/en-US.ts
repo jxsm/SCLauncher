@@ -337,6 +337,7 @@ export default {
     updateContent: 'Update Content',
     noUpdateContent: 'No update notes available',
     goToDownload: 'Go to Download',
+    dontRemindFor30Days: "Don't remind for 30 days",
     checkUpdateFailed: 'Check update failed',
     loadConfigFailed: 'Failed to load configuration',
     saveFailed: 'Save failed',

@@ -65,7 +65,7 @@ import { useI18n } from "vue-i18n";
 import { darkTheme, NAlert, NDialogProvider, NButton } from "naive-ui";
 import { useGameStore } from "./stores/game";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
-import { CheckUpdate, GetConfig, GetBackgroundImageBase64 } from "./api/config";
+import { CheckUpdate, CheckUpdateForce, SetUpdateRemindDisabled, GetConfig, GetBackgroundImageBase64 } from "./api/config";
 import HomeView from "./views/Home.vue";
 import InstalledVersionsView from "./views/InstalledVersions.vue";
 import VersionsView from "./views/Versions.vue";
@@ -80,6 +80,7 @@ const router = useRouter();
 const gameStore = useGameStore();
 const activeTab = ref("home");
 const backgroundImage = ref("");
+const dontRemindCheckbox = ref(false);
 
 const dialogProviderInst = ref<InstanceType<typeof NDialogProvider> | null>(
   null,
@@ -187,6 +188,12 @@ onMounted(async () => {
       const updateInfo = await CheckUpdate();
       console.log("[Update Check] Update info:", updateInfo);
 
+      // 如果是因为用户设置了不再提醒而跳过的，不显示对话框
+      if (updateInfo.skipped) {
+        console.log("[Update Check] Skipped due to user preference");
+        return;
+      }
+
       if (updateInfo.hasUpdate) {
         // 有新版本，显示更新对话框
         if (dialogProviderInst.value) {
@@ -206,14 +213,39 @@ onMounted(async () => {
                   default: () => h("pre", {
                     style: "max-height: 200px; overflow-y: auto; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap;"
                   }, updateInfo.body || t('settings.noUpdateContent') || "暂无更新说明")
-                })
+                }),
+                h("div", { style: "margin-top: 16px;" }, [
+                  h("input", {
+                    type: "checkbox",
+                    id: "dont-remind-checkbox",
+                    style: "margin-right: 8px;",
+                    onChange: (e: any) => {
+                      dontRemindCheckbox.value = e.target.checked;
+                    }
+                  }),
+                  h("label", {
+                    for: "dont-remind-checkbox",
+                    style: "cursor: pointer;"
+                  }, t('settings.dontRemindFor30Days') || "30天内不再提醒")
+                ])
               ]);
             },
             positiveText: t('settings.goToDownload') || "前往下载",
-            negativeText: t('common.later') || "稍后提醒",
+            negativeText: t('common.cancel') || "取消",
             onPositiveClick: () => {
               // 打开 GitHub releases 页面
               window.open(updateInfo.url, "_blank");
+            },
+            onNegativeClick: async () => {
+              // 如果用户勾选了"30天内不再提醒"，设置不再提醒
+              if (dontRemindCheckbox.value) {
+                try {
+                  await SetUpdateRemindDisabled(true);
+                  console.log("[Update Check] Update reminders disabled for 30 days");
+                } catch (error) {
+                  console.error("[Update Check] Failed to disable update reminders:", error);
+                }
+              }
             }
           });
         }

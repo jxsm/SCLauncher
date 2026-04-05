@@ -148,7 +148,7 @@ import { ref, onMounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NAlert } from 'naive-ui'
 import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon, RefreshOutline as UpdateIcon, ImageOutline as ImageIcon, TrashOutline as TrashIcon } from '@vicons/ionicons5'
-import { GetConfig, SetManifestURL, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdate, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
+import { GetConfig, SetManifestURL, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
 import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
 
@@ -286,7 +286,8 @@ function openGitHub() {
 
 async function handleCheckUpdate() {
   try {
-    const updateInfo = await CheckUpdate()
+    // 手动检查更新时使用强制检查，忽略30天不再提醒的限制
+    const updateInfo = await CheckUpdateForce()
     console.log('[Update Check] Update info:', updateInfo)
 
     if (updateInfo.hasUpdate) {

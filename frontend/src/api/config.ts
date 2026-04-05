@@ -37,6 +37,16 @@ export async function CheckUpdate(): Promise<any> {
   return await AppBindings.CheckUpdate()
 }
 
+// 强制检查更新（忽略不再提醒设置）
+export async function CheckUpdateForce(): Promise<any> {
+  return await AppBindings.CheckUpdateWithForce(true)
+}
+
+// 设置不再提醒更新
+export async function SetUpdateRemindDisabled(disabled: boolean): Promise<void> {
+  await AppBindings.SetUpdateRemindDisabled(disabled)
+}
+
 // 选择背景图片文件
 export async function SelectBackgroundFile(): Promise<string> {
   return await AppBindings.SelectBackgroundFile()

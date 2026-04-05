@@ -338,6 +338,7 @@ export default {
     updateContent: '更新内容',
     noUpdateContent: '暂无更新说明',
     goToDownload: '前往下载',
+    dontRemindFor30Days: '30天内不再提醒',
     checkUpdateFailed: '检查更新失败',
     loadConfigFailed: '加载配置失败',
     saveFailed: '保存失败',
