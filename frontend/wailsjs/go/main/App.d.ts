@@ -7,6 +7,8 @@ import {skin} from '../models';
 
 export function AutoDetectLanguage():Promise<void>;
 
+export function AutoImportVersions():Promise<void>;
+
 export function AutoSetPrimaryVersion():Promise<void>;
 
 export function CancelDownload(arg1:string):Promise<void>;

@@ -6,6 +6,10 @@ export function AutoDetectLanguage() {
   return window['go']['main']['App']['AutoDetectLanguage']();
 }
 
+export function AutoImportVersions() {
+  return window['go']['main']['App']['AutoImportVersions']();
+}
+
 export function AutoSetPrimaryVersion() {
   return window['go']['main']['App']['AutoSetPrimaryVersion']();
 }

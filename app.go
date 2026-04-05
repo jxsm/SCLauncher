@@ -100,6 +100,11 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogInfo(a.ctx, fmt.Sprintf("自动设置主要版本: %v", err))
 	}
 
+	// 自动导入未导入的版本
+	if err := a.AutoImportVersions(); err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("自动导入版本: %v", err))
+	}
+
 	runtime.LogInfo(a.ctx, "SCLauncher 初始化完成！")
 }
 
@@ -510,6 +515,81 @@ func (a *App) SelectGameFolder() (string, error) {
 		return "", err
 	}
 	return selection, nil
+}
+
+// AutoImportVersions 自动导入未导入的版本
+func (a *App) AutoImportVersions() error {
+	versionsDir := a.paths.GetVersionsDir()
+
+	// 读取 versions 目录中的所有子目录
+	entries, err := os.ReadDir(versionsDir)
+	if err != nil {
+		return fmt.Errorf("读取 versions 目录失败: %w", err)
+	}
+
+	importedCount := 0
+
+	for _, entry := range entries {
+		// 跳过文件和隐藏目录
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		versionID := entry.Name()
+		versionPath := filepath.Join(versionsDir, versionID)
+
+		// 检查是否已经在数据库中
+		existingVersion, err := a.repository.GetVersion(versionID)
+		if err == nil && existingVersion != nil {
+			// 已经在数据库中，跳过
+			continue
+		}
+
+		// 检查是否有 .imported 标记文件（说明是从外部导入的）
+		metaFile := filepath.Join(versionPath, ".imported")
+		if _, err := os.Stat(metaFile); err == nil {
+			// 这是外部导入的版本，已经在 ImportGameVersion 时处理过
+			// 但可能数据库记录丢失了，尝试重新导入
+			runtime.LogInfo(a.ctx, fmt.Sprintf("发现外部导入版本但数据库记录缺失: %s", versionID))
+			continue
+		}
+
+		// 检查是否是有效的游戏文件夹（包含游戏可执行文件）
+		exePath, err := a.findGameExecutableInFolder(versionPath)
+		if err != nil {
+			// 不是有效的游戏文件夹，跳过
+			runtime.LogInfo(a.ctx, fmt.Sprintf("跳过无效的游戏文件夹: %s", versionPath))
+			continue
+		}
+
+		// 这是一个有效的游戏文件夹，但未在数据库中，自动添加
+		runtime.LogInfo(a.ctx, fmt.Sprintf("发现未记录的游戏版本: %s", versionID))
+
+		// 尝试从文件夹名解析版本信息
+		versionModel := &storage.VersionModel{
+			ID:          versionID,
+			Name:        versionID, // 使用文件夹名作为名称
+			VersionType: "unknown", // 未知版本类型
+			GameVersion: "unknown", // 未知游戏版本
+			Installed:   true,
+			Illustrate:  fmt.Sprintf("用户手动放置的游戏版本\n路径: %s\n游戏文件: %s", versionPath, filepath.Base(exePath)),
+		}
+
+		// 保存到数据库
+		if err := a.repository.CreateVersion(versionModel); err != nil {
+			runtime.LogWarning(a.ctx, fmt.Sprintf("自动导入版本失败 %s: %v", versionID, err))
+			continue
+		}
+
+		importedCount++
+		runtime.LogInfo(a.ctx, fmt.Sprintf("成功自动注册游戏版本: %s", versionID))
+	}
+
+	if importedCount > 0 {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("自动导入完成！共导入 %d 个版本", importedCount))
+	}
+
+	return nil
 }
 
 // ImportGameVersion 导入游戏版本
