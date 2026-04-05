@@ -357,7 +357,7 @@ func (m *Manager) GetSaveGamePath(versionID, saveID string) (string, error) {
 	return "", fmt.Errorf("save game not found: %s", saveID)
 }
 
-// ExportSaveGame 导出存档为.scword文件
+// ExportSaveGame 导出存档为.scworld文件
 func (m *Manager) ExportSaveGame(versionID, saveID, savePath string) error {
 	// 获取存档路径
 	worldPath, err := m.GetSaveGamePath(versionID, saveID)
@@ -365,9 +365,9 @@ func (m *Manager) ExportSaveGame(versionID, saveID, savePath string) error {
 		return err
 	}
 
-	// 确保使用.scword后缀
-	if !strings.HasSuffix(strings.ToLower(savePath), ".scword") {
-		savePath = savePath + ".scword"
+	// 确保使用.scworld后缀
+	if !strings.HasSuffix(strings.ToLower(savePath), ".scworld") {
+		savePath = savePath + ".scworld"
 	}
 
 	// 创建临时zip文件
@@ -433,10 +433,10 @@ func (m *Manager) ExportSaveGame(versionID, saveID, savePath string) error {
 	zipWriter.Close()
 	zipFile.Close()
 
-	// 重命名为.scword文件
+	// 重命名为.scworld文件
 	if err := os.Rename(tempZipPath, savePath); err != nil {
 		os.Remove(tempZipPath)
-		return fmt.Errorf("failed to rename to .scword: %w", err)
+		return fmt.Errorf("failed to rename to .scworld: %w", err)
 	}
 
 	fmt.Printf("[SaveGame] 导出成功: %s\n", savePath)
@@ -565,7 +565,7 @@ func (m *Manager) renameSaveGameInPath(worldPath, newName string) error {
 	return fmt.Errorf("failed to rename: no valid Project file found")
 }
 
-// PreviewSaveGame 预览存档信息（从.scword文件中）
+// PreviewSaveGame 预览存档信息（从.scworld/.scword/.zip文件中）
 func (m *Manager) PreviewSaveGame(sourcePath string) (SaveGame, error) {
 	var saveGame SaveGame
 
@@ -574,15 +574,18 @@ func (m *Manager) PreviewSaveGame(sourcePath string) (SaveGame, error) {
 		return saveGame, fmt.Errorf("source file not found: %s", sourcePath)
 	}
 
-	// 检查文件扩展名
-	if !strings.HasSuffix(strings.ToLower(sourcePath), ".scword") {
-		return saveGame, fmt.Errorf("invalid file format, expected .scword file")
+	// 检查文件扩展名（支持 .scworld、.scword、.zip）
+	lowerPath := strings.ToLower(sourcePath)
+	if !strings.HasSuffix(lowerPath, ".scworld") &&
+	   !strings.HasSuffix(lowerPath, ".scword") &&
+	   !strings.HasSuffix(lowerPath, ".zip") {
+		return saveGame, fmt.Errorf("invalid file format, expected .scworld, .scword, or .zip file")
 	}
 
-	// 打开 scword 文件（实际上是 zip 文件）
+	// 打开存档文件（实际上是 zip 文件）
 	zipReader, err := zip.OpenReader(sourcePath)
 	if err != nil {
-		return saveGame, fmt.Errorf("failed to open scword file: %w", err)
+		return saveGame, fmt.Errorf("failed to open save file: %w", err)
 	}
 	defer zipReader.Close()
 
@@ -649,10 +652,16 @@ func (m *Manager) PreviewSaveGame(sourcePath string) (SaveGame, error) {
 		}
 	}
 
-	// 如果没有读取到名称，使用文件名
+	// 如果没有读取到名称，使用文件名（去掉后缀）
 	if saveGame.Name == "" {
-		saveGame.Name = strings.TrimSuffix(filepath.Base(sourcePath), ".scword")
+		baseName := filepath.Base(sourcePath)
+		// 尝试去掉各种可能的后缀
+		saveGame.Name = strings.TrimSuffix(baseName, ".scworld")
+		saveGame.Name = strings.TrimSuffix(saveGame.Name, ".SCWORLD")
+		saveGame.Name = strings.TrimSuffix(saveGame.Name, ".scword")
 		saveGame.Name = strings.TrimSuffix(saveGame.Name, ".SCWORD")
+		saveGame.Name = strings.TrimSuffix(saveGame.Name, ".zip")
+		saveGame.Name = strings.TrimSuffix(saveGame.Name, ".ZIP")
 	}
 
 	return saveGame, nil
@@ -665,9 +674,12 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 		return fmt.Errorf("source file not found: %s", sourcePath)
 	}
 
-	// 检查文件扩展名
-	if !strings.HasSuffix(strings.ToLower(sourcePath), ".scword") {
-		return fmt.Errorf("invalid file format, expected .scword file")
+	// 检查文件扩展名（支持 .scworld、.scword、.zip）
+	lowerPath := strings.ToLower(sourcePath)
+	if !strings.HasSuffix(lowerPath, ".scworld") &&
+	   !strings.HasSuffix(lowerPath, ".scword") &&
+	   !strings.HasSuffix(lowerPath, ".zip") {
+		return fmt.Errorf("invalid file format, expected .scworld, .scword, or .zip file")
 	}
 
 	versionPath := m.paths.GetVersionPath(versionID)
@@ -702,10 +714,10 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 		return fmt.Errorf("因版本差异，存档文件的存放位置不一样，请启动游戏并创建一个世界后再使用导入功能")
 	}
 
-	// 打开 scword 文件（实际上是 zip 文件）
+	// 打开存档文件（实际上是 zip 文件）
 	zipReader, err := zip.OpenReader(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to open scword file: %w", err)
+		return fmt.Errorf("failed to open save file: %w", err)
 	}
 	defer zipReader.Close()
 
@@ -750,10 +762,16 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 		}
 	}
 
-	// 如果没有读取到名称，使用文件名（去掉 .scword 后缀）
+	// 如果没有读取到名称，使用文件名（去掉后缀）
 	if saveName == "" {
-		saveName = strings.TrimSuffix(filepath.Base(sourcePath), ".scword")
+		baseName := filepath.Base(sourcePath)
+		// 尝试去掉各种可能的后缀
+		saveName = strings.TrimSuffix(baseName, ".scworld")
+		saveName = strings.TrimSuffix(saveName, ".SCWORLD")
+		saveName = strings.TrimSuffix(saveName, ".scword")
 		saveName = strings.TrimSuffix(saveName, ".SCWORD")
+		saveName = strings.TrimSuffix(saveName, ".zip")
+		saveName = strings.TrimSuffix(saveName, ".ZIP")
 	}
 
 	// 创建目标文件夹

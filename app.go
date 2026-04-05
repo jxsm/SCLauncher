@@ -1099,11 +1099,11 @@ func (a *App) ExportSaveGame(versionID, saveID string) (bool, error) {
 	// 让用户选择保存位置和文件名
 	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           "选择导出位置",
-		DefaultFilename: saveName + ".scword",
+		DefaultFilename: saveName + ".scworld",
 		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "存档文件",
-				Pattern:     "*.scword",
+				Pattern:     "*.scworld",
 			},
 		},
 	})
@@ -1136,7 +1136,7 @@ func (a *App) SelectSaveGameFile() (string, error) {
 		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "存档文件",
-				Pattern:     "*.scword",
+				Pattern:     "*.scworld;*.scword;*.zip",
 			},
 		},
 	})
