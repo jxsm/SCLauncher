@@ -47,6 +47,7 @@ export default {
     all: 'सभी',
     none: 'कोई नहीं',
     total: 'कुल',
+    unknown: 'अज्ञात',
     used: 'प्रयुक्त',
     available: 'उपलब्ध',
     later: 'बाद में याद दिलाएं'
@@ -56,6 +57,7 @@ export default {
     versions: 'संस्करण',
     installed: 'स्थापित',
     mods: 'मॉड्स',
+    savegames: 'सेव गेम',
     skins: 'स्किन्स',
     settings: 'सेटिंग्स'
   },

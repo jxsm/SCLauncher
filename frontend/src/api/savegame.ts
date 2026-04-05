@@ -22,8 +22,8 @@ export async function RenameSaveGame(versionId: string, saveId: string, newName:
 }
 
 // 导出存档
-export async function ExportSaveGame(versionId: string, saveId: string): Promise<void> {
-  await AppBindings.ExportSaveGame(versionId, saveId)
+export async function ExportSaveGame(versionId: string, saveId: string): Promise<boolean> {
+  return await AppBindings.ExportSaveGame(versionId, saveId)
 }
 
 // 导入存档

@@ -253,8 +253,12 @@ async function handleExportSave(save: SaveGame) {
   }
 
   try {
-    await ExportSaveGame(selectedVersionId.value, save.id)
-    message.success(t('saveGames.exportSuccess'))
+    const result = await ExportSaveGame(selectedVersionId.value, save.id)
+    // 只有在真正导出时才显示成功消息
+    if (result) {
+      message.success(t('saveGames.exportSuccess'))
+    }
+    // 如果 result 为 false/undefined，说明用户取消了，不显示任何消息
   } catch (error) {
     message.error(t('saveGames.exportFailed') + '：' + error)
   }

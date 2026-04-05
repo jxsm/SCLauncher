@@ -47,6 +47,7 @@ export default {
     all: 'Все',
     none: 'Нет',
     total: 'Всего',
+    unknown: 'Неизвестно',
     used: 'Использовано',
     available: 'Доступно',
     later: 'Напомнить позже'
@@ -56,6 +57,7 @@ export default {
     versions: 'Версии',
     installed: 'Установленные',
     mods: 'Моды',
+    savegames: 'Сохранения',
     skins: 'Скины',
     settings: 'Настройки'
   },

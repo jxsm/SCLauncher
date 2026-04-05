@@ -27,7 +27,7 @@ export function DownloadVersion(arg1:string):Promise<void>;
 
 export function DownloadVersionWithCustomName(arg1:string,arg2:string):Promise<void>;
 
-export function ExportSaveGame(arg1:string,arg2:string):Promise<void>;
+export function ExportSaveGame(arg1:string,arg2:string):Promise<boolean>;
 
 export function FetchVersions():Promise<Array<version.Version>>;
 

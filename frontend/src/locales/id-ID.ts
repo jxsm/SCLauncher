@@ -47,6 +47,7 @@ export default {
     all: 'Semua',
     none: 'Tidak Ada',
     total: 'Total',
+    unknown: 'Tidak Diketahui',
     used: 'Digunakan',
     available: 'Tersedia',
     later: 'Ingatkan Saya Nanti'
@@ -56,6 +57,7 @@ export default {
     versions: 'Versi',
     installed: 'Terinstal',
     mods: 'Mods',
+    savegames: 'Simpanan',
     skins: 'Kulit',
     settings: 'Pengaturan'
   },

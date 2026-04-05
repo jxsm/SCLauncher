@@ -995,11 +995,11 @@ func (a *App) RenameSaveGame(versionID, saveID, newName string) error {
 }
 
 // ExportSaveGame 导出存档
-func (a *App) ExportSaveGame(versionID, saveID string) error {
+func (a *App) ExportSaveGame(versionID, saveID string) (bool, error) {
 	// 获取存档信息以使用存档名称作为默认文件名
 	saveGames, err := a.savegameMgr.GetSaveGames(versionID)
 	if err != nil {
-		return fmt.Errorf("failed to get save games: %w", err)
+		return false, fmt.Errorf("failed to get save games: %w", err)
 	}
 
 	// 查找对应的存档
@@ -1029,14 +1029,19 @@ func (a *App) ExportSaveGame(versionID, saveID string) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to open save dialog: %w", err)
+		return false, fmt.Errorf("failed to open save dialog: %w", err)
 	}
 
 	if filename == "" {
-		return nil // 用户取消，不返回错误
+		return false, nil // 用户取消，返回 false 但不返回错误
 	}
 
-	return a.savegameMgr.ExportSaveGame(versionID, saveID, filename)
+	err = a.savegameMgr.ExportSaveGame(versionID, saveID, filename)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil // 导出成功
 }
 
 // ImportSaveGame 导入存档

@@ -47,6 +47,7 @@ export default {
     all: 'الكل',
     none: 'لا شيء',
     total: 'المجموع',
+    unknown: 'غير معروف',
     used: 'مستخدم',
     available: 'متوفر',
     later: 'ذكرني لاحقاً'
@@ -56,6 +57,7 @@ export default {
     versions: 'الإصدارات',
     installed: 'المثبتة',
     mods: 'التعديلات',
+    savegames: 'الألعاب المحفوظة',
     skins: 'الأskins',
     settings: 'الإعدادات'
   },
