@@ -211,3 +211,13 @@ func (p *Paths) GetBackgroundImagePath(filename string) string {
 	}
 	return filepath.Join(p.GetBackgroundImageDir(), filename)
 }
+
+// GetGameWorldsDir 获取游戏Worlds目录
+func (p *Paths) GetGameWorldsDir(versionID string) string {
+	return filepath.Join(p.GetVersionPath(versionID), "Worlds")
+}
+
+// GetGameDocWorldsDir 获取游戏doc目录下的Worlds目录
+func (p *Paths) GetGameDocWorldsDir(versionID string) string {
+	return filepath.Join(p.GetVersionPath(versionID), "doc", "Worlds")
+}

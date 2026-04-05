@@ -16,6 +16,7 @@ import (
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
+	"SCLauncher/backend/savegame"
 	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
 	"SCLauncher/backend/version"
@@ -34,6 +35,7 @@ type App struct {
 	gameMgr     *game.GameManager
 	modMgr      *mod.Manager
 	skinMgr     *skin.Manager
+	savegameMgr *savegame.Manager
 	backgroundMgr *background.Manager
 }
 
@@ -90,6 +92,7 @@ func (a *App) startup(ctx context.Context) {
 	a.gameMgr.SetContext(ctx) // 设置上下文用于发送事件
 	a.modMgr = mod.NewManager(cfg)
 	a.skinMgr = skin.NewManager(cfg)
+	a.savegameMgr = savegame.NewManager(cfg)
 	a.backgroundMgr = background.NewManager(cfg)
 
 	// 自动设置主要版本（如果没有的话）
@@ -961,4 +964,110 @@ func (a *App) HasBackground() bool {
 // GetBackgroundImageBase64 获取背景图片的base64编码
 func (a *App) GetBackgroundImageBase64() (string, error) {
 	return a.backgroundMgr.GetBackgroundImageBase64()
+}
+
+// ========== 存档管理 API ==========
+
+// GetSaveGames 获取指定版本的存档列表
+func (a *App) GetSaveGames(versionID string) ([]savegame.SaveGame, error) {
+	return a.savegameMgr.GetSaveGames(versionID)
+}
+
+// DeleteSaveGame 删除存档
+func (a *App) DeleteSaveGame(versionID, saveID string) error {
+	return a.savegameMgr.DeleteSaveGame(versionID, saveID)
+}
+
+// OpenSaveGameFolder 打开存档文件夹
+func (a *App) OpenSaveGameFolder(versionID, saveID string) error {
+	folderPath, err := a.savegameMgr.GetSaveGamePath(versionID, saveID)
+	if err != nil {
+		return err
+	}
+
+	runtime.BrowserOpenURL(a.ctx, "file:///"+folderPath)
+	return nil
+}
+
+// RenameSaveGame 重命名存档
+func (a *App) RenameSaveGame(versionID, saveID, newName string) error {
+	return a.savegameMgr.RenameSaveGame(versionID, saveID, newName)
+}
+
+// ExportSaveGame 导出存档
+func (a *App) ExportSaveGame(versionID, saveID string) error {
+	// 获取存档信息以使用存档名称作为默认文件名
+	saveGames, err := a.savegameMgr.GetSaveGames(versionID)
+	if err != nil {
+		return fmt.Errorf("failed to get save games: %w", err)
+	}
+
+	// 查找对应的存档
+	var saveName string
+	for _, sg := range saveGames {
+		if sg.ID == saveID {
+			saveName = sg.Name
+			break
+		}
+	}
+
+	// 如果没有找到，使用ID作为名称
+	if saveName == "" {
+		saveName = saveID
+	}
+
+	// 让用户选择保存位置和文件名
+	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "选择导出位置",
+		DefaultFilename: saveName + ".scword",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "存档文件",
+				Pattern:     "*.scword",
+			},
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to open save dialog: %w", err)
+	}
+
+	if filename == "" {
+		return nil // 用户取消，不返回错误
+	}
+
+	return a.savegameMgr.ExportSaveGame(versionID, saveID, filename)
+}
+
+// ImportSaveGame 导入存档
+func (a *App) ImportSaveGame(versionID, sourcePath string) error {
+	return a.savegameMgr.ImportSaveGame(versionID, sourcePath)
+}
+
+// SelectSaveGameFile 选择要导入的存档文件
+func (a *App) SelectSaveGameFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择要导入的存档文件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "存档文件",
+				Pattern:     "*.scword",
+			},
+		},
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to open file dialog: %w", err)
+	}
+
+	if filename == "" {
+		return "", nil // 用户取消
+	}
+
+	return filename, nil
+}
+
+// PreviewSaveGame 预览存档信息
+func (a *App) PreviewSaveGame(sourcePath string) (savegame.SaveGame, error) {
+	return a.savegameMgr.PreviewSaveGame(sourcePath)
 }

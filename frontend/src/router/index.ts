@@ -22,6 +22,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/Mods.vue')
   },
   {
+    path: '/savegames',
+    name: 'SaveGames',
+    component: () => import('../views/SaveGames.vue')
+  },
+  {
     path: '/skins',
     name: 'Skins',
     component: () => import('../views/Skins.vue')

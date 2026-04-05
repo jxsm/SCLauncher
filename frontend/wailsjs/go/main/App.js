@@ -26,6 +26,10 @@ export function DeleteMod(arg1, arg2) {
   return window['go']['main']['App']['DeleteMod'](arg1, arg2);
 }
 
+export function DeleteSaveGame(arg1, arg2) {
+  return window['go']['main']['App']['DeleteSaveGame'](arg1, arg2);
+}
+
 export function DeleteSkin(arg1) {
   return window['go']['main']['App']['DeleteSkin'](arg1);
 }
@@ -40,6 +44,10 @@ export function DownloadVersion(arg1) {
 
 export function DownloadVersionWithCustomName(arg1, arg2) {
   return window['go']['main']['App']['DownloadVersionWithCustomName'](arg1, arg2);
+}
+
+export function ExportSaveGame(arg1, arg2) {
+  return window['go']['main']['App']['ExportSaveGame'](arg1, arg2);
 }
 
 export function FetchVersions() {
@@ -86,6 +94,10 @@ export function GetPrimaryVersion() {
   return window['go']['main']['App']['GetPrimaryVersion']();
 }
 
+export function GetSaveGames(arg1) {
+  return window['go']['main']['App']['GetSaveGames'](arg1);
+}
+
 export function GetSkinImage(arg1) {
   return window['go']['main']['App']['GetSkinImage'](arg1);
 }
@@ -118,6 +130,10 @@ export function ImportMod(arg1, arg2) {
   return window['go']['main']['App']['ImportMod'](arg1, arg2);
 }
 
+export function ImportSaveGame(arg1, arg2) {
+  return window['go']['main']['App']['ImportSaveGame'](arg1, arg2);
+}
+
 export function ImportSkin(arg1) {
   return window['go']['main']['App']['ImportSkin'](arg1);
 }
@@ -134,12 +150,24 @@ export function LaunchGame(arg1) {
   return window['go']['main']['App']['LaunchGame'](arg1);
 }
 
+export function OpenSaveGameFolder(arg1, arg2) {
+  return window['go']['main']['App']['OpenSaveGameFolder'](arg1, arg2);
+}
+
 export function OpenVersionFolder(arg1) {
   return window['go']['main']['App']['OpenVersionFolder'](arg1);
 }
 
 export function OpenVersionModsFolder(arg1) {
   return window['go']['main']['App']['OpenVersionModsFolder'](arg1);
+}
+
+export function PreviewSaveGame(arg1) {
+  return window['go']['main']['App']['PreviewSaveGame'](arg1);
+}
+
+export function RenameSaveGame(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RenameSaveGame'](arg1, arg2, arg3);
 }
 
 export function RenameVersion(arg1, arg2) {
@@ -160,6 +188,10 @@ export function SelectGameFolder() {
 
 export function SelectModFile() {
   return window['go']['main']['App']['SelectModFile']();
+}
+
+export function SelectSaveGameFile() {
+  return window['go']['main']['App']['SelectSaveGameFile']();
 }
 
 export function SelectSkinFile() {
