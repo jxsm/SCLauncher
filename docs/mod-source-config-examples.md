@@ -2,6 +2,16 @@
 
 本文档展示如何使用新的 v2 配置格式来配置不同类型的模组下载源。
 
+## 🚀 可运行的配置示例
+
+### 生存战争中文社区配置
+- **[suancaixianyu-custom.json](suancaixianyu-custom.json)** - 完整的、可立即使用的配置文件
+- 详细说明请查看：[suancaixianyu-config-explanation.md](suancaixianyu-config-explanation.md)
+
+### 其他示例文件
+- **[example-mod-source.json](example-mod-source.json)** - 通用下载源配置模板
+- **[test-mod-source.json](test-mod-source.json)** - 测试用配置文件
+
 ## 配置文件位置
 
 配置文件应该放在启动器目录下的 `.Survivalcraft/mod-sources/` 文件夹中，每个下载源一个 JSON 文件。
