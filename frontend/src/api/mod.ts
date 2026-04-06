@@ -16,6 +16,11 @@ export async function ImportMod(versionId: string, sourcePath: string): Promise<
   await AppBindings.ImportMod(versionId, sourcePath)
 }
 
+// 从URL下载模组
+export async function DownloadModFromUrl(downloadUrl: string, versionId: string, fileName: string): Promise<void> {
+  await AppBindings.DownloadModFromURL(downloadUrl, versionId, fileName)
+}
+
 // 切换模组状态
 export async function ToggleMod(versionId: string, modId: string, enabled: boolean): Promise<void> {
   await AppBindings.ToggleMod(versionId, modId, enabled)

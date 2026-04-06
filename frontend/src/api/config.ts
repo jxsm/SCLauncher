@@ -76,3 +76,13 @@ export async function HasBackground(): Promise<boolean> {
 export async function GetBackgroundImageBase64(): Promise<string> {
   return await AppBindings.GetBackgroundImageBase64()
 }
+
+// 获取模组下载源配置
+export async function GetModSources(): Promise<any[]> {
+  return await AppBindings.GetModSources()
+}
+
+// 保存模组下载源配置
+export async function SaveModSources(sources: any[]): Promise<void> {
+  await AppBindings.SaveModSources(sources)
+}

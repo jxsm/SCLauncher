@@ -46,6 +46,10 @@ export function DeleteVersion(arg1) {
   return window['go']['main']['App']['DeleteVersion'](arg1);
 }
 
+export function DownloadModFromURL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['DownloadModFromURL'](arg1, arg2, arg3);
+}
+
 export function DownloadVersion(arg1) {
   return window['go']['main']['App']['DownloadVersion'](arg1);
 }
@@ -92,6 +96,10 @@ export function GetGameStatus() {
 
 export function GetInstalledVersions() {
   return window['go']['main']['App']['GetInstalledVersions']();
+}
+
+export function GetModSources() {
+  return window['go']['main']['App']['GetModSources']();
 }
 
 export function GetMods(arg1) {
@@ -180,6 +188,10 @@ export function RenameSaveGame(arg1, arg2, arg3) {
 
 export function RenameVersion(arg1, arg2) {
   return window['go']['main']['App']['RenameVersion'](arg1, arg2);
+}
+
+export function SaveModSources(arg1) {
+  return window['go']['main']['App']['SaveModSources'](arg1);
 }
 
 export function SelectArchiveFile() {

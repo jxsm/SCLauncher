@@ -27,6 +27,8 @@ export function DeleteSkin(arg1:string):Promise<void>;
 
 export function DeleteVersion(arg1:string):Promise<void>;
 
+export function DownloadModFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function DownloadVersion(arg1:string):Promise<void>;
 
 export function DownloadVersionWithCustomName(arg1:string,arg2:string):Promise<void>;
@@ -50,6 +52,8 @@ export function GetGameProcessInfo():Promise<any>;
 export function GetGameStatus():Promise<string>;
 
 export function GetInstalledVersions():Promise<Array<version.Version>>;
+
+export function GetModSources():Promise<Array<Record<string, any>>>;
 
 export function GetMods(arg1:string):Promise<Array<mod.Mod>>;
 
@@ -94,6 +98,8 @@ export function PreviewSaveGame(arg1:string):Promise<savegame.SaveGame>;
 export function RenameSaveGame(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
+
+export function SaveModSources(arg1:Array<Record<string, any>>):Promise<void>;
 
 export function SelectArchiveFile():Promise<string>;
 

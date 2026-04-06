@@ -156,6 +156,35 @@ func (m *Manager) ImportMod(versionID, sourcePath string) error {
 	return nil
 }
 
+// ImportModWithName 导入模组（使用指定的文件名）
+func (m *Manager) ImportModWithName(versionID, sourcePath, fileName string) error {
+	// 检查源文件是否存在
+	sourceInfo, err := os.Stat(sourcePath)
+	if err != nil {
+		return fmt.Errorf("source file not found: %w", err)
+	}
+
+	if sourceInfo.IsDir() {
+		return fmt.Errorf("source path is a directory")
+	}
+
+	// 确保模组目录存在
+	modsDir := m.getModPath(versionID)
+	if err := os.MkdirAll(modsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create mods directory: %w", err)
+	}
+
+	// 目标文件路径（使用指定的文件名）
+	destPath := filepath.Join(modsDir, fileName)
+
+	// 复制文件
+	if err := copyFile(sourcePath, destPath); err != nil {
+		return fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	return nil
+}
+
 // ToggleMod 切换模组启用/禁用状态
 func (m *Manager) ToggleMod(versionID, modID string, enabled bool) error {
 	modsDir := m.getModPath(versionID)

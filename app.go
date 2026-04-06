@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -982,6 +983,174 @@ func (a *App) ToggleMod(versionID, modID string, enabled bool) error {
 // DeleteMod 删除模组
 func (a *App) DeleteMod(versionID, modID string) error {
 	return a.modMgr.DeleteMod(versionID, modID)
+}
+
+// DownloadModFromURL 从URL下载模组
+func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error {
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载模组: %s -> %s", downloadURL, fileName))
+
+	// 创建临时文件保存下载内容
+	tempFile, err := os.CreateTemp("", "scmod-*.tmp")
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // 确保临时文件被删除
+
+	// 下载文件
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("下载失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+	}
+
+	// 保存到临时文件
+	_, err = io.Copy(tempFile, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("模组下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+
+	// 导入模组，使用正确的文件名
+	if err := a.modMgr.ImportModWithName(versionID, tempPath, fileName); err != nil {
+		return fmt.Errorf("导入模组失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, "模组下载并安装成功")
+	return nil
+}
+
+// GetModSources 获取模组下载源配置
+func (a *App) GetModSources() ([]map[string]interface{}, error) {
+	// 获取应用数据目录（.Survivalcraft）
+	appDataDir := config.GetAppDataDir()
+	// 下载源配置目录
+	sourcesDir := filepath.Join(appDataDir, "mod-sources")
+
+	// 确保目录存在
+	if _, err := os.Stat(sourcesDir); os.IsNotExist(err) {
+		// 目录不存在，返回空数组
+		return []map[string]interface{}{}, nil
+	}
+
+	// 读取目录中的所有 JSON 文件
+	files, err := os.ReadDir(sourcesDir)
+	if err != nil {
+		return nil, fmt.Errorf("读取下载源目录失败: %w", err)
+	}
+
+	var sources []map[string]interface{}
+
+	for _, file := range files {
+		// 只处理 .json 文件
+		if !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		// 读取 JSON 文件
+		filePath := filepath.Join(sourcesDir, file.Name())
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			runtime.LogWarning(a.ctx, fmt.Sprintf("读取下载源配置失败: %s, 错误: %v", filePath, err))
+			continue
+		}
+
+		// 解析 JSON
+		var source map[string]interface{}
+		if err := json.Unmarshal(data, &source); err != nil {
+			runtime.LogWarning(a.ctx, fmt.Sprintf("解析下载源配置失败: %s, 错误: %v", filePath, err))
+			continue
+		}
+
+		sources = append(sources, source)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功加载 %d 个自定义下载源", len(sources)))
+	return sources, nil
+}
+
+// SaveModSources 保存模组下载源配置
+func (a *App) SaveModSources(sources []map[string]interface{}) error {
+	// 获取应用数据目录（.Survivalcraft）
+	appDataDir := config.GetAppDataDir()
+	// 下载源配置目录
+	sourcesDir := filepath.Join(appDataDir, "mod-sources")
+
+	// 确保目录存在
+	if err := os.MkdirAll(sourcesDir, 0755); err != nil {
+		return fmt.Errorf("创建下载源目录失败: %w", err)
+	}
+
+	// 收集有效的源 ID
+	validSourceIDs := make(map[string]bool)
+
+	// 保存每个下载源
+	for _, source := range sources {
+		// 获取源 ID
+		sourceID, ok := source["id"].(string)
+		if !ok || sourceID == "" {
+			continue
+		}
+
+		// 移除内置源，只保存自定义源
+		if sourceID == "suancaixianyu" {
+			continue
+		}
+
+		validSourceIDs[sourceID] = true
+
+		// 序列化为 JSON
+		data, err := json.MarshalIndent(source, "", "  ")
+		if err != nil {
+			return fmt.Errorf("序列化下载源配置失败: %w", err)
+		}
+
+		// 保存到文件
+		filePath := filepath.Join(sourcesDir, fmt.Sprintf("%s.json", sourceID))
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			return fmt.Errorf("保存下载源配置失败: %w", err)
+		}
+
+		runtime.LogInfo(a.ctx, fmt.Sprintf("保存下载源: %s -> %s", sourceID, filePath))
+	}
+
+	// 清理不再存在的源文件
+	files, err := os.ReadDir(sourcesDir)
+	if err != nil {
+		return fmt.Errorf("读取下载源目录失败: %w", err)
+	}
+
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		// 从文件名提取源 ID（去掉 .json 后缀）
+		sourceID := strings.TrimSuffix(file.Name(), ".json")
+
+		// 如果这个源不在有效源列表中，删除文件
+		if !validSourceIDs[sourceID] {
+			filePath := filepath.Join(sourcesDir, file.Name())
+			if err := os.Remove(filePath); err != nil {
+				runtime.LogWarning(a.ctx, fmt.Sprintf("删除旧源配置文件失败: %s, 错误: %v", filePath, err))
+			} else {
+				runtime.LogInfo(a.ctx, fmt.Sprintf("删除旧源配置文件: %s", filePath))
+			}
+		}
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功保存 %d 个自定义下载源", len(sources)))
+	return nil
 }
 
 // ========== 皮肤管理 API ==========
