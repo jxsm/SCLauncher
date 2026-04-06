@@ -834,11 +834,13 @@ onMounted(async () => {
   loading.value = true
   try {
     // 初始化下载源（只选择存档类型的源）
-    const currentSource = ModSourceManager.getCurrentSource()
-    if (currentSource && currentSource.type === 'savegames') {
-      selectedSourceId.value = currentSource.id
+    // 优先选择存档类型的默认源
+    const defaultSaveSource = ModSourceManager.getAllSources().find(s => s.type === 'savegames' && s.isDefault)
+    if (defaultSaveSource) {
+      selectedSourceId.value = defaultSaveSource.id
+      ModSourceManager.setCurrentSource(defaultSaveSource.id)
     } else {
-      // 如果当前源不是存档类型，选择第一个存档类型的源
+      // 如果没有默认源，选择第一个启用的存档源
       const firstSaveSource = ModSourceManager.getEnabledSources().find(s => s.type === 'savegames')
       if (firstSaveSource) {
         selectedSourceId.value = firstSaveSource.id
@@ -873,11 +875,14 @@ onMounted(async () => {
 // 当页面激活时重新加载下载源列表
 onActivated(async () => {
   await ModSourceManager.reloadSources()
-  const currentSource = ModSourceManager.getCurrentSource()
-  if (currentSource && currentSource.type === 'savegames') {
-    selectedSourceId.value = currentSource.id
+
+  // 优先选择存档类型的默认源
+  const defaultSaveSource = ModSourceManager.getAllSources().find(s => s.type === 'savegames' && s.isDefault)
+  if (defaultSaveSource) {
+    selectedSourceId.value = defaultSaveSource.id
+    ModSourceManager.setCurrentSource(defaultSaveSource.id)
   } else {
-    // 如果当前源不是存档类型，选择第一个存档类型的源
+    // 如果没有默认源，选择第一个启用的存档源
     const firstSaveSource = ModSourceManager.getEnabledSources().find(s => s.type === 'savegames')
     if (firstSaveSource) {
       selectedSourceId.value = firstSaveSource.id
@@ -891,19 +896,26 @@ watch(sourceOptions, (newOptions) => {
   if (newOptions.length > 0) {
     const currentIdExists = newOptions.some(opt => opt.value === selectedSourceId.value)
     if (!currentIdExists) {
-      // 当前选中的源ID不存在了，切换到第一个可用的存档源
-      const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === 'savegames')
-      if (firstSource) {
-        selectedSourceId.value = firstSource.id
-        ModSourceManager.setCurrentSource(firstSource.id)
-        // 重置搜索状态
-        searchResults.value = []
-        currentPage.value = 1
-        hasSearched.value = false
-        isSearchMode.value = false
-        downloadSearchText.value = ''
-        totalPages.value = 0
+      // 当前选中的源ID不存在了，切换到该类型的默认源
+      const defaultSaveSource = ModSourceManager.getAllSources().find(s => s.type === 'savegames' && s.isDefault)
+      if (defaultSaveSource) {
+        selectedSourceId.value = defaultSaveSource.id
+        ModSourceManager.setCurrentSource(defaultSaveSource.id)
+      } else {
+        // 如果没有默认源，切换到第一个可用的存档源
+        const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === 'savegames')
+        if (firstSource) {
+          selectedSourceId.value = firstSource.id
+          ModSourceManager.setCurrentSource(firstSource.id)
+        }
       }
+      // 重置搜索状态
+      searchResults.value = []
+      currentPage.value = 1
+      hasSearched.value = false
+      isSearchMode.value = false
+      downloadSearchText.value = ''
+      totalPages.value = 0
     }
   }
 }, { deep: true })

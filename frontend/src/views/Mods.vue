@@ -771,11 +771,14 @@ onMounted(async () => {
 // 当页面激活时重新加载下载源列表
 onActivated(async () => {
   await ModSourceManager.reloadSources()
-  const currentSource = ModSourceManager.getCurrentSource()
-  if (currentSource && currentSource.type === 'mods') {
-    selectedSourceId.value = currentSource.id
+
+  // 优先选择模组类型的默认源
+  const defaultModSource = ModSourceManager.getAllSources().find(s => s.type === 'mods' && s.isDefault)
+  if (defaultModSource) {
+    selectedSourceId.value = defaultModSource.id
+    ModSourceManager.setCurrentSource(defaultModSource.id)
   } else {
-    // 如果当前源不是模组类型，选择第一个模组类型的源
+    // 如果没有默认源，选择第一个启用的模组源
     const firstModSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
     if (firstModSource) {
       selectedSourceId.value = firstModSource.id
@@ -789,19 +792,26 @@ watch(sourceOptions, (newOptions) => {
   if (newOptions.length > 0) {
     const currentIdExists = newOptions.some(opt => opt.value === selectedSourceId.value)
     if (!currentIdExists) {
-      // 当前选中的源ID不存在了，切换到第一个可用的模组源
-      const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
-      if (firstSource) {
-        selectedSourceId.value = firstSource.id
-        ModSourceManager.setCurrentSource(firstSource.id)
-        // 重置搜索状态
-        searchResults.value = []
-        currentPage.value = 1
-        hasSearched.value = false
-        isSearchMode.value = false
-        downloadSearchText.value = ''
-        totalPages.value = 0
+      // 当前选中的源ID不存在了，切换到该类型的默认源
+      const defaultModSource = ModSourceManager.getAllSources().find(s => s.type === 'mods' && s.isDefault)
+      if (defaultModSource) {
+        selectedSourceId.value = defaultModSource.id
+        ModSourceManager.setCurrentSource(defaultModSource.id)
+      } else {
+        // 如果没有默认源，切换到第一个可用的模组源
+        const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
+        if (firstSource) {
+          selectedSourceId.value = firstSource.id
+          ModSourceManager.setCurrentSource(firstSource.id)
+        }
       }
+      // 重置搜索状态
+      searchResults.value = []
+      currentPage.value = 1
+      hasSearched.value = false
+      isSearchMode.value = false
+      downloadSearchText.value = ''
+      totalPages.value = 0
     }
   }
 }, { deep: true })

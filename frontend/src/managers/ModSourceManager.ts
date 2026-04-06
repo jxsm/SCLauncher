@@ -162,19 +162,37 @@ class ModSourceManagerClass {
 
         if (customSources && Array.isArray(customSources)) {
           console.log('加载到自定义下载源:', customSources)
-          // 合并内置源和自定义源（不允许覆盖内置源，确保安全）
-          const existingIds = this.sources.value.map(s => s.id)
+          // 合并内置源和自定义源（允许自定义源覆盖内置源）
+          const builtinSourceIds = ['suancaixianyu', 'suancaixianyu-saves']
+
           customSources.forEach((source: any) => {
-            if (!existingIds.includes(source.id)) {
-              // 如果旧源没有 type 字段，默认为 'mods'
-              if (!source.type) {
-                console.log(`源 ${source.id} 缺少 type 字段，默认设为 'mods'`)
-                source.type = 'mods'
+            const existingIndex = this.sources.value.findIndex(s => s.id === source.id)
+
+            // 如果旧源没有 type 字段，默认为 'mods'
+            if (!source.type) {
+              console.log(`源 ${source.id} 缺少 type 字段，默认设为 'mods'`)
+              source.type = 'mods'
+            }
+
+            if (existingIndex !== -1) {
+              // 如果源已存在，检查是否为内置源
+              const existingSource = this.sources.value[existingIndex]
+              const isBuiltin = builtinSourceIds.includes(source.id)
+
+              if (isBuiltin) {
+                // 内置源：只更新 isDefault 和 enabled 字段，保留其他配置
+                console.log(`更新内置源的设置: ${source.id}`)
+                existingSource.isDefault = source.isDefault
+                existingSource.enabled = source.enabled !== undefined ? source.enabled : existingSource.enabled
+              } else {
+                // 自定义源：完全替换
+                console.log(`替换已存在的自定义源: ${source.id}`)
+                this.sources.value[existingIndex] = source
               }
-              this.sources.value.push(source)
-              console.log('添加自定义源:', source)
             } else {
-              console.log(`跳过已存在的源: ${source.id}（不允许覆盖内置源）`)
+              // 新源，直接添加
+              console.log('添加新源:', source.id)
+              this.sources.value.push(source)
             }
           })
         }
@@ -183,19 +201,30 @@ class ModSourceManagerClass {
         console.log('未找到自定义下载源，使用默认配置')
       }
 
-      // 检查每种类型是否有默认源，如果没有则将第一个内置源设为默认
+      // 检查每种类型是否有默认源，确保每种类型只有一个默认源
+      // 优先尊重用户在配置文件中设置的默认源
       const sourceTypes = ['mods', 'savegames', 'furniture', 'textures', 'skins'] as const
 
       sourceTypes.forEach(type => {
-        const hasDefaultOfType = this.sources.value.some(s => s.type === type && s.isDefault)
-        if (!hasDefaultOfType) {
-          // 该类型没有默认源，将第一个内置源设为默认
-          const firstBuiltinSource = this.sources.value.find(s => s.type === type)
-          if (firstBuiltinSource) {
-            firstBuiltinSource.isDefault = true
-            console.log(`类型 ${type} 没有默认源，将内置源设为默认: ${firstBuiltinSource.id}`)
+        // 获取该类型的所有源和默认源
+        const sourcesOfType = this.sources.value.filter(s => s.type === type)
+        const defaultSources = sourcesOfType.filter(s => s.isDefault)
+
+        if (defaultSources.length === 0) {
+          // 该类型没有默认源，将第一个源（通常是内置源）设为默认
+          const firstSource = sourcesOfType[0]
+          if (firstSource) {
+            firstSource.isDefault = true
+            console.log(`类型 ${type} 没有默认源，将源设为默认: ${firstSource.id}`)
           }
+        } else if (defaultSources.length > 1) {
+          // 如果有多个默认源，只保留第一个，其他的取消默认
+          defaultSources.slice(1).forEach(source => {
+            source.isDefault = false
+            console.log(`取消源的默认标记: ${source.id}（类型 ${type} 已有其他默认源）`)
+          })
         }
+        // 如果恰好有 1 个默认源，保持不变（尊重用户的选择）
       })
 
       // 设置当前默认源（优先选择模组类型）
@@ -552,7 +581,7 @@ class ModSourceManagerClass {
       const { SaveModSources } = await import('../api/config')
 
       // 内置源ID列表
-      const builtinSourceIds = ['suancaixianyu']
+      const builtinSourceIds = ['suancaixianyu', 'suancaixianyu-saves']
 
       // 只保存自定义源（排除内置源）
       const customSources = this.sources.value
