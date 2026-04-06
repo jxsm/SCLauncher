@@ -76,7 +76,7 @@
                       </n-tag>
                       <n-switch
                         v-model:value="source.enabled"
-                        :disabled="source.isDefault"
+                        :disabled="source.id === 'suancaixianyu'"
                         @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
                       />
                     </n-space>
@@ -91,14 +91,14 @@
                   <template #action>
                     <n-space>
                       <n-button
-                        v-if="!source.isDefault"
                         size="small"
+                        :type="source.isDefault ? 'warning' : 'default'"
                         @click="handleSetDefaultSource(source)"
                       >
                         <template #icon>
                           <n-icon><StarIcon /></n-icon>
                         </template>
-                        {{ t('mods.setDefault') }}
+                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
                       </n-button>
                       <n-button
                         v-if="!source.isDefault"
@@ -132,7 +132,7 @@
                       </n-tag>
                       <n-switch
                         v-model:value="source.enabled"
-                        :disabled="source.isDefault"
+                        :disabled="source.id === 'suancaixianyu'"
                         @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
                       />
                     </n-space>
@@ -147,14 +147,14 @@
                   <template #action>
                     <n-space>
                       <n-button
-                        v-if="!source.isDefault"
                         size="small"
+                        :type="source.isDefault ? 'warning' : 'default'"
                         @click="handleSetDefaultSource(source)"
                       >
                         <template #icon>
                           <n-icon><StarIcon /></n-icon>
                         </template>
-                        {{ t('mods.setDefault') }}
+                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
                       </n-button>
                       <n-button
                         v-if="!source.isDefault"
@@ -188,7 +188,7 @@
                       </n-tag>
                       <n-switch
                         v-model:value="source.enabled"
-                        :disabled="source.isDefault"
+                        :disabled="source.id === 'suancaixianyu'"
                         @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
                       />
                     </n-space>
@@ -203,14 +203,14 @@
                   <template #action>
                     <n-space>
                       <n-button
-                        v-if="!source.isDefault"
                         size="small"
+                        :type="source.isDefault ? 'warning' : 'default'"
                         @click="handleSetDefaultSource(source)"
                       >
                         <template #icon>
                           <n-icon><StarIcon /></n-icon>
                         </template>
-                        {{ t('mods.setDefault') }}
+                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
                       </n-button>
                       <n-button
                         v-if="!source.isDefault"
@@ -244,7 +244,7 @@
                       </n-tag>
                       <n-switch
                         v-model:value="source.enabled"
-                        :disabled="source.isDefault"
+                        :disabled="source.id === 'suancaixianyu'"
                         @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
                       />
                     </n-space>
@@ -259,14 +259,14 @@
                   <template #action>
                     <n-space>
                       <n-button
-                        v-if="!source.isDefault"
                         size="small"
+                        :type="source.isDefault ? 'warning' : 'default'"
                         @click="handleSetDefaultSource(source)"
                       >
                         <template #icon>
                           <n-icon><StarIcon /></n-icon>
                         </template>
-                        {{ t('mods.setDefault') }}
+                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
                       </n-button>
                       <n-button
                         v-if="!source.isDefault"
@@ -300,7 +300,7 @@
                       </n-tag>
                       <n-switch
                         v-model:value="source.enabled"
-                        :disabled="source.isDefault"
+                        :disabled="source.id === 'suancaixianyu'"
                         @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
                       />
                     </n-space>
@@ -315,14 +315,14 @@
                   <template #action>
                     <n-space>
                       <n-button
-                        v-if="!source.isDefault"
                         size="small"
+                        :type="source.isDefault ? 'warning' : 'default'"
                         @click="handleSetDefaultSource(source)"
                       >
                         <template #icon>
                           <n-icon><StarIcon /></n-icon>
                         </template>
-                        {{ t('mods.setDefault') }}
+                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
                       </n-button>
                       <n-button
                         v-if="!source.isDefault"
@@ -565,11 +565,21 @@ function handleDeleteSource(source: ModSource) {
   })
 }
 
-// 设置默认下载源
+// 设置默认下载源（支持切换）
 async function handleSetDefaultSource(source: ModSource) {
   try {
-    // 取消当前同类型的默认源
     const sources = ModSourceManager.getAllSources()
+
+    // 如果该源已经是默认源，取消其默认状态
+    if (source.isDefault) {
+      source.isDefault = false
+      await ModSourceManager.saveSources()
+      loadModSources()
+      message.info(t('mods.defaultSourceCancelled') + ': ' + source.name)
+      return
+    }
+
+    // 取消当前同类型的默认源
     sources.forEach(s => {
       if (s.type === source.type && s.isDefault) {
         s.isDefault = false

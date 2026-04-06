@@ -33,7 +33,7 @@ class ModSourceManagerClass {
   private async loadSources() {
     try {
       // TODO: 从启动器目录的 mod-sources 文件夹加载配置
-      // 暂时使用内置的默认源
+      // 暂时使用内置的默认源（不设置为默认，等加载完所有源后再判断）
       this.sources.value = [
         {
           id: 'suancaixianyu',
@@ -42,7 +42,7 @@ class ModSourceManagerClass {
           description: '生存战争中文社区模组仓库',
           icon: '',
           enabled: true,
-          isDefault: true,
+          isDefault: false, // 初始不设置为默认
           api: {
             baseUrl: 'https://m.suancaixianyu.cn',
             searchPath: '/api/post/list',
@@ -97,7 +97,25 @@ class ModSourceManagerClass {
         console.log('未找到自定义下载源，使用默认配置')
       }
 
-      // 设置默认源
+      // 检查是否有默认源，如果没有则将内置源设为默认
+      const hasDefaultSource = this.sources.value.some(s => s.isDefault)
+      if (!hasDefaultSource) {
+        // 没有默认源，将内置源设为默认
+        const builtinSource = this.sources.value.find(s => s.id === 'suancaixianyu')
+        if (builtinSource) {
+          builtinSource.isDefault = true
+          console.log('没有默认源，将内置源设为默认')
+        }
+      } else {
+        // 有默认源（自定义源），确保内置源不是默认源
+        const builtinSource = this.sources.value.find(s => s.id === 'suancaixianyu')
+        if (builtinSource && builtinSource.isDefault) {
+          builtinSource.isDefault = false
+          console.log('有自定义默认源，取消内置源的默认状态')
+        }
+      }
+
+      // 设置当前默认源
       const defaultSource = this.sources.value.find(s => s.isDefault)
       if (defaultSource) {
         this.currentSourceId.value = defaultSource.id
@@ -418,9 +436,12 @@ class ModSourceManagerClass {
     try {
       const { SaveModSources } = await import('../api/config')
 
+      // 内置源ID列表
+      const builtinSourceIds = ['suancaixianyu']
+
       // 只保存自定义源（排除内置源）
       const customSources = this.sources.value
-        .filter(s => !s.isDefault)
+        .filter(s => !builtinSourceIds.includes(s.id))
         .map(s => ({
           id: s.id,
           type: s.type,
@@ -428,11 +449,15 @@ class ModSourceManagerClass {
           description: s.description,
           icon: s.icon || '',
           enabled: s.enabled,
+          isDefault: s.isDefault, // 保存默认源标记
           api: s.api
         }))
 
       console.log('保存自定义下载源:', customSources)
       await SaveModSources(customSources as any)
+
+      // 注意：不要在这里修改内置源的 isDefault 状态
+      // 内置源的默认状态应该由 loadSources() 在加载时动态决定
     } catch (error) {
       console.error('Failed to save mod sources:', error)
       throw error

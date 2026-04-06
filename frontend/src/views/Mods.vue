@@ -440,12 +440,14 @@ const filteredMods = computed(() => {
   return mods
 })
 
-// 下载源选项
+// 下载源选项（只显示模组类型的下载源）
 const sourceOptions = computed(() => {
-  return ModSourceManager.getEnabledSources().map(source => ({
-    label: source.name,
-    value: source.id
-  }))
+  return ModSourceManager.getEnabledSources()
+    .filter(source => source.type === 'mods')
+    .map(source => ({
+      label: source.name,
+      value: source.id
+    }))
 })
 
 function handleVersionChange() {
@@ -707,10 +709,17 @@ function stripHtmlTags(html: string): string {
 
 onMounted(async () => {
   try {
-    // 初始化下载源
+    // 初始化下载源（只选择模组类型的源）
     const currentSource = ModSourceManager.getCurrentSource()
-    if (currentSource) {
+    if (currentSource && currentSource.type === 'mods') {
       selectedSourceId.value = currentSource.id
+    } else {
+      // 如果当前源不是模组类型，选择第一个模组类型的源
+      const firstModSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
+      if (firstModSource) {
+        selectedSourceId.value = firstModSource.id
+        ModSourceManager.setCurrentSource(firstModSource.id)
+      }
     }
 
     await versionStore.getVersions()
@@ -753,8 +762,15 @@ onMounted(async () => {
 onActivated(async () => {
   await ModSourceManager.reloadSources()
   const currentSource = ModSourceManager.getCurrentSource()
-  if (currentSource) {
+  if (currentSource && currentSource.type === 'mods') {
     selectedSourceId.value = currentSource.id
+  } else {
+    // 如果当前源不是模组类型，选择第一个模组类型的源
+    const firstModSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
+    if (firstModSource) {
+      selectedSourceId.value = firstModSource.id
+      ModSourceManager.setCurrentSource(firstModSource.id)
+    }
   }
 })
 
@@ -763,8 +779,8 @@ watch(sourceOptions, (newOptions) => {
   if (newOptions.length > 0) {
     const currentIdExists = newOptions.some(opt => opt.value === selectedSourceId.value)
     if (!currentIdExists) {
-      // 当前选中的源ID不存在了，切换到第一个可用的源
-      const firstSource = ModSourceManager.getEnabledSources()[0]
+      // 当前选中的源ID不存在了，切换到第一个可用的模组源
+      const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
       if (firstSource) {
         selectedSourceId.value = firstSource.id
         ModSourceManager.setCurrentSource(firstSource.id)
