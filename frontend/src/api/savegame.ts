@@ -40,3 +40,8 @@ export async function SelectSaveGameFile(): Promise<string> {
 export async function PreviewSaveGame(sourcePath: string): Promise<SaveGame> {
   return await AppBindings.PreviewSaveGame(sourcePath)
 }
+
+// 下载存档
+export async function DownloadSaveGameFromURL(downloadURL: string, versionId: string, fileName: string): Promise<void> {
+  await AppBindings.DownloadSaveGameFromURL(downloadURL, versionId, fileName)
+}

@@ -50,6 +50,10 @@ export function DownloadModFromURL(arg1, arg2, arg3) {
   return window['go']['main']['App']['DownloadModFromURL'](arg1, arg2, arg3);
 }
 
+export function DownloadSaveGameFromURL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['DownloadSaveGameFromURL'](arg1, arg2, arg3);
+}
+
 export function DownloadVersion(arg1) {
   return window['go']['main']['App']['DownloadVersion'](arg1);
 }

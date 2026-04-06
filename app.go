@@ -1326,6 +1326,68 @@ func (a *App) ImportSaveGame(versionID, sourcePath string) error {
 	return a.savegameMgr.ImportSaveGame(versionID, sourcePath)
 }
 
+// DownloadSaveGameFromURL 从URL下载存档
+func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) error {
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载存档: %s -> %s", downloadURL, fileName))
+
+	// 确定文件扩展名
+	var ext string
+	lowerFileName := strings.ToLower(fileName)
+	if strings.HasSuffix(lowerFileName, ".scworld") {
+		ext = ".scworld"
+	} else if strings.HasSuffix(lowerFileName, ".scword") {
+		ext = ".scword"
+	} else if strings.HasSuffix(lowerFileName, ".zip") {
+		ext = ".zip"
+	} else {
+		// 如果没有扩展名或扩展名未知，默认使用.scworld
+		ext = ".scworld"
+	}
+
+	// 创建临时文件，使用正确的扩展名
+	tempFile, err := os.CreateTemp("", "scsave-*"+ext)
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // 确保临时文件被删除
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("临时文件路径: %s", tempPath))
+
+	// 下载文件
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("下载失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载失败，服务器返回状态码: %d", resp.StatusCode)
+	}
+
+	// 写入临时文件
+	_, err = io.Copy(tempFile, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("保存下载内容失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("存档下载完成，正在导入: %s", tempPath))
+
+	// 导入存档
+	err = a.savegameMgr.ImportSaveGame(versionID, tempPath)
+	if err != nil {
+		return fmt.Errorf("导入存档失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("存档导入成功: %s", fileName))
+	return nil
+}
+
 // SelectSaveGameFile 选择要导入的存档文件
 func (a *App) SelectSaveGameFile() (string, error) {
 	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{

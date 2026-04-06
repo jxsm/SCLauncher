@@ -94,6 +94,64 @@ class ModSourceManagerClass {
             author: 'SuanCaiXianYu',
             tags: ['中文', '社区', '模组']
           }
+        },
+        {
+          id: 'suancaixianyu-saves',
+          type: 'savegames',
+          name: '生存战争中文社区',
+          description: '生存战争中文社区存档仓库',
+          icon: '',
+          enabled: true,
+          isDefault: false,
+          api: {
+            baseUrl: 'https://m.suancaixianyu.cn',
+            endpoint: {
+              method: 'GET',
+              url: '/api/post/list?type=2&orderType=1&fileTypes=1&page={page}&limit={limit}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            search: {
+              method: 'GET',
+              url: '/api/post/list?type=2&orderType=1&fileTypes=1&page={page}&limit={limit}&title={query}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            responseMapping: {
+              results: '$.data.list',
+              id: '$.id',
+              title: '$.title',
+              description: '$.content',
+              author: '$.creator.nickname',
+              authorAvatar: '$.creator.headImg',
+              views: '$.views',
+              likes: '$.likeCount',
+              cover: '$.cover',
+              versions: '$.postVersions',
+              version: '$.version',
+              downloadUrl: '$.files[0].url',
+              fileName: '$.files[0].filename',
+              fileSize: '$.files[0].size',
+              icon: '$.files[0].icon',
+              total: '$.data.total',
+              totalPages: '$.data.totalPages'
+            }
+          },
+          metadata: {
+            website: 'https://m.suancaixianyu.cn',
+            author: 'SuanCaiXianYu',
+            tags: ['中文', '社区', '存档']
+          }
         }
       ]
 
@@ -125,26 +183,23 @@ class ModSourceManagerClass {
         console.log('未找到自定义下载源，使用默认配置')
       }
 
-      // 检查是否有默认源，如果没有则将内置源设为默认
-      const hasDefaultSource = this.sources.value.some(s => s.isDefault)
-      if (!hasDefaultSource) {
-        // 没有默认源，将内置源设为默认
-        const builtinSource = this.sources.value.find(s => s.id === 'suancaixianyu')
-        if (builtinSource) {
-          builtinSource.isDefault = true
-          console.log('没有默认源，将内置源设为默认')
-        }
-      } else {
-        // 有默认源（自定义源），确保内置源不是默认源
-        const builtinSource = this.sources.value.find(s => s.id === 'suancaixianyu')
-        if (builtinSource && builtinSource.isDefault) {
-          builtinSource.isDefault = false
-          console.log('有自定义默认源，取消内置源的默认状态')
-        }
-      }
+      // 检查每种类型是否有默认源，如果没有则将第一个内置源设为默认
+      const sourceTypes = ['mods', 'savegames', 'furniture', 'textures', 'skins'] as const
 
-      // 设置当前默认源
-      const defaultSource = this.sources.value.find(s => s.isDefault)
+      sourceTypes.forEach(type => {
+        const hasDefaultOfType = this.sources.value.some(s => s.type === type && s.isDefault)
+        if (!hasDefaultOfType) {
+          // 该类型没有默认源，将第一个内置源设为默认
+          const firstBuiltinSource = this.sources.value.find(s => s.type === type)
+          if (firstBuiltinSource) {
+            firstBuiltinSource.isDefault = true
+            console.log(`类型 ${type} 没有默认源，将内置源设为默认: ${firstBuiltinSource.id}`)
+          }
+        }
+      })
+
+      // 设置当前默认源（优先选择模组类型）
+      const defaultSource = this.sources.value.find(s => s.isDefault && s.type === 'mods')
       if (defaultSource) {
         this.currentSourceId.value = defaultSource.id
       }

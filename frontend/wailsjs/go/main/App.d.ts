@@ -29,6 +29,8 @@ export function DeleteVersion(arg1:string):Promise<void>;
 
 export function DownloadModFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function DownloadSaveGameFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function DownloadVersion(arg1:string):Promise<void>;
 
 export function DownloadVersionWithCustomName(arg1:string,arg2:string):Promise<void>;

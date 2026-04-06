@@ -132,7 +132,7 @@
                       </n-tag>
                       <n-switch
                         v-model:value="source.enabled"
-                        :disabled="source.id === 'suancaixianyu'"
+                        :disabled="source.id === 'suancaixianyu-saves'"
                         @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
                       />
                     </n-space>
@@ -161,7 +161,11 @@
                         size="small"
                         type="error"
                         @click="handleDeleteSource(source)"
+                        :disabled="source.id === 'suancaixianyu-saves'"
                       >
+                        <template #icon>
+                          <n-icon><TrashIcon /></n-icon>
+                        </template>
                         {{ t('common.delete') }}
                       </n-button>
                     </n-space>
