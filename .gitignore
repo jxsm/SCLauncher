@@ -5,7 +5,8 @@ frontend/dist
 # Ignore .claude directory
 .claude/
 
-# Ignore all markdown files except README.md and README_ZH.md
+# Ignore all markdown files except README.md, README_ZH.md, and docs/
 *.md
 !README.md
 !README_ZH.md
+!docs/**/*.md

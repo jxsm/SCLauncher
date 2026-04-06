@@ -41,6 +41,11 @@ SCLauncher is a modern launcher designed specifically for the game "Survivalcraf
 - **High Performance** - Native performance, smooth experience
 - **Data Persistence** - Local database, safe and reliable
 
+## 📚 Documentation
+
+- **[Mod Source Configuration Guide](docs/suancaixianyu-config-explanation.md)** - How to configure custom mod download sources using the new v2 format
+- **[配置示例文档](docs/mod-source-config-examples.md)** (Chinese) - 详细的下载源配置示例和说明
+
 ## 📸 Preview Images
 
 ### Home Page

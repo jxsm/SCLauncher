@@ -191,6 +191,7 @@
                 :placeholder="t('mods.searchOnlineMods')"
                 clearable
                 size="large"
+                @keyup.enter="handleSearchMods"
               >
                 <template #prefix>
                   <n-icon><SearchIcon /></n-icon>
@@ -356,7 +357,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useModStore } from '../stores/mod'
@@ -616,6 +617,15 @@ async function handlePageChange(page: number) {
   } else {
     // 浏览模式
     await loadModList()
+  }
+
+  // 等待DOM更新后滚动到模组列表顶部
+  await nextTick()
+  const downloadView = document.querySelector('.view-content')
+  if (downloadView) {
+    downloadView.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 

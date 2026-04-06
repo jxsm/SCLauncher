@@ -1,14 +1,16 @@
 /**
  * 模组下载源管理器
  * 负责管理多个模组下载源，提供统一的搜索和下载接口
+ * 支持新的 v2 配置格式（GET/POST、URL参数替换等）和旧格式的向后兼容
  */
 
 import { ref } from 'vue'
 import type { ModSource, ModSearchResult, SearchOptions, PaginatedResponse } from '../types/mod-source'
+import type { ModSourceV2, ApiEndpointConfig, RequestContext } from '../types/mod-source-v2'
 
 class ModSourceManagerClass {
-  // 状态
-  private sources = ref<ModSource[]>([])
+  // 状态 - 使用联合类型，兼容 v1 和 v2 格式
+  private sources = ref<any[]>([])
   private currentSourceId = ref<string>('')
   private loading = ref(false)
 
@@ -33,7 +35,7 @@ class ModSourceManagerClass {
   private async loadSources() {
     try {
       // TODO: 从启动器目录的 mod-sources 文件夹加载配置
-      // 暂时使用内置的默认源（不设置为默认，等加载完所有源后再判断）
+      // 暂时使用内置的默认源（使用新的 v2 格式）
       this.sources.value = [
         {
           id: 'suancaixianyu',
@@ -45,10 +47,27 @@ class ModSourceManagerClass {
           isDefault: false, // 初始不设置为默认
           api: {
             baseUrl: 'https://m.suancaixianyu.cn',
-            searchPath: '/api/post/list',
-            searchParams: {
-              type: 2,
-              fileTypes: 5
+            endpoint: {
+              method: 'GET',
+              url: '/api/post/list?type=2&fileTypes=5&page={page}&limit={limit}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            search: {
+              method: 'GET',
+              url: '/api/post/list?type=2&fileTypes=5&page={page}&limit={limit}&title={query}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
             },
             responseMapping: {
               results: '$.data.list',
@@ -65,8 +84,15 @@ class ModSourceManagerClass {
               downloadUrl: '$.files[0].url',
               fileName: '$.files[0].filename',
               fileSize: '$.files[0].size',
-              icon: '$.files[0].icon'
+              icon: '$.files[0].icon',
+              total: '$.data.total',
+              totalPages: '$.data.totalPages'
             }
+          },
+          metadata: {
+            website: 'https://m.suancaixianyu.cn',
+            author: 'SuanCaiXianYu',
+            tags: ['中文', '社区', '模组']
           }
         }
       ]
@@ -78,7 +104,7 @@ class ModSourceManagerClass {
 
         if (customSources && Array.isArray(customSources)) {
           console.log('加载到自定义下载源:', customSources)
-          // 合并内置源和自定义源（自定义源优先）
+          // 合并内置源和自定义源（不允许覆盖内置源，确保安全）
           const existingIds = this.sources.value.map(s => s.id)
           customSources.forEach((source: any) => {
             if (!existingIds.includes(source.id)) {
@@ -89,6 +115,8 @@ class ModSourceManagerClass {
               }
               this.sources.value.push(source)
               console.log('添加自定义源:', source)
+            } else {
+              console.log(`跳过已存在的源: ${source.id}（不允许覆盖内置源）`)
             }
           })
         }
@@ -160,6 +188,7 @@ class ModSourceManagerClass {
 
   /**
    * 获取模组列表（带分页）
+   * 支持旧的 v1 配置格式和新的 v2 配置格式
    */
   async getModList(options: SearchOptions = {}): Promise<PaginatedResponse<ModSearchResult>> {
     const currentSource = this.getCurrentSource()
@@ -170,7 +199,22 @@ class ModSourceManagerClass {
     this.loading.value = true
 
     try {
-      const { api } = currentSource
+      // 检查是否为 v2 配置格式
+      if (this.isV2Source(currentSource)) {
+        return await this.fetchWithV2Config(
+          currentSource,
+          'list',
+          {
+            page: options.page || 1,
+            limit: options.limit || 10,
+            query: '',
+            filters: options.filters
+          }
+        )
+      }
+
+      // 使用旧的 v1 配置格式（向后兼容）
+      const { api } = currentSource as any
 
       // 构建请求参数
       const params = new URLSearchParams()
@@ -222,6 +266,7 @@ class ModSourceManagerClass {
 
   /**
    * 搜索模组（使用关键词）
+   * 支持旧的 v1 配置格式和新的 v2 配置格式
    */
   async searchMods(query: string, options: SearchOptions = {}): Promise<PaginatedResponse<ModSearchResult>> {
     const currentSource = this.getCurrentSource()
@@ -232,7 +277,22 @@ class ModSourceManagerClass {
     this.loading.value = true
 
     try {
-      const { api } = currentSource
+      // 检查是否为 v2 配置格式
+      if (this.isV2Source(currentSource)) {
+        return await this.fetchWithV2Config(
+          currentSource,
+          'search',
+          {
+            page: options.page || 1,
+            limit: options.limit || 10,
+            query: query.trim(),
+            filters: options.filters
+          }
+        )
+      }
+
+      // 使用旧的 v1 配置格式（向后兼容）
+      const { api } = currentSource as any
 
       // 构建请求参数
       const params = new URLSearchParams()
@@ -469,6 +529,208 @@ class ModSourceManagerClass {
    */
   isLoading(): boolean {
     return this.loading.value
+  }
+
+  /**
+   * 检查是否为 v2 配置格式
+   */
+  private isV2Source(source: any): source is ModSourceV2 {
+    return source.api && (source.api.list || source.api.search || source.api.endpoint)
+  }
+
+  /**
+   * 替换 URL 中的参数占位符
+   * 支持的占位符：{page}, {limit}, {query}, {timestamp} 等
+   */
+  private replaceUrlParams(url: string, context: RequestContext): string {
+    let result = url
+    result = result.replace(/\{page\}/g, String(context.page))
+    result = result.replace(/\{limit\}/g, String(context.limit))
+    result = result.replace(/\{query\}/g, encodeURIComponent(context.query || ''))
+    result = result.replace(/\{timestamp\}/g, String(Date.now()))
+
+    // 替换自定义过滤器中的参数
+    if (context.filters) {
+      Object.entries(context.filters).forEach(([key, value]) => {
+        result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value))
+      })
+    }
+
+    return result
+  }
+
+  /**
+   * 构建请求 URL
+   */
+  private buildRequestUrl(baseUrl: string, endpointConfig: ApiEndpointConfig, context: RequestContext): string {
+    let url = `${baseUrl}${endpointConfig.url}`
+
+    if (endpointConfig.method === 'GET') {
+      // 对于 GET 请求，替换 URL 中的参数占位符
+      url = this.replaceUrlParams(url, context)
+
+      // 如果配置了分页参数且 URL 中没有对应的占位符，则添加到查询字符串
+      if (endpointConfig.pagination) {
+        const params = new URLSearchParams()
+        const pagination = endpointConfig.pagination
+
+        if (pagination.paramLocation === 'url') {
+          // 检查 URL 中是否已经有这些参数
+          const urlObj = new URL(url)
+          if (pagination.pageParam && !urlObj.searchParams.has(pagination.pageParam)) {
+            urlObj.searchParams.set(pagination.pageParam, String(context.page))
+          }
+          if (pagination.limitParam && !urlObj.searchParams.has(pagination.limitParam)) {
+            urlObj.searchParams.set(pagination.limitParam, String(context.limit))
+          }
+          if (context.query && pagination.searchParam && !urlObj.searchParams.has(pagination.searchParam)) {
+            urlObj.searchParams.set(pagination.searchParam, context.query)
+          }
+          url = urlObj.toString()
+        }
+      }
+    }
+
+    return url
+  }
+
+  /**
+   * 构建请求体（用于 POST 请求）
+   */
+  private buildRequestBody(endpointConfig: ApiEndpointConfig, context: RequestContext): BodyInit | undefined {
+    if (!endpointConfig.body) {
+      return undefined
+    }
+
+    const { body, pagination } = endpointConfig
+
+    // 如果分页参数需要放在请求体中
+    if (pagination && pagination.paramLocation === 'body') {
+      let bodyTemplate = body.template
+
+      if (typeof bodyTemplate === 'object') {
+        bodyTemplate = { ...bodyTemplate }
+        if (pagination.pageParam) {
+          bodyTemplate[pagination.pageParam] = context.page
+        }
+        if (pagination.limitParam) {
+          bodyTemplate[pagination.limitParam] = context.limit
+        }
+        if (context.query && pagination.searchParam) {
+          bodyTemplate[pagination.searchParam] = context.query
+        }
+      } else if (typeof bodyTemplate === 'string') {
+        bodyTemplate = this.replaceUrlParams(bodyTemplate, context)
+      }
+
+      return this.serializeBody(bodyTemplate, body.type)
+    }
+
+    return this.serializeBody(body.template, body.type)
+  }
+
+  /**
+   * 序列化请求体
+   */
+  private serializeBody(data: any, type: string): BodyInit {
+    if (type === 'json') {
+      return JSON.stringify(data)
+    } else if (type === 'form-urlencoded') {
+      const params = new URLSearchParams()
+      Object.entries(data).forEach(([key, value]) => {
+        params.append(key, String(value))
+      })
+      return params.toString()
+    } else if (type === 'raw') {
+      return String(data)
+    }
+    return JSON.stringify(data)
+  }
+
+  /**
+   * 获取请求头
+   */
+  private getRequestHeaders(endpointConfig: ApiEndpointConfig): Record<string, string> {
+    const headers: Record<string, string> = {
+      ...(endpointConfig.headers || {})
+    }
+
+    // 根据请求体类型设置 Content-Type
+    if (endpointConfig.body) {
+      if (endpointConfig.body.type === 'json') {
+        headers['Content-Type'] = 'application/json'
+      } else if (endpointConfig.body.type === 'form-urlencoded') {
+        headers['Content-Type'] = 'application/x-www-form-urlencoded'
+      }
+    }
+
+    return headers
+  }
+
+  /**
+   * 使用 v2 配置发起请求
+   */
+  private async fetchWithV2Config(
+    source: ModSourceV2,
+    endpointType: 'list' | 'search',
+    context: RequestContext
+  ): Promise<PaginatedResponse<ModSearchResult>> {
+    const { api } = source
+
+    // 确定使用哪个端点配置
+    let endpointConfig = api.list
+    if (endpointType === 'search') {
+      endpointConfig = api.search || api.list
+    }
+    endpointConfig = endpointConfig || api.endpoint
+
+    if (!endpointConfig) {
+      throw new Error('No endpoint configuration found')
+    }
+
+    // 构建 URL 和请求体
+    const url = this.buildRequestUrl(api.baseUrl, endpointConfig, context)
+    const body = this.buildRequestBody(endpointConfig, context)
+    const headers = this.getRequestHeaders(endpointConfig)
+
+    // 发起请求
+    const response = await fetch(url, {
+      method: endpointConfig.method,
+      headers,
+      body: endpointConfig.method !== 'GET' ? body : undefined
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // 解析响应数据
+    const mods = this.parseResponseData(data, api.responseMapping, source.id)
+
+    // 从响应中获取分页信息
+    const total = this.extractPaginationValue(data, api.responseMapping.total) || 0
+    const totalPages = this.extractPaginationValue(data, api.responseMapping.totalPages) || Math.ceil(total / context.limit)
+
+    return {
+      data: mods,
+      total,
+      page: context.page,
+      limit: context.limit,
+      totalPages
+    }
+  }
+
+  /**
+   * 从响应中提取分页信息
+   */
+  private extractPaginationValue(data: any, path?: string): number {
+    if (!path) {
+      return 0
+    }
+    const value = this.getValueByPath(data, path)
+    return Number(value) || 0
   }
 }
 

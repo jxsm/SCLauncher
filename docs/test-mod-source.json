@@ -1,0 +1,63 @@
+{
+  "id": "test-get-example",
+  "type": "mods",
+  "name": "测试GET请求示例",
+  "description": "这是一个测试配置文件，用于测试GET请求和URL参数替换功能",
+  "enabled": false,
+  "isDefault": false,
+  "api": {
+    "baseUrl": "https://api.example.com",
+    "endpoint": {
+      "method": "GET",
+      "url": "/v1/mods?page={page}&limit={limit}",
+      "headers": {
+        "User-Agent": "SCLauncher/1.0",
+        "Accept": "application/json"
+      },
+      "pagination": {
+        "pageParam": "page",
+        "limitParam": "limit",
+        "searchParam": "q",
+        "paramLocation": "url"
+      }
+    },
+    "search": {
+      "method": "GET",
+      "url": "/v1/mods/search?q={query}&page={page}&limit={limit}",
+      "headers": {
+        "User-Agent": "SCLauncher/1.0",
+        "Accept": "application/json"
+      },
+      "pagination": {
+        "pageParam": "page",
+        "limitParam": "limit",
+        "searchParam": "q",
+        "paramLocation": "url"
+      }
+    },
+    "responseMapping": {
+      "results": "$.data.mods",
+      "id": "$.id",
+      "title": "$.name",
+      "description": "$.description",
+      "author": "$.authorName",
+      "authorAvatar": "$.authorAvatar",
+      "views": "$.viewCount",
+      "likes": "$.likeCount",
+      "cover": "$.coverImageUrl",
+      "versions": "$.versions",
+      "version": "$.versionNumber",
+      "downloadUrl": "$.downloadLink",
+      "fileName": "$.fileName",
+      "fileSize": "$.fileSizeBytes",
+      "total": "$.data.totalCount",
+      "totalPages": "$.data.totalPages"
+    }
+  },
+  "metadata": {
+    "website": "https://example.com",
+    "author": "Test",
+    "version": "1.0.0",
+    "tags": ["测试", "示例"]
+  }
+}
