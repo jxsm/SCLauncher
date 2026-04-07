@@ -6,6 +6,7 @@ import ptBR from './pt-BR'
 import hiIN from './hi-IN'
 import idID from './id-ID'
 import arSA from './ar-SA'
+import esES from './es-ES'
 
 const messages = {
   'zh-CN': zhCN,
@@ -14,7 +15,8 @@ const messages = {
   'pt-BR': ptBR,
   'hi-IN': hiIN,
   'id-ID': idID,
-  'ar-SA': arSA
+  'ar-SA': arSA,
+  'es-ES': esES
 }
 
 const i18n = createI18n({

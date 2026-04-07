@@ -247,7 +247,6 @@ onMounted(async () => {
 }
 
 .secondary-btn {
-  border: 1px solid red;
   width: 120px;
   height: 48px;
   font-size: 14px;
@@ -256,6 +255,9 @@ onMounted(async () => {
   color: var(--n-text-color-2);
   border-radius: 6px;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .secondary-btn:hover {

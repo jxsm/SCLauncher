@@ -659,7 +659,8 @@ const languageOptions = [
   { label: 'Português (Brasil)', value: 'pt-BR' },
   { label: 'हिन्दी', value: 'hi-IN' },
   { label: 'Bahasa Indonesia', value: 'id-ID' },
-  { label: 'العربية', value: 'ar-SA' }
+  { label: 'العربية', value: 'ar-SA' },
+  { label: 'Español (España)', value: 'es-ES' }
 ]
 
 // 加载背景图片预览
