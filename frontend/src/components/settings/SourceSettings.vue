@@ -54,7 +54,7 @@
       <n-tab-pane name="skins" :tab="t('mods.skinSources')">
         <SourceList
           :sources="getSourcesByType('skins')"
-          disabled-source-id="suancaixianyu"
+          disabled-source-id="suancaixianyu-skins"
           @toggle="handleToggleSource"
           @set-default="handleSetDefaultSource"
           @delete="handleDeleteSource"

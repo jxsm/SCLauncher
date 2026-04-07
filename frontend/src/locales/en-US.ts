@@ -303,7 +303,19 @@ export default {
     fileSize: 'File Size',
     importDate: 'Import Date',
     totalSkins: 'Total {count} skins',
-    loadFailed: 'Failed to load skin list'
+    loadFailed: 'Failed to load skin list',
+    downloadSkin: 'Download Skin',
+    backToManage: 'Back to Manage',
+    manageSources: 'Manage Sources',
+    searchOnlineSkins: 'Search online skins',
+    noSearchResults: 'No skins found',
+    searchSuccess: 'Search successful',
+    searchFailed: 'Search failed',
+    downloadSuccess: '{name} downloaded successfully',
+    downloadFailed: 'Download failed',
+    versionNotFound: 'Version not found',
+    loadingSkins: 'Loading skins...',
+    noDownloadableFiles: 'No downloadable files'
   },
   furniture: {
     title: 'Furniture Management',

@@ -30,3 +30,8 @@ export async function SyncSkinsToGame(versionId: string): Promise<void> {
 export async function GetSkinImage(fileName: string): Promise<string> {
   return await AppBindings.GetSkinImage(fileName)
 }
+
+// 下载皮肤
+export async function DownloadSkinFromURL(downloadURL: string, fileName: string): Promise<void> {
+  await AppBindings.DownloadSkinFromURL(downloadURL, fileName)
+}

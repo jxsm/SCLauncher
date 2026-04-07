@@ -1198,6 +1198,83 @@ func (a *App) GetSkinImage(fileName string) (string, error) {
 	return a.skinMgr.GetSkinImage(fileName)
 }
 
+// DownloadSkinFromURL 从URL下载皮肤
+func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载皮肤: %s -> %s", downloadURL, fileName))
+
+	// 验证文件扩展名
+	if !strings.HasSuffix(strings.ToLower(fileName), ".scskin") {
+		return fmt.Errorf("invalid file extension: %s", fileName)
+	}
+
+	// 创建临时文件保存下载内容
+	tempFile, err := os.CreateTemp("", "scskin-*.tmp")
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // 确保临时文件被删除
+
+	// 下载文件
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("下载失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+	}
+
+	// 保存到临时文件
+	_, err = io.Copy(tempFile, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("皮肤下载完成，正在导入: %s", fileName))
+
+	// 确保皮肤目录存在
+	skinsDir := filepath.Join(config.GetAppDataDir(), "skins")
+	if err := os.MkdirAll(skinsDir, 0755); err != nil {
+		return fmt.Errorf("创建皮肤目录失败: %w", err)
+	}
+
+	// 目标文件路径
+	destPath := filepath.Join(skinsDir, fileName)
+
+	// 检查文件是否已存在
+	if _, err := os.Stat(destPath); err == nil {
+		return fmt.Errorf("皮肤文件已存在: %s", fileName)
+	}
+
+	// 复制文件
+	sourceFile, err := os.Open(tempPath)
+	if err != nil {
+		return fmt.Errorf("打开源文件失败: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("创建目标文件失败: %w", err)
+	}
+	defer destFile.Close()
+
+	// 复制内容
+	if _, err := io.Copy(destFile, sourceFile); err != nil {
+		return fmt.Errorf("复制文件内容失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, "皮肤下载并安装成功")
+	return nil
+}
+
 // ========== 背景图片管理 API ==========
 
 // SelectBackgroundFile 选择背景图片文件

@@ -370,7 +370,19 @@ export default {
     fileSize: '文件大小',
     importDate: '导入日期',
     totalSkins: '共 {count} 个皮肤',
-    loadFailed: '加载皮肤列表失败'
+    loadFailed: '加载皮肤列表失败',
+    downloadSkin: '下载皮肤',
+    backToManage: '返回管理',
+    manageSources: '管理下载源',
+    searchOnlineSkins: '搜索在线皮肤',
+    noSearchResults: '没有找到相关皮肤',
+    searchSuccess: '搜索成功',
+    searchFailed: '搜索失败',
+    downloadSuccess: '{name} 下载成功',
+    downloadFailed: '下载失败',
+    versionNotFound: '未找到指定版本',
+    loadingSkins: '加载皮肤中...',
+    noDownloadableFiles: '暂无可下载文件'
   },
   furniture: {
     title: '家具管理',

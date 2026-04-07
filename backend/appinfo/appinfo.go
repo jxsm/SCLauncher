@@ -1,7 +1,7 @@
 package appinfo
 
 // Version of the application
-const Version = "0.5.3"
+const Version = "0.6.1"
 
 // RepoOwner GitHub repository owner
 const RepoOwner = "jxsm"
