@@ -61,6 +61,7 @@ export default {
     mods: '模组',
     savegames: '存档',
     skins: '皮肤',
+    resources: '资源管理',
     settings: '设置'
   },
   home: {

@@ -61,6 +61,7 @@ export default {
     mods: 'Mods',
     savegames: 'Save Games',
     skins: 'Skins',
+    resources: 'Resources',
     settings: 'Settings'
   },
   home: {

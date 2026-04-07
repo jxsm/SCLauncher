@@ -30,16 +30,8 @@
                     <VersionsView />
                   </n-tab-pane>
 
-                  <n-tab-pane name="mods" :tab="t('nav.mods')">
-                    <ModsView />
-                  </n-tab-pane>
-
-                  <n-tab-pane name="savegames" :tab="t('nav.savegames')">
-                    <SaveGamesView />
-                  </n-tab-pane>
-
-                  <n-tab-pane name="skins" :tab="t('nav.skins')">
-                    <SkinsView />
+                  <n-tab-pane name="resources" :tab="t('nav.resources')">
+                    <ResourcesView />
                   </n-tab-pane>
 
                   <n-tab-pane name="settings" :tab="t('nav.settings')">
@@ -69,9 +61,7 @@ import { CheckUpdate, CheckUpdateForce, SetUpdateRemindDisabled, GetConfig, GetB
 import HomeView from "./views/Home.vue";
 import InstalledVersionsView from "./views/InstalledVersions.vue";
 import VersionsView from "./views/Versions.vue";
-import ModsView from "./views/Mods.vue";
-import SaveGamesView from "./views/SaveGames.vue";
-import SkinsView from "./views/Skins.vue";
+import ResourcesView from "./views/Resources.vue";
 import SettingsView from "./views/Settings.vue";
 import BackToTop from "./components/BackToTop.vue";
 

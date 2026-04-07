@@ -59,6 +59,7 @@ export default {
     mods: 'التعديلات',
     savegames: 'الألعاب المحفوظة',
     skins: 'الأskins',
+    resources: 'الموارد',
     settings: 'الإعدادات'
   },
   home: {

@@ -59,6 +59,7 @@ export default {
     mods: 'Mods',
     savegames: 'Simpanan',
     skins: 'Kulit',
+    resources: 'Sumber Daya',
     settings: 'Pengaturan'
   },
   home: {
