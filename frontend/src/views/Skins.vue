@@ -209,6 +209,11 @@ import type { ModSearchResult } from '../types/mod-source'
 import SkinSearchResultItem from '../components/skin/SkinSearchResultItem.vue'
 import SkinDetailModal from '../components/skin/SkinDetailModal.vue'
 
+// 定义props
+const props = defineProps<{
+  versionIdFromRoute?: string
+}>()
+
 const { t } = useI18n()
 const skinStore = useSkinStore()
 const message = useMessage()

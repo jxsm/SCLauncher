@@ -200,6 +200,11 @@ import SaveGameListItem from '../components/savegame/SaveGameListItem.vue'
 import SaveGameSearchResultItem from '../components/savegame/SaveGameSearchResultItem.vue'
 import SaveGameDetailModal from '../components/savegame/SaveGameDetailModal.vue'
 
+// 定义props
+const props = defineProps<{
+  versionIdFromRoute?: string
+}>()
+
 const { t } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
@@ -656,15 +661,33 @@ onMounted(async () => {
 
     // 加载已安装版本列表
     await versionStore.getVersions()
+    await versionStore.getPrimaryVersion()
 
     // Get valid versions (paths exist)
     const validVersions = versionStore.installedVersions.filter(v => v.pathExists !== false && v.pathExists !== undefined)
 
-    // 默认选择主版本
-    if (versionStore.primaryVersion && versionStore.primaryVersion.pathExists !== false && versionStore.primaryVersion.pathExists !== undefined) {
-      selectedVersionId.value = versionStore.primaryVersion.id
-    } else if (validVersions.length > 0) {
-      selectedVersionId.value = validVersions[0].id
+    // 优先使用从路由传入的版本ID
+    if (props.versionIdFromRoute) {
+      const version = validVersions.find(v => v.id === props.versionIdFromRoute)
+      if (version) {
+        selectedVersionId.value = props.versionIdFromRoute
+      } else {
+        // 如果指定版本无效，选择主要版本
+        const primaryInValid = validVersions.find(v => v.isPrimary)
+        if (primaryInValid) {
+          selectedVersionId.value = primaryInValid.id
+        } else if (validVersions.length > 0) {
+          selectedVersionId.value = validVersions[0].id
+        }
+      }
+    } else {
+      // 默认选择主版本
+      const primaryInValid = validVersions.find(v => v.isPrimary)
+      if (primaryInValid) {
+        selectedVersionId.value = primaryInValid.id
+      } else if (validVersions.length > 0) {
+        selectedVersionId.value = validVersions[0].id
+      }
     }
 
     // 加载存档列表

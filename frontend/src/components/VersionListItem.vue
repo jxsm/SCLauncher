@@ -68,12 +68,12 @@
             </n-button>
             <n-button
               size="medium"
-              @click="$emit('manageMods', version)"
+              @click="$emit('manageResources', version)"
             >
               <template #icon>
-                <n-icon><ModsIcon /></n-icon>
+                <n-icon><ResourcesIcon /></n-icon>
               </template>
-              {{ t('installed.manageMods') }}
+              {{ t('installed.manageResources') }}
             </n-button>
             <n-button
               size="medium"
@@ -105,7 +105,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon } from '@vicons/ionicons5'
+import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, CubeOutline as ResourcesIcon } from '@vicons/ionicons5'
 import type { Version } from '../types/version'
 
 const { t } = useI18n()
@@ -120,7 +120,7 @@ const emit = defineEmits<{
   launch: [version: Version]
   setPrimary: [version: Version]
   openFolder: [version: Version]
-  manageMods: [version: Version]
+  manageResources: [version: Version]
   rename: [version: Version]
   delete: [version: Version]
 }>()

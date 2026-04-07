@@ -598,12 +598,13 @@ onMounted(async () => {
       message.warning(t('mods.versionPathMissing'))
     }
 
-    // Select primary version by default (if path exists)
-    if (versionStore.primaryVersion && versionStore.primaryVersion.pathExists !== false && versionStore.primaryVersion.pathExists !== undefined) {
-      selectedVersion.value = versionStore.primaryVersion.id
+    // Select primary version by default (if it exists in valid versions)
+    const primaryInValid = validVersions.find(v => v.isPrimary)
+    if (primaryInValid) {
+      selectedVersion.value = primaryInValid.id
       await modStore.loadMods(selectedVersion.value)
     } else if (validVersions.length > 0) {
-      // If no primary version or primary version path missing, select the first valid version
+      // If no primary version in valid versions, select the first valid version
       selectedVersion.value = validVersions[0].id
       await modStore.loadMods(selectedVersion.value)
     } else {

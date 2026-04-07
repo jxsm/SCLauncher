@@ -20,7 +20,7 @@
             @launch="handleLaunch"
             @set-primary="handleSetPrimary"
             @open-folder="handleOpenFolder"
-            @manage-mods="handleManageMods"
+            @manage-resources="handleManageResources"
             @rename="handleRename"
             @delete="handleDelete"
           />
@@ -160,9 +160,9 @@ async function handleOpenFolder(version: Version) {
   }
 }
 
-function handleManageMods(version: Version) {
+function handleManageResources(version: Version) {
   router.push({
-    name: 'Mods',
+    name: 'Resources',
     query: { versionId: version.id }
   })
 }

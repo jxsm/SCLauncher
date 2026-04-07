@@ -223,6 +223,11 @@ import FurnitureListItem from '../components/furniture/FurnitureListItem.vue'
 import FurnitureSearchResultItem from '../components/furniture/FurnitureSearchResultItem.vue'
 import FurnitureDetailModal from '../components/furniture/FurnitureDetailModal.vue'
 
+// 定义props
+const props = defineProps<{
+  versionIdFromRoute?: string
+}>()
+
 const { t } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
@@ -629,12 +634,33 @@ onMounted(async () => {
 
     // 加载已安装版本列表
     await versionStore.getVersions()
+    await versionStore.getPrimaryVersion()
 
-    // 默认选择主版本
-    if (versionStore.primaryVersion) {
-      selectedVersionId.value = versionStore.primaryVersion.id
-    } else if (versionStore.installedVersions.length > 0) {
-      selectedVersionId.value = versionStore.installedVersions[0].id
+    // Get valid versions (paths exist)
+    const validVersions = versionStore.installedVersions.filter(v => v.pathExists !== false && v.pathExists !== undefined)
+
+    // 优先使用从路由传入的版本ID
+    if (props.versionIdFromRoute) {
+      const version = validVersions.find(v => v.id === props.versionIdFromRoute)
+      if (version) {
+        selectedVersionId.value = props.versionIdFromRoute
+      } else {
+        // 如果指定版本无效，选择主要版本
+        const primaryInValid = validVersions.find(v => v.isPrimary)
+        if (primaryInValid) {
+          selectedVersionId.value = primaryInValid.id
+        } else if (validVersions.length > 0) {
+          selectedVersionId.value = validVersions[0].id
+        }
+      }
+    } else {
+      // 默认选择主版本
+      const primaryInValid = validVersions.find(v => v.isPrimary)
+      if (primaryInValid) {
+        selectedVersionId.value = primaryInValid.id
+      } else if (validVersions.length > 0) {
+        selectedVersionId.value = validVersions[0].id
+      }
     }
 
     // 加载家具列表

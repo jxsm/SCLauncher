@@ -142,6 +142,7 @@ export default {
     launchGame: '启动游戏',
     openFolder: '打开文件夹',
     manageMods: '管理模组',
+    manageResources: '资源管理',
     setAsPrimary: '设为主要版本',
     primary: '主要',
     confirmDelete: '确认删除',

@@ -142,6 +142,7 @@ export default {
     launchGame: 'Launch Game',
     openFolder: 'Open Folder',
     manageMods: 'Manage Mods',
+    manageResources: 'Resources',
     setAsPrimary: 'Set as Primary',
     primary: 'Primary',
     confirmDelete: 'Confirm Delete',
