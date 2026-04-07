@@ -275,11 +275,13 @@ async function handleSaveSettings() {
   }
 }
 
-async function handleSaveLanguage() {
+async function handleSaveLanguage(newLanguage: string) {
   try {
-    await SetLanguage(language.value)
+    // 更新语言值
+    language.value = newLanguage
+    await SetLanguage(newLanguage)
     // 立即切换应用语言
-    locale.value = language.value
+    locale.value = newLanguage
     message.success(t('settings.languageSaved'))
   } catch (error) {
     message.error(t('settings.saveFailed') + '：' + error)

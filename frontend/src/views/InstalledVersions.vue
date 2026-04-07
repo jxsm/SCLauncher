@@ -2,140 +2,28 @@
   <div class="installed-versions-view">
     <n-space vertical size="large">
       <!-- 工具栏 -->
-      <n-card>
-        <n-space justify="space-between">
-          <n-space>
-            <n-text strong style="font-size: 18px;">{{ t('installed.title') }}</n-text>
-          </n-space>
-          <n-space>
-            <n-button type="primary" @click="handleImportGame">
-              <template #icon>
-                <n-icon><ImportIcon /></n-icon>
-              </template>
-              {{ t('installed.importGame') }}
-            </n-button>
-            <n-button type="success" @click="handleLocalInstall">
-              <template #icon>
-                <n-icon><ArchiveIcon /></n-icon>
-              </template>
-              {{ t('installed.localInstall') }}
-            </n-button>
-            <n-text depth="3">
-              {{ t('installed.totalInstalled') }} {{ installedVersions.length }}
-            </n-text>
-          </n-space>
-        </n-space>
-      </n-card>
+      <VersionToolbar
+        :total-count="installedVersions.length"
+        @import-game="handleImportGame"
+        @local-install="handleLocalInstall"
+      />
 
       <!-- 版本列表 -->
       <n-spin :show="loading">
         <n-list hoverable clickable>
-          <n-list-item
+          <VersionListItem
             v-for="version in installedVersions"
             :key="version.id"
-            :style="isPathMissing(version) ? 'background-color: rgba(255, 0, 0, 0.05);' : ''"
-          >
-            <n-thing>
-              <template #header>
-                <n-space align="center">
-                  <n-text strong style="font-size: 16px;">{{ version.name }}</n-text>
-                  <n-tag v-if="version.isPrimary" type="success" size="small">
-                    {{ t('installed.primary') }}
-                  </n-tag>
-                  <n-tag v-if="!isImportedVersion(version)" :type="getVersionTypeColor(version.versionType)" size="small">
-                    {{ getVersionTypeText(version.versionType) }}
-                  </n-tag>
-                  <n-tag v-if="!isPathMissing(version)" type="success" size="small">
-                    {{ t('versions.installed') }}
-                  </n-tag>
-                  <n-tag v-if="isPathMissing(version)" type="error" size="small">
-                    {{ t('installed.pathMissing') }}
-                  </n-tag>
-                </n-space>
-              </template>
-
-              <template #description>
-                <n-space vertical size="small">
-                  <n-text depth="3">
-                    {{ t('common.version') }}: {{ version.gameVersion }} - {{ version.subVersion }}
-                  </n-text>
-                  <n-text v-if="isPathMissing(version)" type="error" style="margin-top: 8px;">
-                    ⚠️ {{ t('installed.pathMissingMessage') }}
-                  </n-text>
-                </n-space>
-              </template>
-
-              <template #action>
-                <n-space>
-                  <!-- 路径不存在时，隐藏所有按钮除了删除按钮 -->
-                  <template v-if="!isPathMissing(version)">
-                    <n-button
-                      type="success"
-                      size="medium"
-                      :disabled="gameStore.isRunning"
-                      @click="handleLaunch(version)"
-                    >
-                      <template #icon>
-                        <n-icon><PlayIcon /></n-icon>
-                      </template>
-                      {{ t('installed.launchGame') }}
-                    </n-button>
-                    <n-button
-                      size="medium"
-                      @click="handleSetPrimary(version)"
-                      :disabled="version.isPrimary"
-                      :type="version.isPrimary ? 'success' : 'default'"
-                    >
-                      <template #icon>
-                        <n-icon><StarIcon /></n-icon>
-                      </template>
-                      {{ version.isPrimary ? t('installed.alreadyPrimary') : t('versions.setAsPrimary') }}
-                    </n-button>
-                    <n-button
-                      size="medium"
-                      @click="handleOpenFolder(version)"
-                    >
-                      <template #icon>
-                        <n-icon><FolderIcon /></n-icon>
-                      </template>
-                      {{ t('versions.openFolder') }}
-                    </n-button>
-                    <n-button
-                      size="medium"
-                      @click="handleManageMods(version)"
-                    >
-                      <template #icon>
-                        <n-icon><ModsIcon /></n-icon>
-                      </template>
-                      {{ t('installed.manageMods') }}
-                    </n-button>
-                    <n-button
-                      size="medium"
-                      @click="handleRename(version)"
-                    >
-                      <template #icon>
-                        <n-icon><EditIcon /></n-icon>
-                      </template>
-                      {{ t('versions.rename') }}
-                    </n-button>
-                  </template>
-                  <n-popconfirm
-                    @positive-click="handleDelete(version)"
-                  >
-                    <template #trigger>
-                      <n-button type="error" size="medium">
-                        <template #icon>
-                          <n-icon><TrashIcon /></n-icon>
-                        </template>
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </template>
-                    {{ t('installed.confirmDeleteVersion', { name: version.name }) }}
-                  </n-popconfirm>
-                </n-space>
-              </template>
-            </n-thing>
-          </n-list-item>
+            :version="version"
+            :is-path-missing="isPathMissing(version)"
+            :is-game-running="gameStore.isRunning"
+            @launch="handleLaunch"
+            @set-primary="handleSetPrimary"
+            @open-folder="handleOpenFolder"
+            @manage-mods="handleManageMods"
+            @rename="handleRename"
+            @delete="handleDelete"
+          />
         </n-list>
         <n-empty v-if="installedVersions.length === 0 && !loading" :description="t('installed.noVersions')">
           <template #extra>
@@ -157,7 +45,8 @@ import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive } from '../api/version'
-import { Play as PlayIcon, Star as StarIcon, Trash as TrashIcon, CreateOutline as EditIcon, FolderOpen as FolderIcon, ExtensionPuzzle as ModsIcon, Download as ImportIcon, Archive as ArchiveIcon } from '@vicons/ionicons5'
+import VersionToolbar from '../components/VersionToolbar.vue'
+import VersionListItem from '../components/VersionListItem.vue'
 import type { Version } from '../types/version'
 
 const { t } = useI18n()
@@ -172,24 +61,6 @@ const renamingVersion = ref<Version | null>(null)
 const newName = ref('')
 
 const installedVersions = computed(() => versionStore.installedVersions)
-
-function getVersionTypeText(type: string): string {
-  const types = {
-    api: t('versions.apiVersion'),
-    net: t('versions.netVersion'),
-    original: t('versions.originalVersion')
-  }
-  return types[type as keyof typeof types] || type
-}
-
-function getVersionTypeColor(type: string): 'info' | 'success' | 'warning' | 'default' {
-  switch (type) {
-    case 'api': return 'info'
-    case 'net': return 'warning'
-    case 'original': return 'success'
-    default: return 'default'
-  }
-}
 
 // 判断路径是否缺失
 function isPathMissing(version: Version): boolean {
@@ -422,12 +293,6 @@ async function getCustomVersionName(defaultName: string): Promise<string | null>
       }
     })
   })
-}
-
-// 判断是否为导入的版本
-function isImportedVersion(version: Version): boolean {
-  // 导入的版本ID以"imported-"开头，或者版本类型为"unknown"
-  return version.id.startsWith('imported-') || version.versionType === 'unknown'
 }
 
 onMounted(async () => {
