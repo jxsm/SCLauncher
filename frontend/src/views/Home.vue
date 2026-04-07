@@ -148,11 +148,11 @@ onMounted(async () => {
   width: 300px;
   min-width: 300px;
   height: 100%;
-  background: #161f2d;
-  border-right: 1px solid var(--n-divider-color);
+  background: rgba(22, 31, 45, 0.3);
   display: flex;
   flex-direction: column;
   border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 /* 版本信息区 - 居中显示 */

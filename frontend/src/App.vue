@@ -5,7 +5,7 @@
       <div class="background-overlay"></div>
     </div>
 
-    <n-config-provider :theme="darkTheme">
+    <n-config-provider :theme="darkTheme" :theme-overrides="themeOverrides">
       <n-message-provider>
         <n-dialog-provider ref="dialogProviderInst">
           <n-notification-provider>
@@ -59,10 +59,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, onUnmounted } from "vue";
+import { ref, h, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { darkTheme, NAlert, NDialogProvider, NButton } from "naive-ui";
+import { darkTheme, NAlert, NDialogProvider, NButton, type GlobalThemeOverrides } from "naive-ui";
 import { useGameStore } from "./stores/game";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
 import { CheckUpdate, CheckUpdateForce, SetUpdateRemindDisabled, GetConfig, GetBackgroundImageBase64 } from "./api/config";
@@ -81,6 +81,27 @@ const gameStore = useGameStore();
 const activeTab = ref("home");
 const backgroundImage = ref("");
 const dontRemindCheckbox = ref(false);
+const hasBackgroundImage = ref(false);
+
+// 根据是否有背景图片动态设置主题覆盖
+const themeOverrides = computed<GlobalThemeOverrides>(() => {
+  if (hasBackgroundImage.value) {
+    // 有背景图片时，将组件背景设为半透明
+    return {
+      common: {
+        color: 'rgba(22, 31, 45, 0.7)',
+        cardColor: 'rgba(22, 31, 45, 0.7)',
+        modalColor: 'rgba(22, 31, 45, 0.7)',
+        bodyColor: 'rgba(22, 31, 45, 0.7)',
+        textColor1: 'rgba(255, 255, 255, 0.95)',
+        textColor2: 'rgba(255, 255, 255, 0.75)',
+        textColor3: 'rgba(255, 255, 255, 0.55)',
+      }
+    };
+  }
+  // 没有背景图片时，使用默认主题
+  return {};
+});
 
 const dialogProviderInst = ref<InstanceType<typeof NDialogProvider> | null>(
   null,
@@ -98,12 +119,15 @@ async function loadBackgroundImage() {
     if (config?.backgroundImage) {
       const base64 = await GetBackgroundImageBase64();
       backgroundImage.value = base64;
+      hasBackgroundImage.value = true;
     } else {
       backgroundImage.value = "";
+      hasBackgroundImage.value = false;
     }
   } catch (error) {
     console.error("Failed to load background image:", error);
     backgroundImage.value = "";
+    hasBackgroundImage.value = false;
   }
 }
 
