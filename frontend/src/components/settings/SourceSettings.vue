@@ -44,7 +44,7 @@
       <n-tab-pane name="textures" :tab="t('mods.textureSources')">
         <SourceList
           :sources="getSourcesByType('textures')"
-          disabled-source-id="suancaixianyu"
+          disabled-source-id="suancaixianyu-textures"
           @toggle="handleToggleSource"
           @set-default="handleSetDefaultSource"
           @delete="handleDeleteSource"

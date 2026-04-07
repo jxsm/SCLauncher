@@ -28,6 +28,8 @@ export function DeleteSaveGame(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteSkin(arg1:string):Promise<void>;
 
+export function DeleteTexture(arg1:string,arg2:string):Promise<void>;
+
 export function DeleteVersion(arg1:string):Promise<void>;
 
 export function DownloadFurnitureFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -37,6 +39,8 @@ export function DownloadModFromURL(arg1:string,arg2:string,arg3:string):Promise<
 export function DownloadSaveGameFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DownloadSkinFromURL(arg1:string,arg2:string):Promise<void>;
+
+export function DownloadTextureFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DownloadVersion(arg1:string):Promise<void>;
 
@@ -78,6 +82,8 @@ export function GetSkins():Promise<Array<skin.Skin>>;
 
 export function GetSystemLanguage():Promise<string>;
 
+export function GetTextures(arg1:string):Promise<Array<main.Texture>>;
+
 export function GetVersions():Promise<Array<version.Version>>;
 
 export function GetVersionsByType(arg1:string):Promise<Array<version.Version>>;
@@ -94,6 +100,8 @@ export function ImportSaveGame(arg1:string,arg2:string):Promise<void>;
 
 export function ImportSkin(arg1:string):Promise<void>;
 
+export function ImportTexture(arg1:string,arg2:string):Promise<void>;
+
 export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
 
 export function InstallVersion(arg1:string):Promise<void>;
@@ -104,6 +112,8 @@ export function OpenFurnitureFolder(arg1:string):Promise<void>;
 
 export function OpenSaveGameFolder(arg1:string,arg2:string):Promise<void>;
 
+export function OpenTextureFolder(arg1:string):Promise<void>;
+
 export function OpenVersionFolder(arg1:string):Promise<void>;
 
 export function OpenVersionModsFolder(arg1:string):Promise<void>;
@@ -113,6 +123,8 @@ export function PreviewSaveGame(arg1:string):Promise<savegame.SaveGame>;
 export function RenameFurniture(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RenameSaveGame(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function RenameTexture(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
 
@@ -131,6 +143,8 @@ export function SelectModFile():Promise<string>;
 export function SelectSaveGameFile():Promise<string>;
 
 export function SelectSkinFile():Promise<string>;
+
+export function SelectTextureFile():Promise<string>;
 
 export function SetBackground(arg1:string):Promise<string>;
 

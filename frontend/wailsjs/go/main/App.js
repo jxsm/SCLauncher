@@ -46,6 +46,10 @@ export function DeleteSkin(arg1) {
   return window['go']['main']['App']['DeleteSkin'](arg1);
 }
 
+export function DeleteTexture(arg1, arg2) {
+  return window['go']['main']['App']['DeleteTexture'](arg1, arg2);
+}
+
 export function DeleteVersion(arg1) {
   return window['go']['main']['App']['DeleteVersion'](arg1);
 }
@@ -64,6 +68,10 @@ export function DownloadSaveGameFromURL(arg1, arg2, arg3) {
 
 export function DownloadSkinFromURL(arg1, arg2) {
   return window['go']['main']['App']['DownloadSkinFromURL'](arg1, arg2);
+}
+
+export function DownloadTextureFromURL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['DownloadTextureFromURL'](arg1, arg2, arg3);
 }
 
 export function DownloadVersion(arg1) {
@@ -146,6 +154,10 @@ export function GetSystemLanguage() {
   return window['go']['main']['App']['GetSystemLanguage']();
 }
 
+export function GetTextures(arg1) {
+  return window['go']['main']['App']['GetTextures'](arg1);
+}
+
 export function GetVersions() {
   return window['go']['main']['App']['GetVersions']();
 }
@@ -178,6 +190,10 @@ export function ImportSkin(arg1) {
   return window['go']['main']['App']['ImportSkin'](arg1);
 }
 
+export function ImportTexture(arg1, arg2) {
+  return window['go']['main']['App']['ImportTexture'](arg1, arg2);
+}
+
 export function InstallFromArchive(arg1, arg2) {
   return window['go']['main']['App']['InstallFromArchive'](arg1, arg2);
 }
@@ -198,6 +214,10 @@ export function OpenSaveGameFolder(arg1, arg2) {
   return window['go']['main']['App']['OpenSaveGameFolder'](arg1, arg2);
 }
 
+export function OpenTextureFolder(arg1) {
+  return window['go']['main']['App']['OpenTextureFolder'](arg1);
+}
+
 export function OpenVersionFolder(arg1) {
   return window['go']['main']['App']['OpenVersionFolder'](arg1);
 }
@@ -216,6 +236,10 @@ export function RenameFurniture(arg1, arg2, arg3) {
 
 export function RenameSaveGame(arg1, arg2, arg3) {
   return window['go']['main']['App']['RenameSaveGame'](arg1, arg2, arg3);
+}
+
+export function RenameTexture(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RenameTexture'](arg1, arg2, arg3);
 }
 
 export function RenameVersion(arg1, arg2) {
@@ -252,6 +276,10 @@ export function SelectSaveGameFile() {
 
 export function SelectSkinFile() {
   return window['go']['main']['App']['SelectSkinFile']();
+}
+
+export function SelectTextureFile() {
+  return window['go']['main']['App']['SelectTextureFile']();
 }
 
 export function SetBackground(arg1) {

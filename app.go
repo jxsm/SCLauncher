@@ -20,6 +20,7 @@ import (
 	"SCLauncher/backend/savegame"
 	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
+	"SCLauncher/backend/texture"
 	"SCLauncher/backend/version"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -37,6 +38,7 @@ type App struct {
 	modMgr      *mod.Manager
 	skinMgr     *skin.Manager
 	savegameMgr *savegame.Manager
+	textureMgr  *texture.Manager
 	backgroundMgr *background.Manager
 }
 
@@ -94,6 +96,7 @@ func (a *App) startup(ctx context.Context) {
 	a.modMgr = mod.NewManager(cfg)
 	a.skinMgr = skin.NewManager(cfg)
 	a.savegameMgr = savegame.NewManager(cfg)
+	a.textureMgr = texture.NewManager(a.paths.GetVersionPath)
 	a.backgroundMgr = background.NewManager(cfg)
 
 	// 自动设置主要版本（如果没有的话）
@@ -1984,5 +1987,213 @@ func (a *App) OpenFurnitureFolder(versionID string) error {
 	}
 
 	runtime.BrowserOpenURL(a.ctx, "file:///"+furniturePath)
+	return nil
+}
+
+// ========== 材质管理 API ==========
+
+// Texture 材质信息
+type Texture struct {
+	ID       string `json:"id"`       // 材质 ID（文件名，不含扩展名）
+	Name     string `json:"name"`     // 显示名称
+	FileName string `json:"fileName"` // 完整文件名（含扩展名）
+}
+
+// GetTextures 获取指定版本的材质列表
+func (a *App) GetTextures(versionID string) ([]Texture, error) {
+	textures, err := a.textureMgr.GetTextures(versionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 如果材质文件夹不存在，返回 nil
+	if textures == nil {
+		return nil, nil
+	}
+
+	// 转换为 API 类型
+	result := make([]Texture, len(textures))
+	for i, t := range textures {
+		result[i] = Texture{
+			ID:       t.ID,
+			Name:     t.Name,
+			FileName: t.FileName,
+		}
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("找到 %d 个材质包", len(textures)))
+	return result, nil
+}
+
+// OpenTextureFolder 打开材质文件夹
+func (a *App) OpenTextureFolder(versionID string) error {
+	texturePath, err := a.textureMgr.GetTexturePath(versionID)
+	if err != nil {
+		return err
+	}
+
+	if texturePath == "" {
+		return fmt.Errorf("材质包文件夹不存在，请先启动一次游戏")
+	}
+
+	runtime.BrowserOpenURL(a.ctx, "file:///"+texturePath)
+	return nil
+}
+
+// DeleteTexture 删除材质
+func (a *App) DeleteTexture(versionID, textureID string) error {
+	return a.textureMgr.DeleteTexture(versionID, textureID)
+}
+
+// RenameTexture 重命名材质
+func (a *App) RenameTexture(versionID, textureID, newName string) error {
+	return a.textureMgr.RenameTexture(versionID, textureID, newName)
+}
+
+// SelectTextureFile 选择要导入的材质文件
+func (a *App) SelectTextureFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择材质文件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "材质包文件",
+				Pattern:     "*.scbtex",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to open file dialog: %w", err)
+	}
+
+	if filename == "" {
+		return "", nil // 用户取消
+	}
+
+	return filename, nil
+}
+
+// ImportTexture 导入材质
+func (a *App) ImportTexture(versionID, sourcePath string) error {
+	// 获取材质文件夹路径
+	texturePath, err := a.textureMgr.GetTexturePath(versionID)
+	if err != nil {
+		return err
+	}
+
+	// 如果文件夹不存在，返回错误提示用户先启动游戏
+	if texturePath == "" {
+		return fmt.Errorf("材质包文件夹不存在，请先启动一次游戏")
+	}
+
+	// 检查源文件是否存在
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return fmt.Errorf("源文件不存在: %s", sourcePath)
+	}
+
+	// 获取文件名
+	fileName := filepath.Base(sourcePath)
+
+	// 目标文件路径
+	destPath := filepath.Join(texturePath, fileName)
+
+	// 复制文件
+	srcFile, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("打开源文件失败: %w", err)
+	}
+	defer srcFile.Close()
+
+	// 创建目标文件
+	dstFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("创建目标文件失败: %w", err)
+	}
+	defer dstFile.Close()
+
+	// 复制内容
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("复制文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功导入材质包: %s", fileName))
+	return nil
+}
+
+// DownloadTextureFromURL 从URL下载材质
+func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) error {
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载材质: %s -> %s", downloadURL, fileName))
+
+	// 获取材质文件夹路径
+	texturePath, err := a.textureMgr.GetTexturePath(versionID)
+	if err != nil {
+		return err
+	}
+
+	// 如果文件夹不存在，返回错误
+	if texturePath == "" {
+		return fmt.Errorf("材质包文件夹不存在，请先启动一次游戏")
+	}
+
+	// 创建临时文件保存下载内容
+	tempFile, err := os.CreateTemp("", "sctexture-*.tmp")
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // 确保临时文件被删除
+
+	// 下载文件
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("下载失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+	}
+
+	// 保存到临时文件
+	_, err = io.Copy(tempFile, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("材质下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+
+	// 目标文件路径
+	destPath := filepath.Join(texturePath, fileName)
+
+	// 移动临时文件到目标位置
+	if err := os.Rename(tempPath, destPath); err != nil {
+		// 如果重命名失败，尝试复制
+		srcFile, err := os.Open(tempPath)
+		if err != nil {
+			return fmt.Errorf("打开临时文件失败: %w", err)
+		}
+		defer srcFile.Close()
+
+		dstFile, err := os.Create(destPath)
+		if err != nil {
+			return fmt.Errorf("创建目标文件失败: %w", err)
+		}
+		defer dstFile.Close()
+
+		if _, err := io.Copy(dstFile, srcFile); err != nil {
+			return fmt.Errorf("复制文件失败: %w", err)
+		}
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("材质下载并安装成功: %s", fileName))
 	return nil
 }

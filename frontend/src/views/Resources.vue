@@ -22,6 +22,10 @@
       <n-tab-pane name="furniture" :tab="t('nav.furniture')">
         <FurnitureView />
       </n-tab-pane>
+
+      <n-tab-pane name="textures" :tab="t('nav.textures')">
+        <TexturesView />
+      </n-tab-pane>
     </n-tabs>
   </div>
 </template>
@@ -33,6 +37,7 @@ import ModsView from "./Mods.vue";
 import SaveGamesView from "./SaveGames.vue";
 import SkinsView from "./Skins.vue";
 import FurnitureView from "./Furniture.vue";
+import TexturesView from "./Textures.vue";
 
 const { t } = useI18n();
 const activeResourceTab = ref("mods");
