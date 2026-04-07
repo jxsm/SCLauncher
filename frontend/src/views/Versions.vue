@@ -2,114 +2,56 @@
   <div class="versions-view">
     <n-space vertical size="large">
       <!-- 工具栏 -->
-      <n-card>
-        <n-space justify="space-between">
-          <n-space>
-            <n-button type="primary" @click="handleFetchVersions" :loading="loading">
-              <template #icon>
-                <n-icon><RefreshIcon /></n-icon>
-              </template>
-              {{ t('versions.refresh') }}
-            </n-button>
-            <n-select
-              v-model:value="filterType"
-              :options="typeOptions"
-              style="width: 150px"
-            />
-          </n-space>
-          <n-text depth="3">
-            {{ t('versions.totalVersions') }} {{ groupedVersions.reduce((sum, g) => sum + g.versions.length, 0) }}
-          </n-text>
-        </n-space>
-      </n-card>
+      <VersionToolbar
+        :loading="loading"
+        :filter-type="filterType"
+        :type-options="typeOptions"
+        :total-versions="totalVersions"
+        @refresh="handleFetchVersions"
+        @update:filter-type="filterType = $event"
+      />
 
       <!-- 版本列表 -->
       <n-spin :show="loading">
         <n-collapse v-if="groupedVersions.length > 0">
-          <n-collapse-item v-for="group in groupedVersions" :key="group.gameVersion">
-            <template #header>
-              <n-space align="center" justify="space-between" style="width: 100%">
-                <n-text strong style="font-size: 16px">
-                  {{ group.gameVersion }}
-                </n-text>
-                <n-tag size="small" type="info">
-                  {{ group.versions.length }} {{ t('versions.versionsCount') }}
-                </n-tag>
-              </n-space>
-            </template>
-
-            <n-list hoverable clickable>
-              <n-list-item v-for="version in group.versions" :key="version.id">
-                <n-thing>
-                  <template #header>
-                    <n-space align="center">
-                      <n-text strong>{{ version.subVersion }}</n-text>
-                      <n-tag :type="getTypeColor(version.versionType)" size="small">
-                        {{ getTypeText(version.versionType) }}
-                      </n-tag>
-                    </n-space>
-                  </template>
-
-                  <template #description>
-                    <n-space vertical size="small">
-                      <n-text depth="3">
-                        {{ t('common.size') }}: {{ formatSize(version.size) }}
-                      </n-text>
-                      <n-text v-if="version.illustrate" depth="3">
-                        {{ t('common.description') }}: {{ version.illustrate }}
-                      </n-text>
-                    </n-space>
-                  </template>
-
-                  <template #action>
-                    <n-space>
-                      <!-- Download button or progress -->
-                      <n-button
-                        v-if="!isDownloading(version.id)"
-                        type="primary"
-                        size="medium"
-                        @click="handleDownload(version)"
-                      >
-                        <template #icon>
-                          <n-icon><DownloadIcon /></n-icon>
-                        </template>
-                        {{ t('versions.download') }}
-                      </n-button>
-                      <n-progress
-                        v-else
-                        type="line"
-                        :percentage="getDownloadProgress(version.id)"
-                        :indicator-placement="'inside'"
-                        processing
-                        style="width: 200px"
-                      />
-                    </n-space>
-                  </template>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-          </n-collapse-item>
+          <VersionGroup
+            v-for="group in groupedVersions"
+            :key="group.gameVersion"
+            :game-version="group.gameVersion"
+            :versions="group.versions"
+            :is-downloading="isDownloading"
+            :get-download-progress="getDownloadProgress"
+            @download="handleDownload"
+          />
         </n-collapse>
         <n-empty v-if="groupedVersions.length === 0 && !loading" :description="t('versions.noVersions')" />
       </n-spin>
     </n-space>
+
+    <!-- 自定义版本名称对话框 -->
+    <CustomVersionNameDialog
+      v-model:visible="showCustomNameDialog"
+      :default-name="customNameDefault"
+      :existing-names="existingVersionNames"
+      @confirm="handleCustomNameConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
-import { useMessage, useDialog, NInput } from 'naive-ui'
-import { Refresh as RefreshIcon, CloudDownload as DownloadIcon } from '@vicons/ionicons5'
-import { formatSize } from '../utils/format'
+import { useMessage } from 'naive-ui'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import type { Version } from '../types/version'
+import VersionToolbar from '../components/version/VersionToolbar.vue'
+import VersionGroup from '../components/version/VersionGroup.vue'
+import CustomVersionNameDialog from '../components/version/CustomVersionNameDialog.vue'
 
 const { t } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
-const dialog = useDialog()
 
 const loading = ref(false)
 const filterType = ref<string>('api') // Default to plugin version
@@ -121,10 +63,67 @@ const originalToUniqueId = ref<Record<string, string>>({})
 // Manifest versions list (only contains original versions, not custom named ones)
 const manifestVersions = ref<Version[]>([])
 
+// Custom version name dialog state
+const showCustomNameDialog = ref(false)
+const customNameDefault = ref('')
+const pendingDownloadVersion = ref<Version | null>(null)
+
 const typeOptions = computed(() => [
   { label: t('versions.apiVersion'), value: 'api' },
   { label: t('versions.netVersion'), value: 'net' }
 ])
+
+// Total versions count
+const totalVersions = computed(() =>
+  groupedVersions.value.reduce((sum, g) => sum + g.versions.length, 0)
+)
+
+// Helper function to check if a version is downloading
+function isDownloading(id: string): boolean {
+  const uniqueId = originalToUniqueId.value[id]
+
+  // 如果这个版本已经完成了下载，返回 false
+  if (uniqueId) {
+    if (completedDownloads.value.has(uniqueId)) {
+      return false
+    }
+  } else {
+    if (completedDownloads.value.has(id)) {
+      return false
+    }
+  }
+
+  // 检查是否正在下载
+  const isDownloadingOriginal = versionStore.downloading.has(id)
+  const isDownloadingUnique = uniqueId && versionStore.downloading.has(uniqueId)
+
+  return isDownloadingOriginal || Boolean(isDownloadingUnique)
+}
+
+// Helper function to get download progress for a version
+function getDownloadProgress(id: string): number {
+  const uniqueId = originalToUniqueId.value[id]
+
+  // 如果这个版本已经完成了下载，返回0
+  if (uniqueId) {
+    if (completedDownloads.value.has(uniqueId)) {
+      return 0
+    }
+    const progress = versionStore.downloadProgress[uniqueId] || 0
+    return progress
+  } else {
+    if (completedDownloads.value.has(id)) {
+      return 0
+    }
+    const progress = versionStore.downloadProgress[id] || 0
+    return progress
+  }
+}
+
+// Existing version names for validation
+const existingVersionNames = computed(() =>
+  versionStore.versions.filter(v => v.installed).map(v => v.name)
+)
 
 // 版本号比较函数，用于正确排序（例如：2.4 > 2.3 > 2.2）
 function compareVersion(v1: string, v2: string): number {
@@ -188,85 +187,6 @@ const groupedVersions = computed(() => {
     }))
 })
 
-function getTypeText(type: string): string {
-  const types = {
-    api: t('versions.apiVersion'),
-    net: t('versions.netVersion'),
-    original: t('versions.originalVersion')
-  }
-  return types[type as keyof typeof types] || type
-}
-
-function getTypeColor(type: string): 'info' | 'success' | 'warning' | 'default' {
-  switch (type) {
-    case 'api': return 'info'
-    case 'net': return 'warning'
-    case 'original': return 'success'
-    default: return 'default'
-  }
-}
-
-function isDownloading(id: string): boolean {
-  const uniqueId = originalToUniqueId.value[id]
-
-  // 如果这个版本已经完成了下载，返回 false
-  if (uniqueId) {
-    // 有映射时，检查 uniqueId 是否已完成
-    if (completedDownloads.value.has(uniqueId)) {
-      console.log(`[isDownloading] id=${id}, uniqueId=${uniqueId}, completed=true, returning false`)
-      return false
-    }
-  } else {
-    // 没有映射时，检查原始ID是否已完成
-    if (completedDownloads.value.has(id)) {
-      console.log(`[isDownloading] id=${id}, completed=true, returning false`)
-      return false
-    }
-  }
-
-  // 检查是否正在下载
-  const isDownloadingOriginal = versionStore.downloading.has(id)
-  const isDownloadingUnique = uniqueId && versionStore.downloading.has(uniqueId)
-
-  // 调试日志
-  if (isDownloadingOriginal || isDownloadingUnique) {
-    console.log(`[isDownloading] id=${id}, uniqueId=${uniqueId}, isDownloadingOriginal=${isDownloadingOriginal}, isDownloadingUnique=${isDownloadingUnique}`)
-  }
-
-  return isDownloadingOriginal || Boolean(isDownloadingUnique)
-}
-
-function getDownloadProgress(id: string): number {
-  const uniqueId = originalToUniqueId.value[id]
-
-  // 如果这个版本已经完成了下载，返回0（即使有进度数据也不显示）
-  if (uniqueId) {
-    // 有映射时，检查 uniqueId 是否已完成
-    if (completedDownloads.value.has(uniqueId)) {
-      console.log(`[getDownloadProgress] id=${id}, uniqueId=${uniqueId}, completed=true, returning 0`)
-      return 0
-    }
-    // 返回 uniqueId 的进度
-    const progress = versionStore.downloadProgress[uniqueId] || 0
-    if (progress > 0) {
-      console.log(`[getDownloadProgress] id=${id}, uniqueId=${uniqueId}, progress=${progress}`)
-    }
-    return progress
-  } else {
-    // 没有映射时，检查原始ID是否已完成
-    if (completedDownloads.value.has(id)) {
-      console.log(`[getDownloadProgress] id=${id}, completed=true, returning 0`)
-      return 0
-    }
-    // 返回原始ID的进度
-    const progress = versionStore.downloadProgress[id] || 0
-    if (progress > 0) {
-      console.log(`[getDownloadProgress] id=${id}, progress=${progress}`)
-    }
-    return progress
-  }
-}
-
 async function handleFetchVersions() {
   loading.value = true
   try {
@@ -282,8 +202,15 @@ async function handleFetchVersions() {
 }
 
 async function handleDownload(version: Version) {
-  const customName = await getCustomVersionName(version.name)
-  if (!customName) {
+  // Show custom name dialog
+  pendingDownloadVersion.value = version
+  customNameDefault.value = version.name
+  showCustomNameDialog.value = true
+}
+
+async function handleCustomNameConfirm(customName: string) {
+  const version = pendingDownloadVersion.value
+  if (!version) {
     return
   }
 
@@ -291,68 +218,9 @@ async function handleDownload(version: Version) {
     await versionStore.downloadVersionWithCustomName(version.id, customName)
   } catch (error) {
     message.error(t('versions.downloadFailed') + '：' + error)
+  } finally {
+    pendingDownloadVersion.value = null
   }
-}
-
-async function getCustomVersionName(defaultName: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    let name = defaultName
-    let errorMessage = ''
-
-    function checkDuplicate(inputName: string): boolean {
-      const trimmed = inputName.trim()
-      if (!trimmed) return false
-      return versionStore.versions.some(v =>
-        v.installed && v.name === trimmed
-      )
-    }
-
-    const d = dialog.create({
-      title: t('versions.enterVersionName'),
-      content: () => {
-        return h('div', [
-          h('p', { style: 'margin-bottom: 12px;' }, t('versions.enterVersionNameDesc')),
-          h(NInput, {
-            placeholder: defaultName,
-            defaultValue: defaultName,
-            status: errorMessage ? 'error' : undefined,
-            onUpdateValue: (value: string) => {
-              name = value
-              if (checkDuplicate(value)) {
-                errorMessage = t('versions.nameAlreadyExists')
-              } else {
-                errorMessage = ''
-              }
-            },
-            onKeyup: (e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                if (checkDuplicate(name)) {
-                  errorMessage = t('versions.nameAlreadyExists')
-                } else {
-                  resolve(name.trim() || null)
-                }
-              }
-            }
-          }),
-          errorMessage ? h('p', {
-            style: 'margin-top: 8px; color: #f56c6c; font-size: 12px;'
-          }, errorMessage) : null
-        ])
-      },
-      positiveText: t('common.confirm'),
-      negativeText: t('common.cancel'),
-      onPositiveClick: () => {
-        if (checkDuplicate(name)) {
-          errorMessage = t('versions.nameAlreadyExists')
-        } else {
-          resolve(name.trim() || null)
-        }
-      },
-      onNegativeClick: () => {
-        resolve(null)
-      }
-    })
-  })
 }
 
 function handleDownloadProgress(data: any) {
