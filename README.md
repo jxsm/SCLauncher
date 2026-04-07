@@ -25,7 +25,7 @@ SCLauncher is a modern launcher designed specifically for the game "Survivalcraf
 - **Mod Management** - Simple mod installation/uninstallation with enable/disable functionality
 - **Skin Management** - Unified management of game skins, supporting `.scskin` format skin files
 - **Import Game** - Import installed Survivalcraft game versions into the launcher for management
-- **Multi-language Support** - Supports 7 languages (Chinese, English, Russian, Portuguese, Hindi, Indonesian, Arabic)
+- **Multi-language Support** - Supports 8 languages (Chinese, English, Spanish, Russian, Portuguese, Hindi, Indonesian, Arabic)
 - **Smart Sync** - Automatically sync skins to game directory on launch using hard links to save space
 - **Progress Display** - Real-time download and installation progress
 - **Primary Version** - Set default launch version

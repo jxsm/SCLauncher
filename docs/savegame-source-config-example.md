@@ -94,6 +94,11 @@ GET https://m.suancaixianyu.cn/api/post/list?type=2&orderType=1&fileTypes=1&page
 3. 参考模组下载源的配置格式
 4. 重启启动器加载新配置
 
+#### 示例文件
+
+详细的存档下载源配置示例请参考：
+- **[savegames-config-explanation.json](example/download-source/savegames-config-explanation.json)** - 完整的存档下载源配置示例
+
 ### 注意事项
 
 1. **ID 唯一性**: 自定义源的ID不要与内置源冲突
