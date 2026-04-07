@@ -186,7 +186,8 @@ func (p *Paths) IsVersionInstalled(versionID string) bool {
 
 // GetSkinsDir 获取皮肤存储目录（绝对路径）
 func (p *Paths) GetSkinsDir() string {
-	return filepath.Join(p.config.GetDataDir(), "Skins")
+	// 使用 .Survivalcraft/skins 目录，而不是 data/Skins
+	return filepath.Join(GetAppDataDir(), "skins")
 }
 
 // GetGameCharacterSkinsDir 获取游戏角色皮肤目录

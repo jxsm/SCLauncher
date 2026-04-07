@@ -70,7 +70,7 @@ func (m *Manager) GetSkins() ([]Skin, error) {
 		return nil, fmt.Errorf("failed to read skins directory: %w", err)
 	}
 
-	var skins []Skin
+	skins := []Skin{}
 
 	for _, entry := range entries {
 		if entry.IsDir() {

@@ -197,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSkinStore } from '../stores/skin'
 import { useMessage } from 'naive-ui'
@@ -501,31 +501,6 @@ function openSourceSettings() {
   })
 }
 
-onMounted(async () => {
-  try {
-    // 初始化下载源（只选择皮肤类型的源）
-    // 优先选择皮肤类型的默认源
-    const defaultSkinSource = ModSourceManager.getAllSources().find(s => s.type === 'skins' && s.isDefault)
-    if (defaultSkinSource) {
-      selectedSourceId.value = defaultSkinSource.id
-      ModSourceManager.setCurrentSource(defaultSkinSource.id)
-    } else {
-      // 如果没有默认源，选择第一个启用的皮肤源
-      const firstSkinSource = ModSourceManager.getEnabledSources().find(s => s.type === 'skins')
-      if (firstSkinSource) {
-        selectedSourceId.value = firstSkinSource.id
-        ModSourceManager.setCurrentSource(firstSkinSource.id)
-      }
-    }
-
-    await skinStore.loadSkins()
-    // 预加载所有皮肤图片
-    await preloadSkinImages()
-  } catch (error) {
-    message.error(t('skins.loadFailed') + '：' + error)
-  }
-})
-
 // 当页面激活时重新加载数据
 onActivated(async () => {
   await ModSourceManager.reloadSources()
@@ -580,6 +555,80 @@ watch(sourceOptions, (newOptions) => {
     }
   }
 }, { deep: true })
+
+// 窗口焦点监听 - 当窗口重新获得焦点时自动刷新皮肤列表
+let refreshInterval: number | null = null
+
+function handleWindowFocus() {
+  // 窗口获得焦点时刷新皮肤列表
+  skinStore.loadSkins().then(() => {
+    preloadSkinImages()
+  }).catch((error) => {
+    // 静默处理错误，不显示提示
+    console.error('Auto-refresh skins failed:', error)
+  })
+}
+
+function startAutoRefresh() {
+  // 监听窗口焦点事件
+  window.addEventListener('focus', handleWindowFocus)
+
+  // 设置定时刷新（每30秒检查一次）
+  refreshInterval = window.setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      skinStore.loadSkins().then(() => {
+        preloadSkinImages()
+      }).catch((error) => {
+        // 静默处理错误，不显示提示
+        console.error('Auto-refresh skins failed:', error)
+      })
+    }
+  }, 30000) // 30秒
+}
+
+function stopAutoRefresh() {
+  // 移除监听器
+  window.removeEventListener('focus', handleWindowFocus)
+
+  // 清除定时器
+  if (refreshInterval !== null) {
+    clearInterval(refreshInterval)
+    refreshInterval = null
+  }
+}
+
+onMounted(async () => {
+  try {
+    // 初始化下载源（只选择皮肤类型的源）
+    // 优先选择皮肤类型的默认源
+    const defaultSkinSource = ModSourceManager.getAllSources().find(s => s.type === 'skins' && s.isDefault)
+    if (defaultSkinSource) {
+      selectedSourceId.value = defaultSkinSource.id
+      ModSourceManager.setCurrentSource(defaultSkinSource.id)
+    } else {
+      // 如果没有默认源，选择第一个启用的皮肤源
+      const firstSkinSource = ModSourceManager.getEnabledSources().find(s => s.type === 'skins')
+      if (firstSkinSource) {
+        selectedSourceId.value = firstSkinSource.id
+        ModSourceManager.setCurrentSource(firstSkinSource.id)
+      }
+    }
+
+    await skinStore.loadSkins()
+    // 预加载所有皮肤图片
+    await preloadSkinImages()
+
+    // 启动自动刷新
+    startAutoRefresh()
+  } catch (error) {
+    message.error(t('skins.loadFailed') + '：' + error)
+  }
+})
+
+onUnmounted(() => {
+  // 组件卸载时停止自动刷新
+  stopAutoRefresh()
+})
 </script>
 
 <style scoped>

@@ -13,10 +13,14 @@ export const useSkinStore = defineStore('skin', () => {
     loading.value = true
     error.value = null
     try {
-      skins.value = await skinApi.GetSkins()
+      const result = await skinApi.GetSkins()
+      // 确保返回的是数组，即使后端返回 null 或 undefined
+      skins.value = Array.isArray(result) ? result : []
     } catch (e) {
       error.value = e as string
       console.error('Failed to load skins:', e)
+      // 发生错误时也要设置为空数组，避免渲染问题
+      skins.value = []
     } finally {
       loading.value = false
     }
