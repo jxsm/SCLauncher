@@ -30,6 +30,10 @@ export function ClearBackground() {
   return window['go']['main']['App']['ClearBackground']();
 }
 
+export function DeleteFurniture(arg1, arg2) {
+  return window['go']['main']['App']['DeleteFurniture'](arg1, arg2);
+}
+
 export function DeleteMod(arg1, arg2) {
   return window['go']['main']['App']['DeleteMod'](arg1, arg2);
 }
@@ -44,6 +48,10 @@ export function DeleteSkin(arg1) {
 
 export function DeleteVersion(arg1) {
   return window['go']['main']['App']['DeleteVersion'](arg1);
+}
+
+export function DownloadFurnitureFromURL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['DownloadFurnitureFromURL'](arg1, arg2, arg3);
 }
 
 export function DownloadModFromURL(arg1, arg2, arg3) {
@@ -88,6 +96,10 @@ export function GetBackgroundImageBase64() {
 
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
+}
+
+export function GetFurnitures(arg1) {
+  return window['go']['main']['App']['GetFurnitures'](arg1);
 }
 
 export function GetGameProcessInfo() {
@@ -142,6 +154,10 @@ export function HasBackground() {
   return window['go']['main']['App']['HasBackground']();
 }
 
+export function ImportFurniture(arg1, arg2) {
+  return window['go']['main']['App']['ImportFurniture'](arg1, arg2);
+}
+
 export function ImportGameVersion(arg1) {
   return window['go']['main']['App']['ImportGameVersion'](arg1);
 }
@@ -170,6 +186,10 @@ export function LaunchGame(arg1) {
   return window['go']['main']['App']['LaunchGame'](arg1);
 }
 
+export function OpenFurnitureFolder(arg1) {
+  return window['go']['main']['App']['OpenFurnitureFolder'](arg1);
+}
+
 export function OpenSaveGameFolder(arg1, arg2) {
   return window['go']['main']['App']['OpenSaveGameFolder'](arg1, arg2);
 }
@@ -184,6 +204,10 @@ export function OpenVersionModsFolder(arg1) {
 
 export function PreviewSaveGame(arg1) {
   return window['go']['main']['App']['PreviewSaveGame'](arg1);
+}
+
+export function RenameFurniture(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RenameFurniture'](arg1, arg2, arg3);
 }
 
 export function RenameSaveGame(arg1, arg2, arg3) {
@@ -204,6 +228,10 @@ export function SelectArchiveFile() {
 
 export function SelectBackgroundFile() {
   return window['go']['main']['App']['SelectBackgroundFile']();
+}
+
+export function SelectFurnitureFile() {
+  return window['go']['main']['App']['SelectFurnitureFile']();
 }
 
 export function SelectGameFolder() {

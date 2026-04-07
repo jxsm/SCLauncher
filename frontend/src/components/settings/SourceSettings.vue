@@ -34,7 +34,7 @@
       <n-tab-pane name="furniture" :tab="t('mods.furnitureSources')">
         <SourceList
           :sources="getSourcesByType('furniture')"
-          disabled-source-id="suancaixianyu"
+          disabled-source-id="suancaixianyu-furniture"
           @toggle="handleToggleSource"
           @set-default="handleSetDefaultSource"
           @delete="handleDeleteSource"

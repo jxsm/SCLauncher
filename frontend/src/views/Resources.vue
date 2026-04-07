@@ -18,6 +18,10 @@
       <n-tab-pane name="skins" :tab="t('nav.skins')">
         <SkinsView />
       </n-tab-pane>
+
+      <n-tab-pane name="furniture" :tab="t('nav.furniture')">
+        <FurnitureView />
+      </n-tab-pane>
     </n-tabs>
   </div>
 </template>
@@ -28,6 +32,7 @@ import { useI18n } from "vue-i18n";
 import ModsView from "./Mods.vue";
 import SaveGamesView from "./SaveGames.vue";
 import SkinsView from "./Skins.vue";
+import FurnitureView from "./Furniture.vue";
 
 const { t } = useI18n();
 const activeResourceTab = ref("mods");

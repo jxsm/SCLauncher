@@ -1415,3 +1415,497 @@ func (a *App) SelectSaveGameFile() (string, error) {
 func (a *App) PreviewSaveGame(sourcePath string) (savegame.SaveGame, error) {
 	return a.savegameMgr.PreviewSaveGame(sourcePath)
 }
+
+// ========== 家具管理 API ==========
+
+// Furniture 家具信息
+type Furniture struct {
+	ID       string `json:"id"`       // 家具 ID（文件名，不含扩展名）
+	Name     string `json:"name"`     // 显示名称
+	FileName string `json:"fileName"` // 完整文件名（含扩展名）
+}
+
+// GetFurnitures 获取指定版本的家具列表
+func (a *App) GetFurnitures(versionID string) ([]Furniture, error) {
+	// 获取版本路径
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return nil, fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	// 尝试两个可能的路径
+	possiblePaths := []string{
+		filepath.Join(basePath, "doc", "FurniturePacks"),
+		filepath.Join(basePath, "FurniturePacks"),
+	}
+
+	var furniturePath string
+	for _, path := range possiblePaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			furniturePath = path
+			break
+		}
+	}
+
+	// 如果都没有找到，返回 nil（表示文件夹不存在）
+	if furniturePath == "" {
+		return nil, nil
+	}
+
+	// 读取目录中的所有文件
+	entries, err := os.ReadDir(furniturePath)
+	if err != nil {
+		return nil, fmt.Errorf("读取家具目录失败: %w", err)
+	}
+
+	// 初始化为空切片，确保JSON序列化时返回[]而不是null
+	furnitures := make([]Furniture, 0)
+	for _, entry := range entries {
+		// 跳过目录和隐藏文件
+		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		// 只处理 .scfpack 文件
+		if !strings.HasSuffix(strings.ToLower(entry.Name()), ".scfpack") {
+			continue
+		}
+
+		fileName := entry.Name()
+		// ID 是不含扩展名的文件名
+		id := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+		furnitures = append(furnitures, Furniture{
+			ID:       id,
+			Name:     id, // 显示名称使用文件名
+			FileName: fileName,
+		})
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("找到 %d 个家具包", len(furnitures)))
+	return furnitures, nil
+}
+
+// SelectFurnitureFile 选择要导入的家具文件
+func (a *App) SelectFurnitureFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择家具文件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "家具包文件",
+				Pattern:     "*.scfpack",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to open file dialog: %w", err)
+	}
+
+	if filename == "" {
+		return "", nil // 用户取消
+	}
+
+	return filename, nil
+}
+
+// ImportFurniture 导入家具
+func (a *App) ImportFurniture(versionID, sourcePath string) error {
+	// 获取版本路径
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	// 尝试两个可能的路径
+	possiblePaths := []string{
+		filepath.Join(basePath, "doc", "FurniturePacks"),
+		filepath.Join(basePath, "FurniturePacks"),
+	}
+
+	var furniturePath string
+	for _, path := range possiblePaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			furniturePath = path
+			break
+		}
+	}
+
+	// 如果文件夹不存在，返回错误提示用户先启动游戏
+	if furniturePath == "" {
+		return fmt.Errorf("家具包文件夹不存在，请先启动一次游戏")
+	}
+
+	// 检查源文件是否存在
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return fmt.Errorf("源文件不存在: %s", sourcePath)
+	}
+
+	// 获取文件名
+	fileName := filepath.Base(sourcePath)
+
+	// 目标文件路径
+	destPath := filepath.Join(furniturePath, fileName)
+
+	// 复制文件
+	srcFile, err := os.Open(sourcePath)
+	if err != nil {
+		return fmt.Errorf("打开源文件失败: %w", err)
+	}
+	defer srcFile.Close()
+
+	// 创建目标文件
+	dstFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("创建目标文件失败: %w", err)
+	}
+	defer dstFile.Close()
+
+	// 复制内容
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("复制文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功导入家具包: %s -> %s", fileName, furniturePath))
+	return nil
+}
+
+// DownloadFurnitureFromURL 从URL下载家具
+func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) error {
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载家具: %s -> %s", downloadURL, fileName))
+
+	// 获取版本路径
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	// 尝试两个可能的路径
+	possiblePaths := []string{
+		filepath.Join(basePath, "doc", "FurniturePacks"),
+		filepath.Join(basePath, "FurniturePacks"),
+	}
+
+	var furniturePath string
+	for _, path := range possiblePaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			furniturePath = path
+			break
+		}
+	}
+
+	// 如果文件夹不存在，返回错误
+	if furniturePath == "" {
+		return fmt.Errorf("家具包文件夹不存在，请先启动一次游戏")
+	}
+
+	// 创建临时文件保存下载内容
+	tempFile, err := os.CreateTemp("", "scfurniture-*.tmp")
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // 确保临时文件被删除
+
+	// 下载文件
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("下载失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+	}
+
+	// 保存到临时文件
+	_, err = io.Copy(tempFile, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		return fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("家具下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+
+	// 目标文件路径
+	destPath := filepath.Join(furniturePath, fileName)
+
+	// 移动临时文件到目标位置
+	if err := os.Rename(tempPath, destPath); err != nil {
+		// 如果重命名失败，尝试复制
+		srcFile, err := os.Open(tempPath)
+		if err != nil {
+			return fmt.Errorf("打开临时文件失败: %w", err)
+		}
+		defer srcFile.Close()
+
+		dstFile, err := os.Create(destPath)
+		if err != nil {
+			return fmt.Errorf("创建目标文件失败: %w", err)
+		}
+		defer dstFile.Close()
+
+		if _, err := io.Copy(dstFile, srcFile); err != nil {
+			return fmt.Errorf("复制文件失败: %w", err)
+		}
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("家具下载并安装成功: %s", fileName))
+	return nil
+}
+
+// DeleteFurniture 删除家具
+func (a *App) DeleteFurniture(versionID, furnitureID string) error {
+	// 获取版本路径
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	// 尝试两个可能的路径
+	possiblePaths := []string{
+		filepath.Join(basePath, "doc", "FurniturePacks"),
+		filepath.Join(basePath, "FurniturePacks"),
+	}
+
+	var furniturePath string
+	for _, path := range possiblePaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			furniturePath = path
+			break
+		}
+	}
+
+	if furniturePath == "" {
+		return fmt.Errorf("家具包文件夹不存在")
+	}
+
+	// 删除文件（需要添加 .scfpack 扩展名）
+	filePath := filepath.Join(furniturePath, furnitureID+".scfpack")
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("删除家具包失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功删除家具包: %s", furnitureID))
+	return nil
+}
+
+// RenameFurniture 重命名家具
+func (a *App) RenameFurniture(versionID, furnitureID, newName string) error {
+	// 获取版本路径
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	// 尝试两个可能的路径
+	possiblePaths := []string{
+		filepath.Join(basePath, "doc", "FurniturePacks"),
+		filepath.Join(basePath, "FurniturePacks"),
+	}
+
+	var furniturePath string
+	for _, path := range possiblePaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			furniturePath = path
+			break
+		}
+	}
+
+	if furniturePath == "" {
+		return fmt.Errorf("家具包文件夹不存在")
+	}
+
+	// 重命名文件
+	oldPath := filepath.Join(furniturePath, furnitureID+".scfpack")
+	newPath := filepath.Join(furniturePath, newName+".scfpack")
+
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("重命名家具包失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功重命名家具包: %s -> %s", furnitureID, newName))
+	return nil
+}
+
+// OpenFurnitureFolder 打开家具文件夹
+func (a *App) OpenFurnitureFolder(versionID string) error {
+	// 获取版本路径
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	var basePath string
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入的版本，从元数据文件中读取原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err != nil {
+			return fmt.Errorf("failed to read import metadata: %w", err)
+		}
+
+		lines := strings.Split(string(content), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "original_path=") {
+				originalPath := strings.TrimPrefix(line, "original_path=")
+				basePath = originalPath
+				break
+			}
+		}
+
+		if basePath == "" {
+			return fmt.Errorf("invalid import metadata file")
+		}
+	} else {
+		// 正常安装的版本，使用版本目录
+		basePath = versionPath
+	}
+
+	// 尝试两个可能的路径
+	possiblePaths := []string{
+		filepath.Join(basePath, "doc", "FurniturePacks"),
+		filepath.Join(basePath, "FurniturePacks"),
+	}
+
+	var furniturePath string
+	for _, path := range possiblePaths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			furniturePath = path
+			break
+		}
+	}
+
+	if furniturePath == "" {
+		return fmt.Errorf("家具包文件夹不存在，请先启动一次游戏")
+	}
+
+	runtime.BrowserOpenURL(a.ctx, "file:///"+furniturePath)
+	return nil
+}
