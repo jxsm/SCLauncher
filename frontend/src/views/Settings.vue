@@ -2,381 +2,38 @@
   <div class="settings-view">
     <n-space vertical size="large">
       <!-- 语言设置 -->
-      <n-card :title="t('settings.languageSettings')">
-        <n-form-item :label="t('settings.language')">
-          <n-select
-            v-model:value="language"
-            :options="languageOptions"
-            @update:value="handleSaveLanguage"
-          />
-        </n-form-item>
-      </n-card>
+      <LanguageSettings
+        :language="language"
+        @update:language="handleSaveLanguage"
+      />
 
       <!-- 路径信息 -->
-      <n-card :title="t('settings.paths')">
-        <n-alert type="info" style="margin-bottom: 16px;">
-          {{ t('settings.pathsPortableInfo') }}
-        </n-alert>
-        <n-descriptions :column="1" bordered>
-          <n-descriptions-item :label="t('settings.dataDir')">
-            <n-code>{{ config?.dataDir }}</n-code>
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('settings.versionsDir')">
-            <n-code>{{ config?.versionsDir }}</n-code>
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('settings.downloadsDir')">
-            <n-code>{{ config?.downloadsDir }}</n-code>
-          </n-descriptions-item>
-        </n-descriptions>
-      </n-card>
+      <PathSettings :config="config" />
 
       <!-- 清单设置 -->
-      <n-card :title="t('settings.manifest')">
-        <n-form-item :label="t('settings.manifestUrl')">
-          <n-input
-            v-model:value="manifestUrl"
-            :placeholder="t('settings.manifestUrlPlaceholder') || '请输入清单文件 URL'"
-          />
-        </n-form-item>
-        <n-space>
-          <n-button type="primary" @click="handleSaveManifestUrl">
-            {{ t('settings.saveManifestUrl') }}
-          </n-button>
-          <n-button @click="handleResetManifestUrl">
-            {{ t('settings.resetManifestUrl') }}
-          </n-button>
-        </n-space>
-      </n-card>
+      <ManifestSettings
+        :manifest-url="manifestUrl"
+        @update:manifest-url="manifestUrl = $event"
+        @save="handleSaveManifestUrl"
+        @reset="handleResetManifestUrl"
+      />
 
       <!-- 下载源设置 -->
-      <n-card :title="t('mods.manageSources')">
-        <template #header-extra>
-          <n-button size="small" type="primary" @click="showAddSourceDialog = true">
-            <template #icon>
-              <n-icon><AddIcon /></n-icon>
-            </template>
-            {{ t('mods.addSource') }}
-          </n-button>
-        </template>
-
-        <n-tabs v-model:value="currentSourceType" type="line">
-          <n-tab-pane name="mods" :tab="t('mods.modSources')">
-            <n-list v-if="getSourcesByType('mods').length > 0" hoverable>
-              <n-list-item v-for="source in getSourcesByType('mods')" :key="source.id">
-                <n-thing>
-                  <template #header>
-                    <n-space align="center">
-                      <n-avatar v-if="source.icon" :src="source.icon" :size="32" round />
-                      <n-avatar v-else :size="32" round>
-                        {{ source.name.charAt(0) }}
-                      </n-avatar>
-                      <n-text strong>{{ source.name }}</n-text>
-                      <n-tag v-if="source.isDefault" size="small" type="info">
-                        {{ t('mods.defaultSource') }}
-                      </n-tag>
-                      <n-switch
-                        v-model:value="source.enabled"
-                        :disabled="source.id === 'suancaixianyu'"
-                        @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
-                      />
-                    </n-space>
-                  </template>
-
-                  <template #description>
-                    <n-text depth="3">
-                      {{ source.description }}
-                    </n-text>
-                  </template>
-
-                  <template #action>
-                    <n-space>
-                      <n-button
-                        size="small"
-                        :type="source.isDefault ? 'warning' : 'default'"
-                        @click="handleSetDefaultSource(source)"
-                      >
-                        <template #icon>
-                          <n-icon><StarIcon /></n-icon>
-                        </template>
-                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
-                      </n-button>
-                      <n-button
-                        v-if="!source.isDefault"
-                        size="small"
-                        type="error"
-                        @click="handleDeleteSource(source)"
-                      >
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </n-space>
-                  </template>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-            <n-empty v-else :description="t('mods.noSources')" />
-          </n-tab-pane>
-
-          <n-tab-pane name="savegames" :tab="t('mods.savegameSources')">
-            <n-list v-if="getSourcesByType('savegames').length > 0" hoverable>
-              <n-list-item v-for="source in getSourcesByType('savegames')" :key="source.id">
-                <n-thing>
-                  <template #header>
-                    <n-space align="center">
-                      <n-avatar v-if="source.icon" :src="source.icon" :size="32" round />
-                      <n-avatar v-else :size="32" round>
-                        {{ source.name.charAt(0) }}
-                      </n-avatar>
-                      <n-text strong>{{ source.name }}</n-text>
-                      <n-tag v-if="source.isDefault" size="small" type="info">
-                        {{ t('mods.defaultSource') }}
-                      </n-tag>
-                      <n-switch
-                        v-model:value="source.enabled"
-                        :disabled="source.id === 'suancaixianyu-saves'"
-                        @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
-                      />
-                    </n-space>
-                  </template>
-
-                  <template #description>
-                    <n-text depth="3">
-                      {{ source.description }}
-                    </n-text>
-                  </template>
-
-                  <template #action>
-                    <n-space>
-                      <n-button
-                        size="small"
-                        :type="source.isDefault ? 'warning' : 'default'"
-                        @click="handleSetDefaultSource(source)"
-                      >
-                        <template #icon>
-                          <n-icon><StarIcon /></n-icon>
-                        </template>
-                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
-                      </n-button>
-                      <n-button
-                        v-if="!source.isDefault"
-                        size="small"
-                        type="error"
-                        @click="handleDeleteSource(source)"
-                        :disabled="source.id === 'suancaixianyu-saves'"
-                      >
-                        <template #icon>
-                          <n-icon><TrashIcon /></n-icon>
-                        </template>
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </n-space>
-                  </template>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-            <n-empty v-else :description="t('mods.noSources')" />
-          </n-tab-pane>
-
-          <n-tab-pane name="furniture" :tab="t('mods.furnitureSources')">
-            <n-list v-if="getSourcesByType('furniture').length > 0" hoverable>
-              <n-list-item v-for="source in getSourcesByType('furniture')" :key="source.id">
-                <n-thing>
-                  <template #header>
-                    <n-space align="center">
-                      <n-avatar v-if="source.icon" :src="source.icon" :size="32" round />
-                      <n-avatar v-else :size="32" round>
-                        {{ source.name.charAt(0) }}
-                      </n-avatar>
-                      <n-text strong>{{ source.name }}</n-text>
-                      <n-tag v-if="source.isDefault" size="small" type="info">
-                        {{ t('mods.defaultSource') }}
-                      </n-tag>
-                      <n-switch
-                        v-model:value="source.enabled"
-                        :disabled="source.id === 'suancaixianyu'"
-                        @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
-                      />
-                    </n-space>
-                  </template>
-
-                  <template #description>
-                    <n-text depth="3">
-                      {{ source.description }}
-                    </n-text>
-                  </template>
-
-                  <template #action>
-                    <n-space>
-                      <n-button
-                        size="small"
-                        :type="source.isDefault ? 'warning' : 'default'"
-                        @click="handleSetDefaultSource(source)"
-                      >
-                        <template #icon>
-                          <n-icon><StarIcon /></n-icon>
-                        </template>
-                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
-                      </n-button>
-                      <n-button
-                        v-if="!source.isDefault"
-                        size="small"
-                        type="error"
-                        @click="handleDeleteSource(source)"
-                      >
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </n-space>
-                  </template>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-            <n-empty v-else :description="t('mods.noSources')" />
-          </n-tab-pane>
-
-          <n-tab-pane name="textures" :tab="t('mods.textureSources')">
-            <n-list v-if="getSourcesByType('textures').length > 0" hoverable>
-              <n-list-item v-for="source in getSourcesByType('textures')" :key="source.id">
-                <n-thing>
-                  <template #header>
-                    <n-space align="center">
-                      <n-avatar v-if="source.icon" :src="source.icon" :size="32" round />
-                      <n-avatar v-else :size="32" round>
-                        {{ source.name.charAt(0) }}
-                      </n-avatar>
-                      <n-text strong>{{ source.name }}</n-text>
-                      <n-tag v-if="source.isDefault" size="small" type="info">
-                        {{ t('mods.defaultSource') }}
-                      </n-tag>
-                      <n-switch
-                        v-model:value="source.enabled"
-                        :disabled="source.id === 'suancaixianyu'"
-                        @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
-                      />
-                    </n-space>
-                  </template>
-
-                  <template #description>
-                    <n-text depth="3">
-                      {{ source.description }}
-                    </n-text>
-                  </template>
-
-                  <template #action>
-                    <n-space>
-                      <n-button
-                        size="small"
-                        :type="source.isDefault ? 'warning' : 'default'"
-                        @click="handleSetDefaultSource(source)"
-                      >
-                        <template #icon>
-                          <n-icon><StarIcon /></n-icon>
-                        </template>
-                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
-                      </n-button>
-                      <n-button
-                        v-if="!source.isDefault"
-                        size="small"
-                        type="error"
-                        @click="handleDeleteSource(source)"
-                      >
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </n-space>
-                  </template>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-            <n-empty v-else :description="t('mods.noSources')" />
-          </n-tab-pane>
-
-          <n-tab-pane name="skins" :tab="t('mods.skinSources')">
-            <n-list v-if="getSourcesByType('skins').length > 0" hoverable>
-              <n-list-item v-for="source in getSourcesByType('skins')" :key="source.id">
-                <n-thing>
-                  <template #header>
-                    <n-space align="center">
-                      <n-avatar v-if="source.icon" :src="source.icon" :size="32" round />
-                      <n-avatar v-else :size="32" round>
-                        {{ source.name.charAt(0) }}
-                      </n-avatar>
-                      <n-text strong>{{ source.name }}</n-text>
-                      <n-tag v-if="source.isDefault" size="small" type="info">
-                        {{ t('mods.defaultSource') }}
-                      </n-tag>
-                      <n-switch
-                        v-model:value="source.enabled"
-                        :disabled="source.id === 'suancaixianyu'"
-                        @update:value="(enabled: boolean) => handleToggleSource(source.id, enabled)"
-                      />
-                    </n-space>
-                  </template>
-
-                  <template #description>
-                    <n-text depth="3">
-                      {{ source.description }}
-                    </n-text>
-                  </template>
-
-                  <template #action>
-                    <n-space>
-                      <n-button
-                        size="small"
-                        :type="source.isDefault ? 'warning' : 'default'"
-                        @click="handleSetDefaultSource(source)"
-                      >
-                        <template #icon>
-                          <n-icon><StarIcon /></n-icon>
-                        </template>
-                        {{ source.isDefault ? t('mods.cancelDefault') : t('mods.setDefault') }}
-                      </n-button>
-                      <n-button
-                        v-if="!source.isDefault"
-                        size="small"
-                        type="error"
-                        @click="handleDeleteSource(source)"
-                      >
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </n-space>
-                  </template>
-                </n-thing>
-              </n-list-item>
-            </n-list>
-            <n-empty v-else :description="t('mods.noSources')" />
-          </n-tab-pane>
-        </n-tabs>
-      </n-card>
+      <SourceSettings
+        :sources="modSources"
+        @toggle-source="handleToggleSource"
+        @set-default-source="handleSetDefaultSource"
+        @delete-source="handleDeleteSource"
+        @add-source="showAddSourceDialog = true"
+      />
 
       <!-- 背景设置 -->
-      <n-card :title="t('settings.background')">
-        <n-space vertical>
-          <n-form-item :label="t('settings.backgroundImage')">
-            <n-space>
-              <n-button @click="handleSelectBackground">
-                <template #icon>
-                  <n-icon><ImageIcon /></n-icon>
-                </template>
-                {{ t('settings.selectImage') }}
-              </n-button>
-              <n-button v-if="config?.backgroundImage" type="error" @click="handleClearBackground">
-                <template #icon>
-                  <n-icon><TrashIcon /></n-icon>
-                </template>
-                {{ t('settings.clearBackground') }}
-              </n-button>
-            </n-space>
-          </n-form-item>
-
-          <!-- 背景预览 -->
-          <div v-if="backgroundImagePreview" class="background-preview">
-            <n-image
-              :src="backgroundImagePreview"
-              object-fit="cover"
-              style="width: 100%; height: 200px; border-radius: 4px;"
-            />
-          </div>
-          <n-text v-else depth="3">{{ t('settings.noBackground') }}</n-text>
-        </n-space>
-      </n-card>
+      <BackgroundSettings
+        :has-background="!!config?.backgroundImage"
+        :preview="backgroundImagePreview"
+        @select="handleSelectBackground"
+        @clear="handleClearBackground"
+      />
 
       <!-- 关于 -->
       <div class="about-section">
@@ -390,71 +47,18 @@
     </n-space>
 
     <!-- 关于对话框 -->
-    <n-modal v-model:show="showAboutDialog" preset="dialog" :title="t('settings.aboutSCLauncher')">
-      <n-space vertical>
-        <n-descriptions :column="1" bordered label-placement="left" label-style="width: 80px;">
-          <n-descriptions-item :label="t('common.version')">
-            v{{ appInfo.version }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('settings.author')">
-            {{ appInfo.repoOwner }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('settings.license')">
-            MIT License
-          </n-descriptions-item>
-        </n-descriptions>
-        <n-divider />
-        <n-text>
-          {{ t('settings.description') }}
-        </n-text>
-        <n-button type="primary" block @click="openGitHub">
-          <template #icon>
-            <n-icon><GithubIcon /></n-icon>
-          </template>
-          {{ t('settings.viewOnGitHub') }}
-        </n-button>
-        <n-button block @click="handleCheckUpdate">
-          <template #icon>
-            <n-icon><UpdateIcon /></n-icon>
-          </template>
-          {{ t('settings.checkUpdate') }}
-        </n-button>
-      </n-space>
-      <template #action>
-        <n-button @click="showAboutDialog = false">{{ t('common.close') }}</n-button>
-      </template>
-    </n-modal>
+    <AboutDialog
+      v-model:visible="showAboutDialog"
+      :app-info="appInfo"
+      @open-github="openGitHub"
+      @check-update="handleCheckUpdate"
+    />
 
     <!-- 添加下载源对话框 -->
-    <n-modal v-model:show="showAddSourceDialog" preset="dialog" :title="t('mods.addSource')">
-      <n-form ref="addSourceFormRef" :model="newSource" :rules="sourceRules" label-placement="left" label-width="100px">
-        <n-form-item :label="t('mods.sourceType')" path="type">
-          <n-select
-            v-model:value="newSource.type"
-            :options="[
-              { label: t('mods.modSources'), value: 'mods' },
-              { label: t('mods.savegameSources'), value: 'savegames' },
-              { label: t('mods.furnitureSources'), value: 'furniture' },
-              { label: t('mods.textureSources'), value: 'textures' },
-              { label: t('mods.skinSources'), value: 'skins' }
-            ]"
-          />
-        </n-form-item>
-        <n-form-item :label="t('mods.sourceName')" path="name">
-          <n-input v-model:value="newSource.name" :placeholder="t('mods.sourceNamePlaceholder')" />
-        </n-form-item>
-        <n-form-item :label="t('mods.sourceDescription')" path="description">
-          <n-input v-model:value="newSource.description" :placeholder="t('mods.sourceDescriptionPlaceholder')" />
-        </n-form-item>
-        <n-form-item :label="t('mods.sourceApiUrl')" path="apiUrl">
-          <n-input v-model:value="newSource.apiUrl" :placeholder="t('mods.sourceApiUrlPlaceholder')" />
-        </n-form-item>
-      </n-form>
-      <template #action>
-        <n-button @click="showAddSourceDialog = false">{{ t('common.cancel') }}</n-button>
-        <n-button type="primary" @click="handleAddSource">{{ t('common.confirm') }}</n-button>
-      </template>
-    </n-modal>
+    <AddSourceDialog
+      v-model:visible="showAddSourceDialog"
+      @confirm="handleAddSource"
+    />
   </div>
 </template>
 
@@ -464,11 +68,17 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NAlert } from 'naive-ui'
 import { ModSourceManager } from '../managers'
 import type { ModSource } from '../types/mod-source'
-import { Add as AddIcon, Star as StarIcon } from '@vicons/ionicons5'
-import { InformationCircleOutline as InformationIcon, LogoGithub as GithubIcon, RefreshOutline as UpdateIcon, ImageOutline as ImageIcon, TrashOutline as TrashIcon } from '@vicons/ionicons5'
+import { InformationCircleOutline as InformationIcon } from '@vicons/ionicons5'
 import { GetConfig, SetManifestURL, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
 import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
+import LanguageSettings from '../components/settings/LanguageSettings.vue'
+import PathSettings from '../components/settings/PathSettings.vue'
+import ManifestSettings from '../components/settings/ManifestSettings.vue'
+import SourceSettings from '../components/settings/SourceSettings.vue'
+import BackgroundSettings from '../components/settings/BackgroundSettings.vue'
+import AboutDialog from '../components/settings/AboutDialog.vue'
+import AddSourceDialog from '../components/settings/AddSourceDialog.vue'
 
 const { t, locale } = useI18n()
 
@@ -490,39 +100,7 @@ const appInfo = ref<{ version: string; repoOwner: string; repoName: string }>({
 
 // 模组下载源相关
 const modSources = ref<ModSource[]>([])
-const currentSourceType = ref<string>('mods')
 const showAddSourceDialog = ref(false)
-const addSourceFormRef = ref()
-const newSource = ref({
-  name: '',
-  description: '',
-  apiUrl: '',
-  type: 'mods' as 'mods' | 'savegames' | 'furniture' | 'textures' | 'skins'
-})
-
-// 根据类型过滤下载源
-const getSourcesByType = (type: string) => {
-  return modSources.value.filter(s => s.type === type)
-}
-
-// 下载源表单验证规则
-const sourceRules = {
-  name: {
-    required: true,
-    message: t('mods.sourceNameRequired'),
-    trigger: 'blur'
-  },
-  description: {
-    required: true,
-    message: t('mods.sourceDescriptionRequired'),
-    trigger: 'blur'
-  },
-  apiUrl: {
-    required: true,
-    message: t('mods.sourceApiUrlRequired'),
-    trigger: 'blur'
-  }
-}
 
 // 加载模组下载源列表
 async function loadModSources() {
@@ -606,8 +184,8 @@ async function handleSetDefaultSource(source: ModSource) {
 }
 
 // 添加下载源
-async function handleAddSource() {
-  if (!newSource.value.name || !newSource.value.description || !newSource.value.apiUrl) {
+async function handleAddSource(source: { name: string; description: string; apiUrl: string; type: 'mods' | 'savegames' | 'furniture' | 'textures' | 'skins' }) {
+  if (!source.name || !source.description || !source.apiUrl) {
     message.warning(t('mods.pleaseFillAllFields'))
     return
   }
@@ -618,12 +196,12 @@ async function handleAddSource() {
 
     await ModSourceManager.addSource({
       id,
-      type: newSource.value.type,
-      name: newSource.value.name,
-      description: newSource.value.description,
+      type: source.type,
+      name: source.name,
+      description: source.description,
       enabled: true,
       api: {
-        baseUrl: newSource.value.apiUrl,
+        baseUrl: source.apiUrl,
         searchPath: '/api/mods/search',
         responseMapping: {
           // 这里需要用户提供正确的映射配置
@@ -644,24 +222,11 @@ async function handleAddSource() {
 
     loadModSources()
     showAddSourceDialog.value = false
-    newSource.value = { name: '', description: '', apiUrl: '', type: 'mods' }
     message.success(t('mods.sourceAdded'))
   } catch (error) {
     message.error(t('mods.operationFailed') + '：' + error)
   }
 }
-
-// 语言选项
-const languageOptions = [
-  { label: '简体中文', value: 'zh-CN' },
-  { label: 'English', value: 'en-US' },
-  { label: 'Русский', value: 'ru-RU' },
-  { label: 'Português (Brasil)', value: 'pt-BR' },
-  { label: 'हिन्दी', value: 'hi-IN' },
-  { label: 'Bahasa Indonesia', value: 'id-ID' },
-  { label: 'العربية', value: 'ar-SA' },
-  { label: 'Español (España)', value: 'es-ES' }
-]
 
 // 加载背景图片预览
 async function loadBackgroundPreview() {
@@ -847,13 +412,5 @@ onMounted(async () => {
 
 .about-section:hover {
   opacity: 1;
-}
-
-.background-preview {
-  width: 100%;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: #f5f5f5;
 }
 </style>

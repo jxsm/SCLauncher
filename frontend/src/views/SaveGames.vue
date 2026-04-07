@@ -57,96 +57,25 @@
           <div v-if="currentView === 'manage'" key="manage" class="view-content">
             <!-- 存档列表 -->
             <n-spin :show="loading">
-        <n-list hoverable clickable>
-          <n-list-item
-            v-for="save in saveGames"
-            :key="save.id"
-          >
-            <n-thing>
-              <template #header>
-                <n-space align="center">
-                  <n-text strong style="font-size: 16px;">{{ save.name }}</n-text>
-                  <n-tag v-if="save.isAutoSave" type="info" size="small">
-                    {{ t('saveGames.autoSave') }}
-                  </n-tag>
-                </n-space>
-              </template>
-
-              <template #description>
-                <n-space vertical size="small">
-                  <n-text depth="3">
-                    {{ t('saveGames.lastModified') }}: {{ formatDate(save.lastModified) }}
-                  </n-text>
-                  <n-text depth="3">
-                    {{ t('saveGames.gameVersion') }}:
-                    <n-tag v-if="save.gameVersion" size="tiny" :type="save.gameVersion ? 'info' : 'default'">
-                      {{ save.gameVersion || t('common.unknown') }}
-                    </n-tag>
-                  </n-text>
-                  <n-text v-if="save.gameMode" depth="3">
-                    {{ t('saveGames.gameMode') }}:
-                    <n-tag size="tiny" type="success">
-                      {{ translateGameMode(save.gameMode) }}
-                    </n-tag>
-                  </n-text>
-                </n-space>
-              </template>
-
-              <template #action>
-                <n-space>
-                  <n-button
-                    size="medium"
-                    @click="handleOpenFolder(save)"
-                  >
-                    <template #icon>
-                      <n-icon><FolderIcon /></n-icon>
-                    </template>
-                    {{ t('saveGames.openFolder') }}
+              <n-list hoverable clickable>
+                <SaveGameListItem
+                  v-for="saveGame in saveGames"
+                  :key="saveGame.id"
+                  :save-game="saveGame"
+                  @open-folder="handleOpenFolder"
+                  @export="handleExportSave"
+                  @rename="handleRename"
+                  @delete="handleDelete"
+                />
+              </n-list>
+              <n-empty v-if="saveGames.length === 0 && !loading" :description="t('saveGames.noSaves')">
+                <template #extra>
+                  <n-button type="primary" @click="handleImportSave">
+                    {{ t('saveGames.importFirstSave') }}
                   </n-button>
-                  <n-button
-                    size="medium"
-                    @click="handleExportSave(save)"
-                  >
-                    <template #icon>
-                      <n-icon><ExportIcon /></n-icon>
-                    </template>
-                    {{ t('saveGames.exportSave') }}
-                  </n-button>
-                  <n-button
-                    size="medium"
-                    @click="handleRename(save)"
-                  >
-                    <template #icon>
-                      <n-icon><EditIcon /></n-icon>
-                    </template>
-                    {{ t('common.rename') }}
-                  </n-button>
-                  <n-popconfirm
-                    @positive-click="handleDelete(save)"
-                  >
-                    <template #trigger>
-                      <n-button type="error" size="medium">
-                        <template #icon>
-                          <n-icon><TrashIcon /></n-icon>
-                        </template>
-                        {{ t('common.delete') }}
-                      </n-button>
-                    </template>
-                    {{ t('saveGames.confirmDelete', { name: save.name }) }}
-                  </n-popconfirm>
-                </n-space>
-              </template>
-            </n-thing>
-          </n-list-item>
-        </n-list>
-        <n-empty v-if="saveGames.length === 0 && !loading" :description="t('saveGames.noSaves')">
-          <template #extra>
-            <n-button type="primary" @click="handleImportSave">
-              {{ t('saveGames.importFirstSave') }}
-            </n-button>
-          </template>
-        </n-empty>
-      </n-spin>
+                </template>
+              </n-empty>
+            </n-spin>
           </div>
 
           <!-- 存档下载视图 -->
@@ -214,55 +143,12 @@
               <!-- 搜索结果 -->
               <n-spin :show="searching">
                 <n-list v-if="searchResults.length > 0" hoverable clickable>
-                  <n-list-item v-for="save in searchResults" :key="save.id" @click="handleShowSaveDetail(save)">
-                    <n-thing>
-                      <template #header>
-                        <n-space align="center">
-                          <n-avatar
-                            v-if="save.icon"
-                            :src="save.icon"
-                            :size="48"
-                            round
-                          />
-                          <n-avatar
-                            v-else-if="save.authorAvatar"
-                            :src="save.authorAvatar"
-                            :size="48"
-                            round
-                          />
-                          <n-avatar v-else :size="48" round>
-                            {{ save.title.charAt(0) }}
-                          </n-avatar>
-                          <n-text strong>{{ save.title }}</n-text>
-                          <n-tag v-if="save.versions.length > 0" size="small" type="info">
-                            v{{ save.versions[0].version }}
-                          </n-tag>
-                        </n-space>
-                      </template>
-
-                      <template #description>
-                        <n-space vertical size="small">
-                          <n-text depth="3">
-                            {{ save.author }}
-                          </n-text>
-                          <n-text depth="3" :line-clamp="1">
-                            {{ stripHtmlTags(save.description) }}
-                          </n-text>
-                          <n-space>
-                            <n-tag size="small" type="info">
-                              👁 {{ save.views }}
-                            </n-tag>
-                            <n-tag v-if="save.likes > 0" size="small" type="warning">
-                              👍 {{ save.likes }}
-                            </n-tag>
-                            <n-tag size="small" type="success">
-                              📦 {{ save.versions.length }} {{ t('mods.versions') }}
-                            </n-tag>
-                          </n-space>
-                        </n-space>
-                      </template>
-                    </n-thing>
-                  </n-list-item>
+                  <SaveGameSearchResultItem
+                    v-for="saveGame in searchResults"
+                    :key="saveGame.id"
+                    :save-game="saveGame"
+                    @click="handleShowSaveDetail"
+                  />
                 </n-list>
 
                 <!-- 分页组件 -->
@@ -287,95 +173,32 @@
           </div>
         </transition>
       </n-card>
-
-      <!-- 存档详情对话框 -->
-      <n-modal
-        v-model:show="showSaveDetailModal"
-        preset="card"
-        :title="selectedSave?.title || ''"
-        style="width: 700px;"
-      >
-        <n-scrollbar style="max-height: 60vh;">
-          <n-space vertical size="large">
-            <!-- 基本信息 -->
-            <n-space vertical size="small">
-              <n-text strong>{{ t('common.author') }}:</n-text>
-              <n-text>{{ selectedSave?.author }}</n-text>
-            </n-space>
-
-            <!-- 描述 -->
-            <n-space vertical size="small">
-              <n-text strong>{{ t('common.description') }}:</n-text>
-              <div v-if="selectedSave" class="save-description" v-html="selectedSave.description"></div>
-            </n-space>
-
-            <!-- 统计信息 -->
-            <n-space>
-              <n-tag size="small" type="info">
-                👁 {{ selectedSave?.views }}
-              </n-tag>
-              <n-tag v-if="selectedSave && selectedSave.likes > 0" size="small" type="warning">
-                👍 {{ selectedSave?.likes }}
-              </n-tag>
-              <n-tag size="small" type="success">
-                📦 {{ selectedSave?.versions.length }} {{ t('mods.versions') }}
-              </n-tag>
-            </n-space>
-
-            <!-- 版本列表 -->
-            <n-divider />
-            <n-space vertical size="medium">
-              <n-text strong>{{ t('mods.availableVersions') }}</n-text>
-              <n-list v-if="selectedSave && selectedSave.versions.length > 0" bordered>
-                <n-list-item v-for="(version, index) in selectedSave.versions" :key="index">
-                  <n-space justify="space-between" align="center" style="width: 100%;">
-                    <n-space vertical size="small">
-                      <n-text strong>v{{ version.version }}</n-text>
-                      <n-text depth="3">
-                        {{ t('common.size') }}: {{ formatSize(Number(version.fileSize)) }}
-                      </n-text>
-                    </n-space>
-                    <n-button
-                      type="primary"
-                      size="small"
-                      @click="handleDownloadSave(selectedSave!, index)"
-                      :loading="downloadingSaves.has(`${selectedSave!.id}-${index}`)"
-                    >
-                      <template #icon>
-                        <n-icon><DownloadIcon /></n-icon>
-                      </template>
-                      {{ t('saveGames.downloadSave') }}
-                    </n-button>
-                  </n-space>
-                </n-list-item>
-              </n-list>
-              <n-empty v-else :description="t('mods.noVersions')" />
-            </n-space>
-          </n-space>
-        </n-scrollbar>
-
-        <template #footer>
-          <n-space justify="end">
-            <n-button @click="showSaveDetailModal = false">{{ t('common.close') }}</n-button>
-          </n-space>
-        </template>
-      </n-modal>
     </n-space>
+
+    <!-- 存档详情对话框 -->
+    <SaveGameDetailModal
+      v-model:show="showSaveDetailModal"
+      :save-game="selectedSave"
+      :downloading="downloadingSaves"
+      @download="handleDownloadSave"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, h, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onActivated, watch, nextTick, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { Trash as TrashIcon, CreateOutline as EditIcon, Download as ImportIcon, CloudUploadOutline as ExportIcon, FolderOpen as FolderIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon } from '@vicons/ionicons5'
+import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon } from '@vicons/ionicons5'
 import { useVersionStore } from '../stores/version'
 import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL } from '../api/savegame'
 import { ModSourceManager } from '../managers'
 import type { SaveGame } from '../types/savegame'
 import type { ModSearchResult } from '../types/mod-source'
 import { useRouter } from 'vue-router'
-import { formatSize } from '../utils/format'
+import SaveGameListItem from '../components/savegame/SaveGameListItem.vue'
+import SaveGameSearchResultItem from '../components/savegame/SaveGameSearchResultItem.vue'
+import SaveGameDetailModal from '../components/savegame/SaveGameDetailModal.vue'
 
 const { t } = useI18n()
 const versionStore = useVersionStore()
@@ -418,17 +241,6 @@ const versionOptions = computed(() => {
     value: v.id
   }))
 })
-
-// 格式化日期
-function formatDate(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleString()
-}
-
-// 翻译游戏模式
-function translateGameMode(mode: string): string {
-  return t(`saveGames.gameModes.${mode}`)
-}
 
 // 已安装版本选项（过滤掉路径不存在的版本）
 const installedVersionOptions = computed(() => {
@@ -792,17 +604,6 @@ function handleShowSaveDetail(save: ModSearchResult) {
 }
 
 /**
- * 移除HTML标签（用于列表显示）
- */
-function stripHtmlTags(html: string): string {
-  const tmp = document.createElement('div')
-  tmp.innerHTML = html
-  const text = tmp.textContent || tmp.innerText || ''
-  // 截取前100个字符
-  return text.length > 100 ? text.substring(0, 100) + '...' : text
-}
-
-/**
  * 下载源变更
  */
 function handleSourceChange(sourceId: string) {
@@ -828,6 +629,11 @@ function openSourceSettings() {
     path: '/settings',
     query: { tab: 'savegame-sources' }
   })
+}
+
+// 翻译游戏模式
+function translateGameMode(mode: string): string {
+  return t(`saveGames.gameModes.${mode}`)
 }
 
 onMounted(async () => {

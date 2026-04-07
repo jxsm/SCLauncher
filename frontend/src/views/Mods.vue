@@ -90,49 +90,13 @@
             <!-- 模组列表 -->
             <n-spin :show="modStore.loading">
               <n-list hoverable clickable>
-                <n-list-item v-for="mod in filteredMods" :key="mod.id">
-                  <n-thing>
-                    <template #header>
-                      <n-space align="center">
-                        <n-checkbox
-                          :checked="mod.enabled"
-                          @update:checked="handleToggleMod(mod, $event)"
-                        >
-                          <n-text strong>{{ mod.name }}</n-text>
-                        </n-checkbox>
-                        <n-tag :type="mod.enabled ? 'success' : 'default'" size="small">
-                          {{ mod.enabled ? t('mods.enabled') : t('mods.disabled') }}
-                        </n-tag>
-                      </n-space>
-                    </template>
-
-                    <template #description>
-                      <n-space vertical size="small">
-                        <n-text depth="3">
-                          {{ t('common.size') }}: {{ formatSize(mod.size) }}
-                        </n-text>
-                        <n-text depth="3">
-                          {{ t('mods.installDate') }}: {{ new Date(mod.installDate).toLocaleString() }}
-                        </n-text>
-                      </n-space>
-                    </template>
-
-                    <template #action>
-                      <n-space>
-                        <n-popconfirm
-                          @positive-click="handleDeleteMod(mod)"
-                        >
-                          <template #trigger>
-                            <n-button type="error" size="small">
-                              {{ t('common.delete') }}
-                            </n-button>
-                          </template>
-                          {{ t('mods.confirmDeleteMessage') }}
-                        </n-popconfirm>
-                      </n-space>
-                    </template>
-                  </n-thing>
-                </n-list-item>
+                <ModListItem
+                  v-for="mod in filteredMods"
+                  :key="mod.id"
+                  :mod="mod"
+                  @toggle="handleToggleMod"
+                  @delete="handleDeleteMod"
+                />
               </n-list>
               <n-empty
                 v-if="filteredMods.length === 0 && !modStore.loading"
@@ -206,55 +170,12 @@
               <!-- 搜索结果 -->
               <n-spin :show="searching">
                 <n-list v-if="searchResults.length > 0" hoverable clickable>
-                  <n-list-item v-for="mod in searchResults" :key="mod.id" @click="handleShowModDetail(mod)">
-                    <n-thing>
-                      <template #header>
-                        <n-space align="center">
-                          <n-avatar
-                            v-if="mod.icon"
-                            :src="mod.icon"
-                            :size="48"
-                            round
-                          />
-                          <n-avatar
-                            v-else-if="mod.authorAvatar"
-                            :src="mod.authorAvatar"
-                            :size="48"
-                            round
-                          />
-                          <n-avatar v-else :size="48" round>
-                            {{ mod.title.charAt(0) }}
-                          </n-avatar>
-                          <n-text strong>{{ mod.title }}</n-text>
-                          <n-tag v-if="mod.versions.length > 0" size="small" type="info">
-                            v{{ mod.versions[0].version }}
-                          </n-tag>
-                        </n-space>
-                      </template>
-
-                      <template #description>
-                        <n-space vertical size="small">
-                          <n-text depth="3">
-                            {{ mod.author }}
-                          </n-text>
-                          <n-text depth="3" :line-clamp="1">
-                            {{ stripHtmlTags(mod.description) }}
-                          </n-text>
-                          <n-space>
-                            <n-tag size="small" type="info">
-                              👁 {{ mod.views }}
-                            </n-tag>
-                            <n-tag v-if="mod.likes > 0" size="small" type="warning">
-                              👍 {{ mod.likes }}
-                            </n-tag>
-                            <n-tag v-if="mod.versions.length > 0" size="small" type="success">
-                              {{ mod.versions.length }} {{ t('mods.versions') }}
-                            </n-tag>
-                          </n-space>
-                        </n-space>
-                      </template>
-                    </n-thing>
-                  </n-list-item>
+                  <ModSearchResultItem
+                    v-for="mod in searchResults"
+                    :key="mod.id"
+                    :mod="mod"
+                    @click="handleShowModDetail"
+                  />
                 </n-list>
 
                 <!-- 分页组件 -->
@@ -282,77 +203,12 @@
     </n-space>
 
     <!-- 模组详情对话框 -->
-    <n-modal
+    <ModDetailModal
       v-model:show="showModDetailModal"
-      preset="card"
-      :title="selectedMod?.title || ''"
-      style="width: 700px;"
-    >
-      <n-scrollbar style="max-height: 60vh;">
-        <n-space vertical size="large">
-          <!-- 基本信息 -->
-          <n-space vertical size="small">
-            <n-text strong>{{ t('common.author') }}:</n-text>
-            <n-text>{{ selectedMod?.author }}</n-text>
-          </n-space>
-
-          <!-- 描述 -->
-          <n-space vertical size="small">
-            <n-text strong>{{ t('common.description') }}:</n-text>
-            <div v-if="selectedMod" class="mod-description" v-html="selectedMod.description"></div>
-          </n-space>
-
-          <!-- 统计信息 -->
-          <n-space>
-            <n-tag size="small" type="info">
-              👁 {{ selectedMod?.views }}
-            </n-tag>
-            <n-tag v-if="selectedMod && selectedMod.likes > 0" size="small" type="warning">
-              👍 {{ selectedMod?.likes }}
-            </n-tag>
-            <n-tag size="small" type="success">
-              📦 {{ selectedMod?.versions.length }} {{ t('mods.versions') }}
-            </n-tag>
-          </n-space>
-
-          <!-- 版本列表 -->
-          <n-divider />
-          <n-space vertical size="medium">
-            <n-text strong>{{ t('mods.availableVersions') }}</n-text>
-            <n-list v-if="selectedMod && selectedMod.versions.length > 0" bordered>
-              <n-list-item v-for="(version, index) in selectedMod.versions" :key="index">
-                <n-space justify="space-between" align="center" style="width: 100%;">
-                  <n-space vertical size="small">
-                    <n-text strong>v{{ version.version }}</n-text>
-                    <n-text depth="3">
-                      {{ t('common.size') }}: {{ formatSize(Number(version.fileSize)) }}
-                    </n-text>
-                  </n-space>
-                  <n-button
-                    type="primary"
-                    size="small"
-                    @click="handleDownloadMod(selectedMod!, index)"
-                    :loading="downloadingMods.has(`${selectedMod!.id}-${index}`)"
-                  >
-                    <template #icon>
-                      <n-icon><DownloadIcon /></n-icon>
-                    </template>
-                    {{ t('mods.download') }}
-                  </n-button>
-                </n-space>
-              </n-list-item>
-            </n-list>
-            <n-empty v-else :description="t('mods.noVersions')" />
-          </n-space>
-        </n-space>
-      </n-scrollbar>
-
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="showModDetailModal = false">{{ t('common.close') }}</n-button>
-        </n-space>
-      </template>
-    </n-modal>
+      :mod="selectedMod"
+      :downloading="downloadingMods"
+      @download="handleDownloadMod"
+    />
   </div>
 </template>
 
@@ -364,10 +220,12 @@ import { useModStore } from '../stores/mod'
 import { useVersionStore } from '../stores/version'
 import { useMessage } from 'naive-ui'
 import { Add as AddIcon, Search as SearchIcon, FolderOpen as FolderIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon } from '@vicons/ionicons5'
-import { formatSize } from '../utils/format'
 import { OpenVersionModsFolder } from '../api/version'
 import { ModSourceManager } from '../managers'
 import type { ModSearchResult, ModSource } from '../types/mod-source'
+import ModListItem from '../components/mod/ModListItem.vue'
+import ModSearchResultItem from '../components/mod/ModSearchResultItem.vue'
+import ModDetailModal from '../components/mod/ModDetailModal.vue'
 
 const { t } = useI18n()
 const modStore = useModStore()
@@ -706,17 +564,6 @@ function handleShowModDetail(mod: ModSearchResult) {
   showModDetailModal.value = true
 }
 
-/**
- * 移除HTML标签（用于列表显示）
- */
-function stripHtmlTags(html: string): string {
-  const tmp = document.createElement('div')
-  tmp.innerHTML = html
-  const text = tmp.textContent || tmp.innerText || ''
-  // 截取前100个字符
-  return text.length > 100 ? text.substring(0, 100) + '...' : text
-}
-
 onMounted(async () => {
   try {
     // 初始化下载源（只选择模组类型的源）
@@ -847,53 +694,5 @@ watch(sourceOptions, (newOptions) => {
 .view-fade-leave-from {
   opacity: 1;
   transform: translateX(0);
-}
-
-/* 模组描述样式 */
-.mod-description {
-  line-height: 1.6;
-  color: #fff;
-}
-
-.mod-description :deep(p) {
-  margin-bottom: 8px;
-}
-
-.mod-description :deep(img) {
-  max-width: 100%;
-  border-radius: 4px;
-  margin: 8px 0;
-}
-
-.mod-description :deep(ul),
-.mod-description :deep(ol) {
-  margin-left: 20px;
-  margin-bottom: 8px;
-}
-
-.mod-description :deep(li) {
-  margin-bottom: 4px;
-}
-
-.mod-description :deep(code) {
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-}
-
-.mod-description :deep(pre) {
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin: 8px 0;
-}
-
-.mod-description :deep(blockquote) {
-  border-left: 4px solid rgba(255, 255, 255, 0.3);
-  padding-left: 12px;
-  margin: 8px 0;
-  color: rgba(255, 255, 255, 0.8);
 }
 </style>
