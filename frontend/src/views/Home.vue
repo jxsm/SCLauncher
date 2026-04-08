@@ -52,7 +52,7 @@
           <n-button class="secondary-btn" @click="$router.push('/installed')">
             {{ t('versions.selectVersion') }}
           </n-button>
-          <n-button class="secondary-btn" @click="$router.push('/mods')">
+          <n-button class="secondary-btn" @click="handleManageResources">
             {{ t('nav.mods') }}
           </n-button>
         </n-space>
@@ -68,12 +68,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage } from 'naive-ui'
 
 const { t } = useI18n()
+const router = useRouter()
 const versionStore = useVersionStore()
 const gameStore = useGameStore()
 const message = useMessage()
@@ -123,6 +125,17 @@ async function handleStop() {
     message.success(t('installed.gameStopped') || '游戏已停止')
   } catch (error) {
     message.error(t('errors.stopFailed') || '停止游戏失败：' + error)
+  }
+}
+
+function handleManageResources() {
+  if (primaryVersion.value) {
+    router.push({
+      name: 'Resources',
+      query: { versionId: primaryVersion.value.id }
+    })
+  } else {
+    router.push('/resources')
   }
 }
 
