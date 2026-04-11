@@ -1,0 +1,193 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '自定义版本号 (留空则自动累加)'
+        required: false
+        default: ''
+      release_notes:
+        description: 'Release 发布信息 (留空则自动生成)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current version
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content "backend\appinfo\appinfo.go" -Raw
+          if ($content -match 'Version\s*=\s*"([^"]+)"') {
+            $currentVersion = $matches[1]
+            Write-Output "current_version=$currentVersion" >> $env:GITHUB_OUTPUT
+            Write-Output "Current version: $currentVersion"
+          } else {
+            Write-Error "无法找到版本号"
+            exit 1
+          }
+
+      - name: Determine new version
+        id: new_version
+        shell: pwsh
+        run: |
+          $customVersion = "${{ github.event.inputs.version }}"
+          $commitMessage = git log -1 --pretty=%B ${{ github.sha }}
+
+          if ($customVersion -ne "") {
+            # 使用手动输入的版本号
+            $newVersion = $customVersion
+            Write-Output "使用自定义版本号: $newVersion"
+          } elseif ($commitMessage -match "release:\s*v?(\d+\.\d+\.\d+)") {
+            # 从提交信息中提取版本号
+            $newVersion = $matches[1]
+            Write-Output "从提交信息提取版本号: $newVersion"
+          } else {
+            # 自动累加版本号
+            $currentVersion = "${{ steps.version.outputs.current_version }}"
+            $parts = $currentVersion.Split('.')
+            $patch = [int]$parts[2] + 1
+            $newVersion = "$($parts[0]).$($parts[1]).$patch"
+            Write-Output "自动累加版本号: $currentVersion -> $newVersion"
+          }
+
+          Write-Output "new_version=$newVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Update version in appinfo.go
+        shell: pwsh
+        run: |
+          $newVersion = "${{ steps.new_version.outputs.new_version }}"
+          $content = Get-Content "backend\appinfo\appinfo.go" -Raw
+          $content = $content -replace 'Version\s*=\s*"[^"]+"', "Version = `"$newVersion`""
+          $content | Set-Content "backend\appinfo\appinfo.go" -NoNewline
+
+          # 配置 Git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 提交版本更新
+          git add backend/appinfo/appinfo.go
+          git commit -m "chore: bump version to $newVersion"
+          git push
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build Wails application
+        run: wails build -clean -platform windows/amd64
+
+      - name: Prepare release assets
+        shell: pwsh
+        run: |
+          $version = "${{ steps.new_version.outputs.new_version }}"
+          $distPath = "build\bin"
+          $outputPath = "release"
+
+          New-Item -ItemType Directory -Force -Path $outputPath
+
+          # 创建 zip 文件
+          $exePath = Get-ChildItem -Path $distPath -Filter "*.exe" | Select-Object -First 1
+          if ($exePath) {
+            $zipFileName = "SCLauncher-$version-windows-amd64.zip"
+            Compress-Archive -Path $exePath.FullName -DestinationPath "$outputPath\$zipFileName"
+            Write-Output "Created: $zipFileName"
+          }
+
+          # 复制 exe 文件
+          Copy-Item -Path $exePath.FullName -Destination "$outputPath\SCLauncher-$version-windows-amd64.exe"
+
+      - name: Generate release notes
+        id: release_notes
+        shell: pwsh
+        run: |
+          $customNotes = "${{ github.event.inputs.release_notes }}"
+          $version = "${{ steps.new_version.outputs.new_version }}"
+          $previousVersion = "${{ steps.version.outputs.current_version }}"
+
+          if ($customNotes -ne "") {
+            $notes = $customNotes
+          } else {
+            # 获取从上一个版本标签到现在的提交
+            $notes = "## What's New`n`n"
+
+            # 获取最近的提交信息
+            $commits = git log --pretty=format:"* %s (%h)" --since="$previousVersion" HEAD
+            if ($commits) {
+              $notes += "### Changes`n`n$commits`n`n"
+            } else {
+              $notes += "### Changes`n`n* Version bump to $version`n`n"
+            }
+
+            $notes += "---`n`n"
+            $notes += "**Download:** Choose the asset below that matches your system.`n`n"
+            $notes += "**Full Changelog:** https://github.com/${{ github.repository }}/commits/$version"
+          }
+
+          # 将换行符转换为 GitHub Actions 可以处理的格式
+          $notes = $notes -replace "`n", "%0A"
+          $notes = $notes -replace "`r", ""
+          Write-Output "notes=$notes" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.new_version.outputs.new_version }}
+          name: SCLauncher v${{ steps.new_version.outputs.new_version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+          files: |
+            release/SCLauncher-*-windows-amd64.exe
+            release/SCLauncher-*-windows-amd64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Git Tag
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.new_version.outputs.new_version }}" -m "Release v${{ steps.new_version.outputs.new_version }}"
+          git push origin "v${{ steps.new_version.outputs.new_version }}"
+
+      - name: Summary
+        shell: pwsh
+        run: |
+          Write-Output "## 构建完成! :rocket:" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **版本:** ${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **上一个版本:** ${{ steps.version.outputs.current_version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **Release:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
