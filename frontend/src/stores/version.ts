@@ -3,6 +3,10 @@ import { ref, computed } from 'vue'
 import { Version } from '../types/version'
 import * as versionApi from '../api/version'
 
+// localStorage key
+const MANIFEST_CACHE_KEY = 'sc_launcher_manifest_cache'
+const MANIFEST_CACHE_TIME_KEY = 'sc_launcher_manifest_cache_time'
+
 export const useVersionStore = defineStore('version', () => {
   // 状态
   const versions = ref<Version[]>([])
@@ -14,10 +18,62 @@ export const useVersionStore = defineStore('version', () => {
   const installing = ref<Set<string>>(new Set())
   const downloadProgress = ref<Record<string, number>>({})
 
-  // 清单缓存
+  // 下载映射和完成状态（跨页面持久化）
+  const originalToUniqueId = ref<Record<string, string>>({})
+  const completedDownloads = ref<Set<string>>(new Set())
+
+  // 清单缓存（内存中，用于快速访问）
   const manifestCache = ref<Version[] | null>(null)
   const manifestCacheTime = ref<number | null>(null)
   const MANIFEST_CACHE_DURATION = 30 * 60 * 1000 // 30分钟（毫秒）
+
+  // 从 localStorage 加载清单缓存
+  function loadManifestCacheFromStorage() {
+    try {
+      const cachedData = localStorage.getItem(MANIFEST_CACHE_KEY)
+      const cachedTime = localStorage.getItem(MANIFEST_CACHE_TIME_KEY)
+
+      if (cachedData && cachedTime) {
+        const parsedVersions = JSON.parse(cachedData) as Version[]
+        const parsedTime = parseInt(cachedTime, 10)
+
+        if (Array.isArray(parsedVersions) && !isNaN(parsedTime)) {
+          manifestCache.value = parsedVersions
+          manifestCacheTime.value = parsedTime
+          console.log('[Version] Loaded manifest cache from localStorage, cached at:', new Date(parsedTime).toLocaleString())
+          return true
+        }
+      }
+    } catch (error) {
+      console.error('[Version] Failed to load manifest cache from localStorage:', error)
+    }
+    return false
+  }
+
+  // 保存清单缓存到 localStorage
+  function saveManifestCacheToStorage(versions: Version[]) {
+    try {
+      localStorage.setItem(MANIFEST_CACHE_KEY, JSON.stringify(versions))
+      localStorage.setItem(MANIFEST_CACHE_TIME_KEY, Date.now().toString())
+      console.log('[Version] Saved manifest cache to localStorage')
+    } catch (error) {
+      console.error('[Version] Failed to save manifest cache to localStorage:', error)
+    }
+  }
+
+  // 清除 localStorage 中的清单缓存
+  function clearManifestCacheFromStorage() {
+    try {
+      localStorage.removeItem(MANIFEST_CACHE_KEY)
+      localStorage.removeItem(MANIFEST_CACHE_TIME_KEY)
+      console.log('[Version] Cleared manifest cache from localStorage')
+    } catch (error) {
+      console.error('[Version] Failed to clear manifest cache from localStorage:', error)
+    }
+  }
+
+  // 初始化时从 localStorage 加载缓存
+  loadManifestCacheFromStorage()
 
   // 计算属性
   const installedVersions = computed(() =>
@@ -46,10 +102,11 @@ export const useVersionStore = defineStore('version', () => {
     return now - manifestCacheTime.value > MANIFEST_CACHE_DURATION
   }
 
-  // 清除清单缓存
+  // 清除清单缓存（包括内存和 localStorage）
   function clearManifestCache() {
     manifestCache.value = null
     manifestCacheTime.value = null
+    clearManifestCacheFromStorage()
     console.log('[Version] Manifest cache cleared')
   }
 
@@ -96,6 +153,8 @@ export const useVersionStore = defineStore('version', () => {
           // 更新缓存
           manifestCache.value = fetchedVersions
           manifestCacheTime.value = Date.now()
+          // 保存到 localStorage
+          saveManifestCacheToStorage(fetchedVersions)
           // 更新界面
           versions.value = fetchedVersions
         })
@@ -118,6 +177,8 @@ export const useVersionStore = defineStore('version', () => {
       // 更新缓存
       manifestCache.value = fetchedVersions
       manifestCacheTime.value = Date.now()
+      // 保存到 localStorage
+      saveManifestCacheToStorage(fetchedVersions)
       console.log('[Version] Manifest cached at:', new Date(manifestCacheTime.value).toLocaleString())
 
       return fetchedVersions
@@ -173,6 +234,65 @@ export const useVersionStore = defineStore('version', () => {
 
   function clearDownloadProgress(versionId: string) {
     delete downloadProgress.value[versionId]
+  }
+
+  // 设置原始ID到唯一ID的映射
+  function setDownloadMapping(originalId: string, uniqueId: string) {
+    originalToUniqueId.value[originalId] = uniqueId
+    console.log(`[VersionStore] Set mapping: ${originalId} -> ${uniqueId}`)
+  }
+
+  // 移除下载映射
+  function removeDownloadMapping(originalId: string) {
+    if (originalToUniqueId.value[originalId]) {
+      delete originalToUniqueId.value[originalId]
+      console.log(`[VersionStore] Removed mapping: ${originalId}`)
+    }
+  }
+
+  // 获取唯一ID
+  function getUniqueId(originalId: string): string | undefined {
+    return originalToUniqueId.value[originalId]
+  }
+
+  // 标记下载为已完成
+  function markDownloadCompleted(versionId: string) {
+    completedDownloads.value.add(versionId)
+    console.log(`[VersionStore] Marked as completed: ${versionId}`)
+  }
+
+  // 检查下载是否已完成
+  function isDownloadCompleted(versionId: string): boolean {
+    return completedDownloads.value.has(versionId)
+  }
+
+  // 清除完成标记
+  function clearDownloadCompleted(versionId: string) {
+    completedDownloads.value.delete(versionId)
+    console.log(`[VersionStore] Cleared completed mark: ${versionId}`)
+  }
+
+  // 获取下载状态（考虑映射）
+  function getDownloadingStatus(originalId: string): { isDownloading: boolean; uniqueId?: string; progress: number } {
+    const uniqueId = originalToUniqueId.value[originalId]
+    const isDownloadingOriginal = downloading.value.has(originalId)
+    const isDownloadingUnique = uniqueId ? downloading.value.has(uniqueId) : false
+    const isDownloading = isDownloadingOriginal || isDownloadingUnique
+
+    // 获取进度（优先使用 uniqueId）
+    let progress = 0
+    if (uniqueId) {
+      progress = downloadProgress.value[uniqueId] || 0
+    }
+    if (progress === 0) {
+      progress = downloadProgress.value[originalId] || 0
+    }
+
+    return {
+      isDownloading,
+      uniqueId,
+      progress
+    }
   }
 
   async function installVersion(versionId: string) {
@@ -274,6 +394,8 @@ export const useVersionStore = defineStore('version', () => {
     downloading,
     installing,
     downloadProgress,
+    originalToUniqueId,
+    completedDownloads,
     installedVersions,
     versionsByType,
     fetchVersions,
@@ -283,6 +405,13 @@ export const useVersionStore = defineStore('version', () => {
     finishDownload,
     updateDownloadProgress,
     clearDownloadProgress,
+    setDownloadMapping,
+    removeDownloadMapping,
+    getUniqueId,
+    markDownloadCompleted,
+    isDownloadCompleted,
+    clearDownloadCompleted,
+    getDownloadingStatus,
     installVersion,
     deleteVersion,
     renameVersion,

@@ -69,11 +69,6 @@ const message = useMessage()
 
 const loading = ref(false)
 const filterType = ref<string>('api') // Default to plugin version
-const installingVersions = ref<Set<string>>(new Set())
-// Record completed downloads to prevent duplicate processing
-const completedDownloads = ref<Set<string>>(new Set())
-// Mapping from original ID to unique ID
-const originalToUniqueId = ref<Record<string, string>>({})
 // Manifest versions list (only contains original versions, not custom named ones)
 const manifestVersions = ref<Version[]>([])
 
@@ -105,44 +100,34 @@ const totalVersions = computed(() =>
 
 // Helper function to check if a version is downloading
 function isDownloading(id: string): boolean {
-  const uniqueId = originalToUniqueId.value[id]
+  // 使用 store 中的状态
+  const status = versionStore.getDownloadingStatus(id)
 
   // 如果这个版本已经完成了下载，返回 false
-  if (uniqueId) {
-    if (completedDownloads.value.has(uniqueId)) {
-      return false
-    }
-  } else {
-    if (completedDownloads.value.has(id)) {
-      return false
-    }
+  if (versionStore.isDownloadCompleted(id)) {
+    return false
+  }
+  if (status.uniqueId && versionStore.isDownloadCompleted(status.uniqueId)) {
+    return false
   }
 
-  // 检查是否正在下载
-  const isDownloadingOriginal = versionStore.downloading.has(id)
-  const isDownloadingUnique = uniqueId && versionStore.downloading.has(uniqueId)
-
-  return isDownloadingOriginal || Boolean(isDownloadingUnique)
+  return status.isDownloading
 }
 
 // Helper function to get download progress for a version
 function getDownloadProgress(id: string): number {
-  const uniqueId = originalToUniqueId.value[id]
+  // 使用 store 中的状态
+  const status = versionStore.getDownloadingStatus(id)
 
   // 如果这个版本已经完成了下载，返回0
-  if (uniqueId) {
-    if (completedDownloads.value.has(uniqueId)) {
-      return 0
-    }
-    const progress = versionStore.downloadProgress[uniqueId] || 0
-    return progress
-  } else {
-    if (completedDownloads.value.has(id)) {
-      return 0
-    }
-    const progress = versionStore.downloadProgress[id] || 0
-    return progress
+  if (versionStore.isDownloadCompleted(id)) {
+    return 0
   }
+  if (status.uniqueId && versionStore.isDownloadCompleted(status.uniqueId)) {
+    return 0
+  }
+
+  return status.progress
 }
 
 // Existing version names for validation
@@ -292,7 +277,7 @@ function handleDownloadProgress(data: any) {
   const { versionId, downloaded, total, originalId } = data
 
   // 如果这个下载已经完成了，忽略后续进度事件
-  if (completedDownloads.value.has(versionId)) {
+  if (versionStore.isDownloadCompleted(versionId)) {
     console.log(`[Download] Ignoring progress for completed download: ${versionId}`)
     return
   }
@@ -300,7 +285,7 @@ function handleDownloadProgress(data: any) {
   const progress = Math.floor((downloaded / total) * 100)
 
   // 只在未完成时更新进度
-  if (!completedDownloads.value.has(versionId)) {
+  if (!versionStore.isDownloadCompleted(versionId)) {
     versionStore.updateDownloadProgress(versionId, progress)
   }
 }
@@ -309,14 +294,14 @@ function handleDownloadComplete(data: any) {
   const { versionId, originalId } = data
 
   // 防止重复处理
-  if (installingVersions.value.has(versionId)) {
+  if (versionStore.installing.has(versionId)) {
     console.log(`[Download] Already installing: ${versionId}`)
     return
   }
 
   // 先标记为正在安装，防止重复处理
-  installingVersions.value.add(versionId)
-  completedDownloads.value.add(versionId)
+  versionStore.installing.add(versionId)
+  versionStore.markDownloadCompleted(versionId)
 
   // 立即停止显示下载进度（删除 uniqueId）
   versionStore.finishDownload(versionId)
@@ -336,14 +321,14 @@ function handleDownloadComplete(data: any) {
       versionStore.clearDownloadProgress(versionId)
 
       // 清理映射和原始ID的进度数据
-      if (originalId && originalToUniqueId.value[originalId] === versionId) {
-        delete originalToUniqueId.value[originalId]
+      if (originalId && versionStore.getUniqueId(originalId) === versionId) {
+        versionStore.removeDownloadMapping(originalId)
         versionStore.clearDownloadProgress(originalId)
         console.log(`[Download] Cleaned mapping and progress for: ${originalId}`)
       }
 
-      installingVersions.value.delete(versionId)
-      completedDownloads.value.delete(versionId)
+      versionStore.installing.delete(versionId)
+      versionStore.clearDownloadCompleted(versionId)
 
       // 注意：不需要刷新 manifestVersions，因为它只包含清单文件中的原始版本
       // 用户可以点击"刷新版本列表"按钮来更新清单
@@ -358,13 +343,13 @@ function handleDownloadComplete(data: any) {
       versionStore.clearDownloadProgress(versionId)
 
       // 清理映射和原始ID的进度数据
-      if (originalId && originalToUniqueId.value[originalId] === versionId) {
-        delete originalToUniqueId.value[originalId]
+      if (originalId && versionStore.getUniqueId(originalId) === versionId) {
+        versionStore.removeDownloadMapping(originalId)
         versionStore.clearDownloadProgress(originalId)
       }
 
-      installingVersions.value.delete(versionId)
-      completedDownloads.value.delete(versionId)
+      versionStore.installing.delete(versionId)
+      versionStore.clearDownloadCompleted(versionId)
     })
 }
 
@@ -372,14 +357,14 @@ function handleDownloadStart(data: any) {
   const { originalId, uniqueId } = data
   if (originalId && uniqueId) {
     // 清理旧的状态（如果有）
-    completedDownloads.value.delete(uniqueId)
-    installingVersions.value.delete(uniqueId)
+    versionStore.clearDownloadCompleted(uniqueId)
+    versionStore.installing.delete(uniqueId)
     versionStore.clearDownloadProgress(uniqueId)
 
     // 清理原始ID的旧数据（如果有）
     versionStore.clearDownloadProgress(originalId)
 
-    originalToUniqueId.value[originalId] = uniqueId
+    versionStore.setDownloadMapping(originalId, uniqueId)
     console.log(`[Download] Mapping ${originalId} -> ${uniqueId}`)
   }
 }
