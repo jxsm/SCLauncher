@@ -26,6 +26,28 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// progressWriter 带进度回调的写入器
+type progressWriter struct {
+	writer     io.Writer
+	total      int64
+	written    int64
+	onProgress func(downloaded, total int64)
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n, err := pw.writer.Write(p)
+	if err != nil {
+		return n, err
+	}
+
+	pw.written += int64(n)
+	if pw.onProgress != nil {
+		pw.onProgress(pw.written, pw.total)
+	}
+
+	return n, nil
+}
+
 // App 应用结构体
 type App struct {
 	ctx         context.Context
@@ -173,6 +195,8 @@ func (a *App) SetManifestURL(url string) error {
 func (a *App) SaveManifestSources(sources []map[string]interface{}) error {
 	// 转换为 ManifestSource 数组
 	var manifestSources []config.ManifestSource
+	hasDefaultSource := false
+
 	for _, s := range sources {
 		id, _ := s["id"].(string)
 		name, _ := s["name"].(string)
@@ -183,12 +207,44 @@ func (a *App) SaveManifestSources(sources []map[string]interface{}) error {
 			continue
 		}
 
+		// 检查是否是默认源
+		if id == "default" {
+			hasDefaultSource = true
+		}
+
 		manifestSources = append(manifestSources, config.ManifestSource{
 			ID:        id,
 			Name:      name,
 			URL:       url,
 			IsDefault: isDefault,
 		})
+	}
+
+	// 如果用户删除了默认源，重新添加它（默认源永远存在）
+	if !hasDefaultSource {
+		// 从当前配置中查找默认源
+		var defaultSource config.ManifestSource
+		found := false
+		for _, s := range a.config.ManifestSources {
+			if s.ID == "default" {
+				defaultSource = s
+				found = true
+				break
+			}
+		}
+
+		// 如果当前配置中没有默认源，创建一个新的
+		if !found {
+			defaultSource = config.ManifestSource{
+				ID:        "default",
+				Name:      "BTOS",
+				URL:       "https://sc.btos.top/api/manifest.json",
+				IsDefault: true,
+			}
+		}
+
+		// 将默认源添加到列表开头
+		manifestSources = append([]config.ManifestSource{defaultSource}, manifestSources...)
 	}
 
 	// 更新配置
@@ -1074,9 +1130,24 @@ func (a *App) DeleteMod(versionID, modID string) error {
 func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error {
 	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载模组: %s -> %s", downloadURL, fileName))
 
+	// 生成唯一的下载任务ID
+	downloadID := fmt.Sprintf("mod-%s-%s", versionID, fileName)
+
+	// 发送下载开始事件
+	runtime.EventsEmit(a.ctx, "resource-download:start", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "mod",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
+
 	// 创建临时文件保存下载内容
 	tempFile, err := os.CreateTemp("", "scmod-*.tmp")
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
+		})
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tempPath := tempFile.Name()
@@ -1089,25 +1160,66 @@ func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error 
 
 	resp, err := client.Get(downloadURL)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("下载失败: %v", err),
+		})
 		return fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		err := fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return err
+	}
+
+	// 获取文件总大小
+	totalSize := resp.ContentLength
+
+	// 使用带进度回调的写入
+	writer := &progressWriter{
+		writer:  tempFile,
+		total:   totalSize,
+		onProgress: func(downloaded, total int64) {
+			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
+				"downloadId": downloadID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		},
 	}
 
 	// 保存到临时文件
-	_, err = io.Copy(tempFile, resp.Body)
+	_, err = io.Copy(writer, resp.Body)
 	tempFile.Close()
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("保存文件失败: %v", err),
+		})
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("模组下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
 
+	// 发送下载完成事件
+	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "mod",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
+
 	// 导入模组，使用正确的文件名
 	if err := a.modMgr.ImportModWithName(versionID, tempPath, fileName); err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("导入模组失败: %v", err),
+		})
 		return fmt.Errorf("导入模组失败: %w", err)
 	}
 
@@ -1292,9 +1404,23 @@ func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
 		return fmt.Errorf("invalid file extension: %s", fileName)
 	}
 
+	// 生成唯一的下载任务ID
+	downloadID := fmt.Sprintf("skin-%s", fileName)
+
+	// 发送下载开始事件
+	runtime.EventsEmit(a.ctx, "resource-download:start", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "skin",
+		"fileName":   fileName,
+	})
+
 	// 创建临时文件保存下载内容
 	tempFile, err := os.CreateTemp("", "scskin-*.tmp")
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
+		})
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tempPath := tempFile.Name()
@@ -1307,26 +1433,66 @@ func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
 
 	resp, err := client.Get(downloadURL)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("下载失败: %v", err),
+		})
 		return fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		err := fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return err
+	}
+
+	// 获取文件总大小
+	totalSize := resp.ContentLength
+
+	// 使用带进度回调的写入
+	writer := &progressWriter{
+		writer:  tempFile,
+		total:   totalSize,
+		onProgress: func(downloaded, total int64) {
+			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
+				"downloadId": downloadID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		},
 	}
 
 	// 保存到临时文件
-	_, err = io.Copy(tempFile, resp.Body)
+	_, err = io.Copy(writer, resp.Body)
 	tempFile.Close()
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("保存文件失败: %v", err),
+		})
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("皮肤下载完成，正在导入: %s", fileName))
 
+	// 发送下载完成事件
+	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "skin",
+		"fileName":   fileName,
+	})
+
 	// 确保皮肤目录存在
 	skinsDir := filepath.Join(config.GetAppDataDir(), "skins")
 	if err := os.MkdirAll(skinsDir, 0755); err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建皮肤目录失败: %v", err),
+		})
 		return fmt.Errorf("创建皮肤目录失败: %w", err)
 	}
 
@@ -1335,24 +1501,41 @@ func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
 
 	// 检查文件是否已存在
 	if _, err := os.Stat(destPath); err == nil {
-		return fmt.Errorf("皮肤文件已存在: %s", fileName)
+		err := fmt.Errorf("皮肤文件已存在: %s", fileName)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return err
 	}
 
 	// 复制文件
 	sourceFile, err := os.Open(tempPath)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("打开源文件失败: %v", err),
+		})
 		return fmt.Errorf("打开源文件失败: %w", err)
 	}
 	defer sourceFile.Close()
 
 	destFile, err := os.Create(destPath)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建目标文件失败: %v", err),
+		})
 		return fmt.Errorf("创建目标文件失败: %w", err)
 	}
 	defer destFile.Close()
 
 	// 复制内容
 	if _, err := io.Copy(destFile, sourceFile); err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("复制文件内容失败: %v", err),
+		})
 		return fmt.Errorf("复制文件内容失败: %w", err)
 	}
 
@@ -1492,6 +1675,17 @@ func (a *App) ImportSaveGame(versionID, sourcePath string) error {
 func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) error {
 	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载存档: %s -> %s", downloadURL, fileName))
 
+	// 生成唯一的下载任务ID
+	downloadID := fmt.Sprintf("savegame-%s-%s", versionID, fileName)
+
+	// 发送下载开始事件
+	runtime.EventsEmit(a.ctx, "resource-download:start", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "savegame",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
+
 	// 确定文件扩展名
 	var ext string
 	lowerFileName := strings.ToLower(fileName)
@@ -1509,6 +1703,10 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 	// 创建临时文件，使用正确的扩展名
 	tempFile, err := os.CreateTemp("", "scsave-*"+ext)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
+		})
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tempPath := tempFile.Name()
@@ -1523,26 +1721,67 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 
 	resp, err := client.Get(downloadURL)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("下载失败: %v", err),
+		})
 		return fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败，服务器返回状态码: %d", resp.StatusCode)
+		err := fmt.Errorf("下载失败，服务器返回状态码: %d", resp.StatusCode)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return err
+	}
+
+	// 获取文件总大小
+	totalSize := resp.ContentLength
+
+	// 使用带进度回调的写入
+	writer := &progressWriter{
+		writer:  tempFile,
+		total:   totalSize,
+		onProgress: func(downloaded, total int64) {
+			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
+				"downloadId": downloadID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		},
 	}
 
 	// 写入临时文件
-	_, err = io.Copy(tempFile, resp.Body)
+	_, err = io.Copy(writer, resp.Body)
 	tempFile.Close()
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("保存下载内容失败: %v", err),
+		})
 		return fmt.Errorf("保存下载内容失败: %w", err)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("存档下载完成，正在导入: %s", tempPath))
 
+	// 发送下载完成事件
+	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "savegame",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
+
 	// 导入存档
 	err = a.savegameMgr.ImportSaveGame(versionID, tempPath)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("导入存档失败: %v", err),
+		})
 		return fmt.Errorf("导入存档失败: %w", err)
 	}
 
@@ -1837,9 +2076,24 @@ func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) 
 		return fmt.Errorf("家具包文件夹不存在，请先启动一次游戏")
 	}
 
+	// 生成唯一的下载任务ID
+	downloadID := fmt.Sprintf("furniture-%s-%s", versionID, fileName)
+
+	// 发送下载开始事件
+	runtime.EventsEmit(a.ctx, "resource-download:start", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "furniture",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
+
 	// 创建临时文件保存下载内容
 	tempFile, err := os.CreateTemp("", "scfurniture-*.tmp")
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
+		})
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tempPath := tempFile.Name()
@@ -1852,22 +2106,59 @@ func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) 
 
 	resp, err := client.Get(downloadURL)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("下载失败: %v", err),
+		})
 		return fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		err := fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return err
+	}
+
+	// 获取文件总大小
+	totalSize := resp.ContentLength
+
+	// 使用带进度回调的写入
+	writer := &progressWriter{
+		writer:  tempFile,
+		total:   totalSize,
+		onProgress: func(downloaded, total int64) {
+			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
+				"downloadId": downloadID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		},
 	}
 
 	// 保存到临时文件
-	_, err = io.Copy(tempFile, resp.Body)
+	_, err = io.Copy(writer, resp.Body)
 	tempFile.Close()
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("保存文件失败: %v", err),
+		})
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("家具下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+
+	// 发送下载完成事件
+	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "furniture",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
 
 	// 目标文件路径
 	destPath := filepath.Join(furniturePath, fileName)
@@ -1877,17 +2168,29 @@ func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) 
 		// 如果重命名失败，尝试复制
 		srcFile, err := os.Open(tempPath)
 		if err != nil {
+			runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+				"downloadId": downloadID,
+				"error":      fmt.Sprintf("打开临时文件失败: %v", err),
+			})
 			return fmt.Errorf("打开临时文件失败: %w", err)
 		}
 		defer srcFile.Close()
 
 		dstFile, err := os.Create(destPath)
 		if err != nil {
+			runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+				"downloadId": downloadID,
+				"error":      fmt.Sprintf("创建目标文件失败: %v", err),
+			})
 			return fmt.Errorf("创建目标文件失败: %w", err)
 		}
 		defer dstFile.Close()
 
 		if _, err := io.Copy(dstFile, srcFile); err != nil {
+			runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+				"downloadId": downloadID,
+				"error":      fmt.Sprintf("复制文件失败: %v", err),
+			})
 			return fmt.Errorf("复制文件失败: %w", err)
 		}
 	}
@@ -2221,9 +2524,24 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 		return fmt.Errorf("材质包文件夹不存在，请先启动一次游戏")
 	}
 
+	// 生成唯一的下载任务ID
+	downloadID := fmt.Sprintf("texture-%s-%s", versionID, fileName)
+
+	// 发送下载开始事件
+	runtime.EventsEmit(a.ctx, "resource-download:start", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "texture",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
+
 	// 创建临时文件保存下载内容
 	tempFile, err := os.CreateTemp("", "sctexture-*.tmp")
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
+		})
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tempPath := tempFile.Name()
@@ -2236,22 +2554,59 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 
 	resp, err := client.Get(downloadURL)
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("下载失败: %v", err),
+		})
 		return fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		err := fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return err
+	}
+
+	// 获取文件总大小
+	totalSize := resp.ContentLength
+
+	// 使用带进度回调的写入
+	writer := &progressWriter{
+		writer:  tempFile,
+		total:   totalSize,
+		onProgress: func(downloaded, total int64) {
+			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
+				"downloadId": downloadID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		},
 	}
 
 	// 保存到临时文件
-	_, err = io.Copy(tempFile, resp.Body)
+	_, err = io.Copy(writer, resp.Body)
 	tempFile.Close()
 	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("保存文件失败: %v", err),
+		})
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("材质下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+
+	// 发送下载完成事件
+	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "texture",
+		"versionId":  versionID,
+		"fileName":   fileName,
+	})
 
 	// 目标文件路径
 	destPath := filepath.Join(texturePath, fileName)
@@ -2261,17 +2616,29 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 		// 如果重命名失败，尝试复制
 		srcFile, err := os.Open(tempPath)
 		if err != nil {
+			runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+				"downloadId": downloadID,
+				"error":      fmt.Sprintf("打开临时文件失败: %v", err),
+			})
 			return fmt.Errorf("打开临时文件失败: %w", err)
 		}
 		defer srcFile.Close()
 
 		dstFile, err := os.Create(destPath)
 		if err != nil {
+			runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+				"downloadId": downloadID,
+				"error":      fmt.Sprintf("创建目标文件失败: %v", err),
+			})
 			return fmt.Errorf("创建目标文件失败: %w", err)
 		}
 		defer dstFile.Close()
 
 		if _, err := io.Copy(dstFile, srcFile); err != nil {
+			runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+				"downloadId": downloadID,
+				"error":      fmt.Sprintf("复制文件失败: %v", err),
+			})
 			return fmt.Errorf("复制文件失败: %w", err)
 		}
 	}

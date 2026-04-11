@@ -16,6 +16,19 @@ export class ManifestSourceManager {
         url: s.url,
         isDefault: s.isDefault || false
       }))
+
+      // 检查是否存在默认源
+      const hasDefaultSource = this.sources.some(s => s.id === 'default')
+
+      // 如果不存在默认源，添加它
+      if (!hasDefaultSource) {
+        this.sources.unshift({
+          id: 'default',
+          name: 'BTOS',
+          url: 'https://sc.btos.top/api/manifest.json',
+          isDefault: true
+        })
+      }
     } else {
       // 如果配置中没有清单源，使用默认源
       this.sources = [{

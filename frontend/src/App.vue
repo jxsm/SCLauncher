@@ -43,6 +43,9 @@
 
             <!-- 回到顶部按钮 -->
             <BackToTop />
+
+            <!-- 下载进度条 -->
+            <DownloadProgress />
           </n-notification-provider>
         </n-dialog-provider>
       </n-message-provider>
@@ -56,6 +59,7 @@ import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { darkTheme, NAlert, NDialogProvider, NButton, type GlobalThemeOverrides } from "naive-ui";
 import { useGameStore } from "./stores/game";
+import { useDownloadStore } from "./stores/download";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
 import { CheckUpdate, CheckUpdateForce, SetUpdateRemindDisabled, GetConfig, GetBackgroundImageBase64 } from "./api/config";
 import HomeView from "./views/Home.vue";
@@ -64,10 +68,12 @@ import VersionsView from "./views/Versions.vue";
 import ResourcesView from "./views/Resources.vue";
 import SettingsView from "./views/Settings.vue";
 import BackToTop from "./components/BackToTop.vue";
+import DownloadProgress from "./components/DownloadProgress.vue";
 
 const { t, locale } = useI18n();
 const router = useRouter();
 const gameStore = useGameStore();
+const downloadStore = useDownloadStore();
 const activeTab = ref("home");
 const backgroundImage = ref("");
 const dontRemindCheckbox = ref(false);
@@ -171,6 +177,9 @@ function handleGameCrash(data: any) {
 }
 
 onMounted(async () => {
+  // 初始化下载进度监听
+  downloadStore.initEventListeners();
+
   // 加载背景图片
   await loadBackgroundImage();
 
@@ -278,6 +287,9 @@ onMounted(async () => {
 onUnmounted(() => {
   // 移除崩溃事件监听
   EventsOff("game:crashed");
+
+  // 移除下载进度监听
+  downloadStore.removeEventListeners();
 });
 </script>
 
