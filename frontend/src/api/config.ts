@@ -86,3 +86,13 @@ export async function GetModSources(): Promise<any[]> {
 export async function SaveModSources(sources: any[]): Promise<void> {
   await AppBindings.SaveModSources(sources)
 }
+
+// 保存清单源配置
+export async function SaveManifestSources(sources: any[]): Promise<void> {
+  await AppBindings.SaveManifestSources(sources)
+}
+
+// 设置当前清单源
+export async function SetCurrentManifestSource(id: string): Promise<void> {
+  await AppBindings.SetCurrentManifestSource(id)
+}

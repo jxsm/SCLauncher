@@ -1,19 +1,23 @@
 <template>
   <n-card>
-    <n-space justify="space-between">
-      <n-space>
-        <n-button type="primary" @click="handleRefresh" :loading="loading">
-          <template #icon>
-            <n-icon><RefreshIcon /></n-icon>
-          </template>
-          {{ t('versions.refresh') }}
-        </n-button>
-        <n-select
-          :value="filterType"
-          @update:value="handleFilterChange"
-          :options="typeOptions"
-          style="width: 150px"
-        />
+    <n-space justify="space-between" :vertical="false">
+      <n-space vertical :size="12">
+        <n-space>
+          <n-button type="primary" @click="handleRefresh" :loading="loading">
+            <template #icon>
+              <n-icon><RefreshIcon /></n-icon>
+            </template>
+            {{ t('versions.refresh') }}
+          </n-button>
+          <n-select
+            :value="filterType"
+            @update:value="handleFilterChange"
+            :options="typeOptions"
+            style="width: 150px"
+          />
+        </n-space>
+        <!-- Extra content slot -->
+        <slot name="extra" />
       </n-space>
       <n-text depth="3">
         {{ t('versions.totalVersions') }} {{ totalVersions }}

@@ -246,6 +246,10 @@ export function RenameVersion(arg1, arg2) {
   return window['go']['main']['App']['RenameVersion'](arg1, arg2);
 }
 
+export function SaveManifestSources(arg1) {
+  return window['go']['main']['App']['SaveManifestSources'](arg1);
+}
+
 export function SaveModSources(arg1) {
   return window['go']['main']['App']['SaveModSources'](arg1);
 }
@@ -284,6 +288,10 @@ export function SelectTextureFile() {
 
 export function SetBackground(arg1) {
   return window['go']['main']['App']['SetBackground'](arg1);
+}
+
+export function SetCurrentManifestSource(arg1) {
+  return window['go']['main']['App']['SetCurrentManifestSource'](arg1);
 }
 
 export function SetLanguage(arg1) {

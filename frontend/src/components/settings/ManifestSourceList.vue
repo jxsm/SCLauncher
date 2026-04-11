@@ -1,28 +1,21 @@
 <template>
-  <n-card :title="t('settings.manifest')">
-    <template #header-extra>
-      <n-button size="small" type="primary" @click="$emit('add-source')">
-        <template #icon>
-          <n-icon><AddIcon /></n-icon>
-        </template>
-        {{ t('settings.addManifestSource') }}
-      </n-button>
-    </template>
-
-    <ManifestSourceList
-      :sources="sources"
-      :current-source-id="currentSourceId"
+  <n-list v-if="sources.length > 0" hoverable clickable>
+    <ManifestSourceListItem
+      v-for="source in sources"
+      :key="source.id"
+      :source="source"
+      :is-current="source.id === currentSourceId"
       @set-current="handleSetCurrent"
       @delete="handleDelete"
     />
-  </n-card>
+  </n-list>
+  <n-empty v-else :description="t('settings.noManifestSources')" />
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { Add as AddIcon } from '@vicons/ionicons5'
 import type { ManifestSource } from '../../types/manifest-source'
-import ManifestSourceList from './ManifestSourceList.vue'
+import ManifestSourceListItem from './ManifestSourceListItem.vue'
 
 const { t } = useI18n()
 
@@ -32,7 +25,6 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'add-source': []
   'set-current': [source: ManifestSource]
   delete: [source: ManifestSource]
 }>()

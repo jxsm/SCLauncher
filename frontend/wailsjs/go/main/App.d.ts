@@ -128,6 +128,8 @@ export function RenameTexture(arg1:string,arg2:string,arg3:string):Promise<void>
 
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
 
+export function SaveManifestSources(arg1:Array<Record<string, any>>):Promise<void>;
+
 export function SaveModSources(arg1:Array<Record<string, any>>):Promise<void>;
 
 export function SelectArchiveFile():Promise<string>;
@@ -147,6 +149,8 @@ export function SelectSkinFile():Promise<string>;
 export function SelectTextureFile():Promise<string>;
 
 export function SetBackground(arg1:string):Promise<string>;
+
+export function SetCurrentManifestSource(arg1:string):Promise<void>;
 
 export function SetLanguage(arg1:string):Promise<void>;
 

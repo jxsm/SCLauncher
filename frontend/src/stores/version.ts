@@ -17,7 +17,7 @@ export const useVersionStore = defineStore('version', () => {
   // 清单缓存
   const manifestCache = ref<Version[] | null>(null)
   const manifestCacheTime = ref<number | null>(null)
-  const MANIFEST_CACHE_DURATION = 10 * 60 * 1000 // 10分钟（毫秒）
+  const MANIFEST_CACHE_DURATION = 30 * 60 * 1000 // 30分钟（毫秒）
 
   // 计算属性
   const installedVersions = computed(() =>
@@ -39,7 +39,7 @@ export const useVersionStore = defineStore('version', () => {
     return grouped
   })
 
-  // 检查缓存是否过期
+  // 检查缓存是否过期（注意：这只是简单检查，实际逻辑在 fetchVersions 中）
   function isManifestCacheExpired(): boolean {
     if (!manifestCacheTime.value) return true
     const now = Date.now()
@@ -53,15 +53,62 @@ export const useVersionStore = defineStore('version', () => {
     console.log('[Version] Manifest cache cleared')
   }
 
+  // 获取缓存状态信息（用于调试）
+  function getCacheStatus() {
+    if (!manifestCacheTime.value) {
+      return { hasCache: false, age: 0, ageMinutes: 0, isExpired: true }
+    }
+    const now = Date.now()
+    const age = now - manifestCacheTime.value
+    return {
+      hasCache: manifestCache.value !== null,
+      age,
+      ageMinutes: Math.floor(age / 1000 / 60),
+      isExpired: age > MANIFEST_CACHE_DURATION,
+      cachedAt: new Date(manifestCacheTime.value).toLocaleString(),
+      cacheDuration: MANIFEST_CACHE_DURATION / 1000 / 60 + ' minutes'
+    }
+  }
+
   // 操作
   async function fetchVersions(): Promise<Version[]> {
-    // 如果缓存未过期，直接使用缓存
-    if (!isManifestCacheExpired() && manifestCache.value) {
-      console.log('[Version] Using cached manifest')
-      versions.value = manifestCache.value
-      return manifestCache.value
+    const now = Date.now()
+    const cacheAge = manifestCacheTime.value ? now - manifestCacheTime.value : Infinity
+    const hasCache = manifestCache.value !== null
+    const isExpired = cacheAge > MANIFEST_CACHE_DURATION
+
+    // 情况1：有缓存且未过期 - 直接使用缓存
+    if (hasCache && !isExpired) {
+      console.log('[Version] Using fresh cache (age:', Math.floor(cacheAge / 1000 / 60), 'minutes)')
+      versions.value = manifestCache.value!
+      return manifestCache.value!
     }
 
+    // 情况2：有缓存但已过期 - 先返回缓存，然后后台静默刷新
+    if (hasCache && isExpired) {
+      console.log('[Version] Cache expired (age:', Math.floor(cacheAge / 1000 / 60), 'minutes), using stale cache and refreshing in background...')
+      versions.value = manifestCache.value!
+
+      // 后台静默刷新（不设置 loading，不阻塞界面）
+      versionApi.FetchVersions()
+        .then(fetchedVersions => {
+          console.log('[Version] Background refresh completed, updating cache and UI')
+          // 更新缓存
+          manifestCache.value = fetchedVersions
+          manifestCacheTime.value = Date.now()
+          // 更新界面
+          versions.value = fetchedVersions
+        })
+        .catch(e => {
+          console.error('[Version] Background refresh failed:', e)
+          // 静默失败，不影响当前显示的缓存数据
+        })
+
+      return manifestCache.value!
+    }
+
+    // 情况3：没有缓存 - 需要请求
+    console.log('[Version] No cache, fetching from server...')
     loading.value = true
     error.value = null
     try {
@@ -242,6 +289,7 @@ export const useVersionStore = defineStore('version', () => {
     setCurrentVersion,
     getPrimaryVersion,
     setPrimaryVersion,
-    clearManifestCache
+    clearManifestCache,
+    getCacheStatus
   }
 })

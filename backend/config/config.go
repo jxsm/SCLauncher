@@ -8,10 +8,24 @@ import (
 	"time"
 )
 
+// ManifestSource 清单源配置
+type ManifestSource struct {
+	ID     string `json:"id"`     // 唯一标识
+	Name   string `json:"name"`   // 清单名称
+	URL    string `json:"url"`    // 清单URL
+	IsDefault bool `json:"isDefault"` // 是否为默认源
+}
+
 // Config 应用配置
 type Config struct {
-	// 清单文件 URL
+	// 清单文件 URL（保留用于向后兼容）
 	ManifestURL string `json:"manifestUrl"`
+
+	// 清单源列表
+	ManifestSources []ManifestSource `json:"manifestSources"`
+
+	// 当前选中的清单源 ID
+	CurrentManifestSourceID string `json:"currentManifestSourceId"`
 
 	// 版本存储目录（相对路径）
 	VersionsDir string `json:"versionsDir"`
@@ -54,19 +68,29 @@ type Config struct {
 func DefaultConfig() *Config {
 	execDir := getExecDir()
 
+	// 创建默认清单源
+	defaultSource := ManifestSource{
+		ID:         "default",
+		Name:       "BTOS",
+		URL:        "https://sc.btos.top/api/manifest.json",
+		IsDefault:  true,
+	}
+
 	return &Config{
-		ManifestURL:      "https://github.com/jxsm/SCVersionList/raw/refs/heads/main/manifest.json",
-		VersionsDir:      filepath.Join(".Survivalcraft", "versions"),
-		DataDir:          filepath.Join(".Survivalcraft", "data"),
-		DownloadsDir:     filepath.Join(".Survivalcraft", "downloads"),
-		MaxConcurrent:    3,
-		CurrentVersion:   "",
-		Theme:            "dark",
-		Language:                  "zh-CN",
-		AutoCheckUpdates:           true,
-		BackgroundImage:            "",
-		UpdateRemindDisableUntil:   0,
-		execDir:                    execDir,
+		ManifestURL:              "https://sc.btos.top/api/manifest.json",
+		ManifestSources:          []ManifestSource{defaultSource},
+		CurrentManifestSourceID:  "default",
+		VersionsDir:              filepath.Join(".Survivalcraft", "versions"),
+		DataDir:                  filepath.Join(".Survivalcraft", "data"),
+		DownloadsDir:             filepath.Join(".Survivalcraft", "downloads"),
+		MaxConcurrent:            3,
+		CurrentVersion:           "",
+		Theme:                    "dark",
+		Language:                 "zh-CN",
+		AutoCheckUpdates:         true,
+		BackgroundImage:          "",
+		UpdateRemindDisableUntil: 0,
+		execDir:                  execDir,
 	}
 }
 
@@ -174,19 +198,23 @@ func (c *Config) Save() error {
 
 	// 创建临时配置对象用于序列化（只保存相对路径）
 	tempConfig := struct {
-		ManifestURL               string `json:"manifestUrl"`
-		VersionsDir               string `json:"versionsDir"`
-		DataDir                   string `json:"dataDir"`
-		DownloadsDir              string `json:"downloadsDir"`
-		MaxConcurrent             int    `json:"maxConcurrent"`
-		CurrentVersion            string `json:"currentVersion"`
-		Theme                     string `json:"theme"`
-		Language                  string `json:"language"`
-		AutoCheckUpdates          bool   `json:"autoCheckUpdates"`
-		BackgroundImage           string `json:"backgroundImage"`
-		UpdateRemindDisableUntil  int64  `json:"updateRemindDisableUntil"`
+		ManifestURL               string            `json:"manifestUrl"`
+		ManifestSources           []ManifestSource `json:"manifestSources"`
+		CurrentManifestSourceID   string            `json:"currentManifestSourceId"`
+		VersionsDir               string            `json:"versionsDir"`
+		DataDir                   string            `json:"dataDir"`
+		DownloadsDir              string            `json:"downloadsDir"`
+		MaxConcurrent             int               `json:"maxConcurrent"`
+		CurrentVersion            string            `json:"currentVersion"`
+		Theme                     string            `json:"theme"`
+		Language                  string            `json:"language"`
+		AutoCheckUpdates          bool              `json:"autoCheckUpdates"`
+		BackgroundImage           string            `json:"backgroundImage"`
+		UpdateRemindDisableUntil  int64             `json:"updateRemindDisableUntil"`
 	}{
 		ManifestURL:               c.ManifestURL,
+		ManifestSources:           c.ManifestSources,
+		CurrentManifestSourceID:   c.CurrentManifestSourceID,
 		VersionsDir:               c.toRelativePath(c.VersionsDir),
 		DataDir:                   c.toRelativePath(c.DataDir),
 		DownloadsDir:              c.toRelativePath(c.DownloadsDir),
@@ -340,4 +368,99 @@ func (c *Config) ShouldCheckUpdate() bool {
 	// 检查当前时间是否已超过截止时间
 	currentTime := time.Now().Unix()
 	return currentTime > c.UpdateRemindDisableUntil
+}
+
+// GetCurrentManifestURL 获取当前选中的清单URL
+func (c *Config) GetCurrentManifestURL() string {
+	// 如果有选中的清单源，使用该源的URL
+	if c.CurrentManifestSourceID != "" {
+		for _, source := range c.ManifestSources {
+			if source.ID == c.CurrentManifestSourceID {
+				return source.URL
+			}
+		}
+	}
+	// 否则返回默认的 ManifestURL（向后兼容）
+	return c.ManifestURL
+}
+
+// AddManifestSource 添加清单源
+func (c *Config) AddManifestSource(source ManifestSource) error {
+	// 检查ID是否已存在
+	for _, s := range c.ManifestSources {
+		if s.ID == source.ID {
+			return fmt.Errorf("manifest source with ID %s already exists", source.ID)
+		}
+	}
+	c.ManifestSources = append(c.ManifestSources, source)
+	return c.Save()
+}
+
+// RemoveManifestSource 移除清单源
+func (c *Config) RemoveManifestSource(id string) error {
+	// 不允许删除默认源
+	if id == "default" {
+		return fmt.Errorf("cannot remove default manifest source")
+	}
+
+	newSources := make([]ManifestSource, 0, len(c.ManifestSources))
+	for _, s := range c.ManifestSources {
+		if s.ID != id {
+			newSources = append(newSources, s)
+		}
+	}
+
+	if len(newSources) == len(c.ManifestSources) {
+		return fmt.Errorf("manifest source with ID %s not found", id)
+	}
+
+	c.ManifestSources = newSources
+
+	// 如果删除的是当前选中的源，切换到默认源
+	if c.CurrentManifestSourceID == id {
+		c.CurrentManifestSourceID = "default"
+		c.ManifestURL = "https://sc.btos.top/api/manifest.json"
+	}
+
+	return c.Save()
+}
+
+// SetCurrentManifestSource 设置当前选中的清单源
+func (c *Config) SetCurrentManifestSource(id string) error {
+	// 检查源是否存在
+	found := false
+	for _, s := range c.ManifestSources {
+		if s.ID == id {
+			found = true
+			c.ManifestURL = s.URL
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("manifest source with ID %s not found", id)
+	}
+
+	c.CurrentManifestSourceID = id
+	return c.Save()
+}
+
+// GetManifestSources 获取所有清单源
+func (c *Config) GetManifestSources() []ManifestSource {
+	return c.ManifestSources
+}
+
+// UpdateManifestSource 更新清单源
+func (c *Config) UpdateManifestSource(source ManifestSource) error {
+	for i, s := range c.ManifestSources {
+		if s.ID == source.ID {
+			c.ManifestSources[i] = source
+			// 如果更新的是当前选中的源，同步更新 ManifestURL
+			if s.ID == c.CurrentManifestSourceID {
+				c.ManifestURL = source.URL
+			}
+			return c.Save()
+		}
+	}
+	return fmt.Errorf("manifest source with ID %s not found", source.ID)
 }

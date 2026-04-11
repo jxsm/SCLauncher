@@ -9,7 +9,21 @@
         :total-versions="totalVersions"
         @refresh="handleFetchVersions"
         @update:filter-type="filterType = $event"
-      />
+      >
+        <template #extra>
+          <!-- 清单源选择器 -->
+          <n-space align="center">
+            <span>{{ t('versions.selectManifestSource') }}:</span>
+            <n-select
+              :value="selectedManifestSourceId"
+              :options="manifestSourceOptions"
+              :consistent-menu-width="false"
+              style="width: 200px"
+              @update:value="handleManifestSourceChange"
+            />
+          </n-space>
+        </template>
+      </VersionToolbar>
 
       <!-- 版本列表 -->
       <n-spin :show="loading">
@@ -68,10 +82,21 @@ const showCustomNameDialog = ref(false)
 const customNameDefault = ref('')
 const pendingDownloadVersion = ref<Version | null>(null)
 
+// Manifest source state
+const manifestSources = ref<Array<{ id: string; name: string; url: string }>>([])
+const selectedManifestSourceId = ref<string>('')
+
 const typeOptions = computed(() => [
   { label: t('versions.apiVersion'), value: 'api' },
   { label: t('versions.netVersion'), value: 'net' }
 ])
+
+const manifestSourceOptions = computed(() =>
+  manifestSources.value.map(s => ({
+    label: s.name,
+    value: s.id
+  }))
+)
 
 // Total versions count
 const totalVersions = computed(() =>
@@ -201,6 +226,46 @@ async function handleFetchVersions() {
   }
 }
 
+async function loadManifestSources() {
+  try {
+    const { GetConfig } = await import('../api/config')
+    const config = await GetConfig()
+
+    if (config.manifestSources && Array.isArray(config.manifestSources)) {
+      manifestSources.value = config.manifestSources
+      selectedManifestSourceId.value = config.currentManifestSourceId || 'default'
+    }
+  } catch (error) {
+    console.error('Failed to load manifest sources:', error)
+  }
+}
+
+async function handleManifestSourceChange(sourceId: string) {
+  try {
+    const { SetCurrentManifestSource } = await import('../api/config')
+    await SetCurrentManifestSource(sourceId)
+
+    selectedManifestSourceId.value = sourceId
+
+    // 清除清单缓存并重新获取版本列表
+    versionStore.clearManifestCache()
+
+    // 立即刷新版本列表
+    loading.value = true
+    try {
+      const versions = await versionStore.fetchVersions()
+      manifestVersions.value = versions
+      message.success(t('versions.manifestSourceChanged'))
+    } catch (error) {
+      message.error(t('versions.loadFailed') + '：' + error)
+    } finally {
+      loading.value = false
+    }
+  } catch (error) {
+    message.error(t('versions.changeManifestSourceFailed') + '：' + error)
+  }
+}
+
 async function handleDownload(version: Version) {
   // Show custom name dialog
   pendingDownloadVersion.value = version
@@ -323,6 +388,9 @@ onMounted(async () => {
   EventsOn('download:start', handleDownloadStart)
   EventsOn('download:progress', handleDownloadProgress)
   EventsOn('download:complete', handleDownloadComplete)
+
+  // 加载清单源列表
+  await loadManifestSources()
 
   // 初始化清单版本列表
   loading.value = true

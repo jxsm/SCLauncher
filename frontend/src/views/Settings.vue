@@ -12,10 +12,11 @@
 
       <!-- 清单设置 -->
       <ManifestSettings
-        :manifest-url="manifestUrl"
-        @update:manifest-url="manifestUrl = $event"
-        @save="handleSaveManifestUrl"
-        @reset="handleResetManifestUrl"
+        :sources="manifestSources"
+        :current-source-id="currentManifestSourceId"
+        @add-source="showAddManifestSourceDialog = true"
+        @set-current="handleSetCurrentManifestSource"
+        @delete="handleDeleteManifestSource"
       />
 
       <!-- 下载源设置 -->
@@ -59,6 +60,12 @@
       v-model:visible="showAddSourceDialog"
       @confirm="handleAddSource"
     />
+
+    <!-- 添加清单源对话框 -->
+    <AddManifestSourceDialog
+      v-model:visible="showAddManifestSourceDialog"
+      @confirm="handleAddManifestSource"
+    />
   </div>
 </template>
 
@@ -67,9 +74,11 @@ import { ref, onMounted, h, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NAlert } from 'naive-ui'
 import { ModSourceManager } from '../managers'
+import { ManifestSourceManager } from '../managers/ManifestSourceManager'
 import type { ModSource } from '../types/mod-source'
+import type { ManifestSource } from '../types/manifest-source'
 import { InformationCircleOutline as InformationIcon } from '@vicons/ionicons5'
-import { GetConfig, SetManifestURL, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
+import { GetConfig, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
 import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
 import LanguageSettings from '../components/settings/LanguageSettings.vue'
@@ -79,6 +88,7 @@ import SourceSettings from '../components/settings/SourceSettings.vue'
 import BackgroundSettings from '../components/settings/BackgroundSettings.vue'
 import AboutDialog from '../components/settings/AboutDialog.vue'
 import AddSourceDialog from '../components/settings/AddSourceDialog.vue'
+import AddManifestSourceDialog from '../components/settings/AddManifestSourceDialog.vue'
 
 const { t, locale } = useI18n()
 
@@ -102,6 +112,11 @@ const appInfo = ref<{ version: string; repoOwner: string; repoName: string }>({
 const modSources = ref<ModSource[]>([])
 const showAddSourceDialog = ref(false)
 
+// 清单源相关
+const manifestSources = ref<ManifestSource[]>([])
+const currentManifestSourceId = ref('')
+const showAddManifestSourceDialog = ref(false)
+
 // 加载模组下载源列表
 async function loadModSources() {
   // 重新加载源列表以获取最新状态
@@ -115,6 +130,14 @@ async function loadModSources() {
     textures: modSources.value.filter(s => s.type === 'textures').length,
     skins: modSources.value.filter(s => s.type === 'skins').length
   })
+}
+
+// 加载清单源列表
+async function loadManifestSources() {
+  if (config.value?.manifestSources) {
+    manifestSources.value = config.value.manifestSources
+    currentManifestSourceId.value = config.value.currentManifestSourceId || 'default'
+  }
 }
 
 // 切换下载源启用状态
@@ -228,6 +251,81 @@ async function handleAddSource(source: { name: string; description: string; apiU
   }
 }
 
+// 设置当前清单源
+async function handleSetCurrentManifestSource(source: ManifestSource) {
+  try {
+    await ManifestSourceManager.setCurrentSource(source.id)
+    currentManifestSourceId.value = source.id
+    manifestUrl.value = source.url
+
+    // 清除清单缓存，以便下次进入版本页面时重新获取
+    versionStore.clearManifestCache()
+
+    message.success(t('settings.currentManifestSourceSet') + ': ' + source.name)
+  } catch (error) {
+    message.error(t('settings.operationFailed') + '：' + error)
+  }
+}
+
+// 删除清单源
+function handleDeleteManifestSource(source: ManifestSource) {
+  dialog.warning({
+    title: t('settings.deleteManifestSourceTitle'),
+    content: t('settings.deleteManifestSourceConfirm', { name: source.name }),
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        await ManifestSourceManager.removeSource(source.id)
+
+        // 重新加载配置
+        config.value = await GetConfig()
+        await loadManifestSources()
+
+        // 如果删除的是当前选中的源，更新 manifestUrl
+        if (currentManifestSourceId.value === source.id) {
+          const currentSource = manifestSources.value.find(s => s.id === currentManifestSourceId.value)
+          if (currentSource) {
+            manifestUrl.value = currentSource.url
+          }
+        }
+
+        message.success(t('settings.manifestSourceDeleted'))
+      } catch (error) {
+        message.error(t('settings.operationFailed') + '：' + error)
+      }
+    }
+  })
+}
+
+// 添加清单源
+async function handleAddManifestSource(source: { name: string; url: string }) {
+  if (!source.name || !source.url) {
+    message.warning(t('settings.pleaseFillAllFields'))
+    return
+  }
+
+  try {
+    // 生成唯一ID
+    const id = 'manifest-custom-' + Date.now()
+
+    await ManifestSourceManager.addSource({
+      id,
+      name: source.name,
+      url: source.url
+    })
+
+    // 重新加载配置
+    config.value = await GetConfig()
+    await loadManifestSources()
+
+    showAddManifestSourceDialog.value = false
+    message.success(t('settings.manifestSourceAdded'))
+  } catch (error) {
+    message.error(t('settings.operationFailed') + '：' + error)
+  }
+}
+
 // 加载背景图片预览
 async function loadBackgroundPreview() {
   if (!config.value?.backgroundImage) {
@@ -243,27 +341,6 @@ async function loadBackgroundPreview() {
     console.error('Failed to load background image:', error)
     backgroundImagePreview.value = ''
   }
-}
-
-async function handleSaveManifestUrl() {
-  if (!manifestUrl.value.trim()) {
-    message.error(t('settings.manifestUrlEmpty'))
-    return
-  }
-
-  try {
-    await SetManifestURL(manifestUrl.value.trim())
-    message.success(t('settings.manifestUrlSaved'))
-
-    // 清除清单缓存，以便下次进入版本页面时重新获取
-    versionStore.clearManifestCache()
-  } catch (error) {
-    message.error(t('settings.saveFailed') + '：' + error)
-  }
-}
-
-function handleResetManifestUrl() {
-  manifestUrl.value = 'https://github.com/jxsm/SCVersionList/raw/refs/heads/main/manifest.json'
 }
 
 async function handleSaveSettings() {
@@ -390,6 +467,9 @@ onMounted(async () => {
       maxConcurrent.value = config.value.maxConcurrent
       language.value = config.value.language
     }
+
+    // 加载清单源列表
+    await loadManifestSources()
 
     // 加载背景图片预览
     await loadBackgroundPreview()

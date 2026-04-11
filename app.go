@@ -138,22 +138,104 @@ func (a *App) GetAppInfo() map[string]string {
 
 // GetConfig 获取配置（返回相对路径格式给前端显示）
 func (a *App) GetConfig() map[string]interface{} {
+	// 转换清单源为前端格式
+	var manifestSources []map[string]interface{}
+	for _, source := range a.config.ManifestSources {
+		manifestSources = append(manifestSources, map[string]interface{}{
+			"id":         source.ID,
+			"name":       source.Name,
+			"url":        source.URL,
+			"isDefault":  source.IsDefault,
+		})
+	}
+
 	return map[string]interface{}{
-		"manifestUrl":     a.config.ManifestURL,
-		"versionsDir":     a.config.GetRelativePathForDisplay(a.config.GetVersionsDir()),
-		"dataDir":         a.config.GetRelativePathForDisplay(a.config.GetDataDir()),
-		"downloadsDir":    a.config.GetRelativePathForDisplay(a.config.GetDownloadsDir()),
-		"maxConcurrent":   a.config.MaxConcurrent,
-		"currentVersion":  a.config.CurrentVersion,
-		"theme":           a.config.Theme,
-		"language":        a.config.Language,
-		"backgroundImage": a.config.BackgroundImage,
+		"manifestUrl":             a.config.ManifestURL,
+		"manifestSources":         manifestSources,
+		"currentManifestSourceId": a.config.CurrentManifestSourceID,
+		"versionsDir":             a.config.GetRelativePathForDisplay(a.config.GetVersionsDir()),
+		"dataDir":                 a.config.GetRelativePathForDisplay(a.config.GetDataDir()),
+		"downloadsDir":            a.config.GetRelativePathForDisplay(a.config.GetDownloadsDir()),
+		"maxConcurrent":           a.config.MaxConcurrent,
+		"currentVersion":          a.config.CurrentVersion,
+		"theme":                   a.config.Theme,
+		"language":                a.config.Language,
+		"backgroundImage":         a.config.BackgroundImage,
 	}
 }
 
 // SetManifestURL 设置清单文件 URL
 func (a *App) SetManifestURL(url string) error {
 	return a.config.SetManifestURL(url)
+}
+
+// SaveManifestSources 保存清单源配置
+func (a *App) SaveManifestSources(sources []map[string]interface{}) error {
+	// 转换为 ManifestSource 数组
+	var manifestSources []config.ManifestSource
+	for _, s := range sources {
+		id, _ := s["id"].(string)
+		name, _ := s["name"].(string)
+		url, _ := s["url"].(string)
+		isDefault, _ := s["isDefault"].(bool)
+
+		if id == "" || name == "" || url == "" {
+			continue
+		}
+
+		manifestSources = append(manifestSources, config.ManifestSource{
+			ID:        id,
+			Name:      name,
+			URL:       url,
+			IsDefault: isDefault,
+		})
+	}
+
+	// 更新配置
+	a.config.ManifestSources = manifestSources
+
+	// 确保至少有一个默认源
+	hasDefault := false
+	for _, s := range manifestSources {
+		if s.IsDefault {
+			hasDefault = true
+			break
+		}
+	}
+	if !hasDefault && len(manifestSources) > 0 {
+		manifestSources[0].IsDefault = true
+	}
+
+	// 如果当前选中的源不存在，切换到默认源或第一个源
+	currentExists := false
+	for _, s := range manifestSources {
+		if s.ID == a.config.CurrentManifestSourceID {
+			currentExists = true
+			break
+		}
+	}
+	if !currentExists && len(manifestSources) > 0 {
+		// 找到默认源
+		for _, s := range manifestSources {
+			if s.IsDefault {
+				a.config.CurrentManifestSourceID = s.ID
+				a.config.ManifestURL = s.URL
+				break
+			}
+		}
+		// 如果没有默认源，使用第一个源
+		if a.config.CurrentManifestSourceID == "" {
+			a.config.CurrentManifestSourceID = manifestSources[0].ID
+			a.config.ManifestURL = manifestSources[0].URL
+		}
+	}
+
+	return a.config.Save()
+}
+
+// SetCurrentManifestSource 设置当前选中的清单源
+func (a *App) SetCurrentManifestSource(id string) error {
+	return a.config.SetCurrentManifestSource(id)
 }
 
 // SetMaxConcurrent 设置最大并发下载数
