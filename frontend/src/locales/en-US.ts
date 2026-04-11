@@ -398,6 +398,7 @@ export default {
     gameMode: 'Game Mode',
     saveName: 'Save Name',
     openFolder: 'Open Folder',
+    saveDate: 'Save Date',
     playTime: 'Play Time',
     importSuccess: 'Save imported successfully',
     importFailed: 'Failed to import save',

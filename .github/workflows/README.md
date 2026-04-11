@@ -62,9 +62,27 @@ release: 1.0.0
 
 如果没有自定义 Release Notes，系统会自动生成，包含：
 
-- 当前版本的改动（基于 git commit 信息）
+- 当前版本的改动（基于 git commit 信息，每条单独一行并编号）
 - 下载链接说明
 - 完整的变更日志链接
+
+**示例格式：**
+```markdown
+## What's New
+
+### Changes
+
+1. 更改下载显示 (175ab96)
+2. 版本列表修改 (cd1316d)
+3. 更改默认下载源 (2b9784f)
+...
+
+---
+
+**Download:** Choose the asset below that matches your system.
+
+**Full Changelog:** https://github.com/jxsm/SCLauncher/commits/0.7.2
+```
 
 ## 本地测试版本号
 

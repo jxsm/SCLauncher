@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get current version
+      - name: Get current version and previous tag
         id: version
         shell: pwsh
         run: |
@@ -41,6 +41,16 @@ jobs:
           } else {
             Write-Error "无法找到版本号"
             exit 1
+          }
+
+          # 获取上一个 tag
+          $previousTag = git describe --tags --abbrev=0 HEAD^ 2>$null
+          if ($previousTag) {
+            Write-Output "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
+            Write-Output "Previous tag: $previousTag"
+          } else {
+            Write-Output "previous_tag=" >> $env:GITHUB_OUTPUT
+            Write-Output "No previous tag found"
           }
 
       - name: Determine new version
@@ -135,25 +145,43 @@ jobs:
         run: |
           $customNotes = "${{ github.event.inputs.release_notes }}"
           $version = "${{ steps.new_version.outputs.new_version }}"
-          $previousVersion = "${{ steps.version.outputs.current_version }}"
+          $previousTag = "${{ steps.version.outputs.previous_tag }}"
 
           if ($customNotes -ne "") {
             $notes = $customNotes
           } else {
-            # 获取从上一个版本标签到现在的提交
             $notes = "## What's New`n`n"
 
-            # 获取最近的提交信息
-            $commits = git log --pretty=format:"* %s (%h)" --since="$previousVersion" HEAD
-            if ($commits) {
-              $notes += "### Changes`n`n$commits`n`n"
+            # 获取从上一个 tag 到现在的提交
+            if ($previousTag -ne "") {
+              $commitLines = git log --pretty=format:"%s|%h" $previousTag..HEAD
+            } else {
+              # 如果没有上一个 tag，只显示最近的 10 个提交
+              $commitLines = git log --pretty=format:"%s|%h" -10 HEAD
+            }
+
+            $commitArray = $commitLines -split "`n"
+
+            if ($commitArray.Count -gt 0 -and $commitArray[0] -ne "") {
+              $notes += "### Changes`n`n"
+              $counter = 1
+              foreach ($commit in $commitArray) {
+                if ($commit -match "\|") {
+                  $parts = $commit -split "\|"
+                  $message = $parts[0]
+                  $hash = $parts[1]
+                  $notes += "$counter. $message ($hash)`n"
+                  $counter++
+                }
+              }
+              $notes += "`n"
             } else {
               $notes += "### Changes`n`n* Version bump to $version`n`n"
             }
 
             $notes += "---`n`n"
             $notes += "**Download:** Choose the asset below that matches your system.`n`n"
-            $notes += "**Full Changelog:** https://github.com/${{ github.repository }}/commits/$version"
+            $notes += "**Full Changelog:** https://github.com/${{ github.repository }}/commits/v$version"
           }
 
           # 将换行符转换为 GitHub Actions 可以处理的格式
@@ -188,6 +216,6 @@ jobs:
         run: |
           Write-Output "## 构建完成! :rocket:" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "- **版本:** ${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "- **上一个版本:** ${{ steps.version.outputs.current_version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **版本:** v${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **上一个 Tag:** ${{ steps.version.outputs.previous_tag }}" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- **Release:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
