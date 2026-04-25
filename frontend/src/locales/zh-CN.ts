@@ -201,7 +201,7 @@ export default {
     title: '模组管理',
     selectVersion: '选择版本',
     noVersionSelected: '请先选择一个版本',
-    noMods: '暂无模组',
+    noMods: '暂无模组，请去添加一个吧',
     importMod: '导入模组',
     selectModFile: '选择模组文件',
     supportedFormats: '支持格式：.zip, .scmod',

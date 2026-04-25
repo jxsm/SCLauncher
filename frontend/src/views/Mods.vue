@@ -56,7 +56,7 @@
               </template>
             </n-space>
             <n-text depth="3" v-if="currentView === 'manage'">
-              {{ t('mods.totalMods', { total: modStore.mods.length, displayed: filteredMods.length }) }}
+              {{ t('mods.totalMods', { total: modStore.mods?.length || 0, displayed: filteredMods.length }) }}
             </n-text>
           </n-space>
 
@@ -88,8 +88,11 @@
           <div v-if="currentView === 'manage'" key="manage" class="view-content">
 
             <!-- 模组列表 -->
-            <n-spin :show="modStore.loading">
-              <n-list hoverable clickable>
+            <div v-if="modStore.loading" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
+              <n-spin size="large" />
+            </div>
+            <template v-else>
+              <n-list v-if="filteredMods.length > 0" hoverable clickable>
                 <ModListItem
                   v-for="mod in filteredMods"
                   :key="mod.id"
@@ -99,10 +102,11 @@
                 />
               </n-list>
               <n-empty
-                v-if="filteredMods.length === 0 && !modStore.loading"
+                v-else
                 :description="searchText || filterType !== 'all' ? t('mods.noMatchingMods') : t('mods.noMods')"
+                style="padding: 60px 0;"
               />
-            </n-spin>
+            </template>
           </div>
 
           <!-- 模组下载视图 -->
@@ -284,7 +288,7 @@ const installedVersionOptions = computed(() => {
 
 // Filtered mods based on search and filter
 const filteredMods = computed(() => {
-  let mods = modStore.mods
+  let mods = modStore.mods || []
 
   // Apply status filter
   if (filterType.value === 'enabled') {
