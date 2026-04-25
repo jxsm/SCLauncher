@@ -125,6 +125,7 @@ async function loadModSources() {
   console.log('设置页面加载下载源:', modSources.value)
   console.log('各类型源统计:', {
     mods: modSources.value.filter(s => s.type === 'mods').length,
+    'online-mods': modSources.value.filter(s => s.type === 'online-mods').length,
     savegames: modSources.value.filter(s => s.type === 'savegames').length,
     furniture: modSources.value.filter(s => s.type === 'furniture').length,
     textures: modSources.value.filter(s => s.type === 'textures').length,

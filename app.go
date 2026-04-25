@@ -641,7 +641,17 @@ func (a *App) OpenVersionModsFolder(versionID string) error {
 		basePath = versionPath
 	}
 
-	modsPath := filepath.Join(basePath, "mods")
+	// 检查是否是联机版（NetMods文件夹存在）
+	var modsPath string
+	netModsPath := filepath.Join(basePath, "NetMods")
+	if _, err := os.Stat(netModsPath); err == nil {
+		// 联机版，使用NetMods文件夹
+		modsPath = netModsPath
+	} else {
+		// 插件版，使用mods文件夹
+		modsPath = filepath.Join(basePath, "mods")
+	}
+
 	runtime.BrowserOpenURL(a.ctx, "file:///"+modsPath)
 	return nil
 }
@@ -1109,6 +1119,39 @@ func (a *App) SelectModFile() (string, error) {
 // GetMods 获取指定版本的模组列表
 func (a *App) GetMods(versionID string) ([]mod.Mod, error) {
 	return a.modMgr.GetMods(versionID)
+}
+
+// IsOnlineVersion 检查版本是否是联机版（通过检查NetMods文件夹是否存在）
+func (a *App) IsOnlineVersion(versionID string) bool {
+	versionPath := a.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入的版本
+	importedMetaFile := filepath.Join(versionPath, ".imported")
+	if _, err := os.Stat(importedMetaFile); err == nil {
+		// 是导入版本，读取元数据文件中的原始路径
+		content, err := os.ReadFile(importedMetaFile)
+		if err == nil {
+			lines := strings.Split(string(content), "\n")
+			for _, line := range lines {
+				if strings.HasPrefix(line, "original_path=") {
+					originalPath := strings.TrimPrefix(line, "original_path=")
+					// 检查原始路径下是否存在NetMods文件夹
+					netModsPath := filepath.Join(originalPath, "NetMods")
+					if info, err := os.Stat(netModsPath); err == nil && info.IsDir() {
+						return true
+					}
+					return false
+				}
+			}
+		}
+	}
+
+	// 正常版本，检查版本目录下是否存在NetMods文件夹
+	netModsPath := filepath.Join(versionPath, "NetMods")
+	if info, err := os.Stat(netModsPath); err == nil && info.IsDir() {
+		return true
+	}
+	return false
 }
 
 // ImportMod 导入模组

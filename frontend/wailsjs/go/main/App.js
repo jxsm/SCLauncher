@@ -202,6 +202,10 @@ export function InstallVersion(arg1) {
   return window['go']['main']['App']['InstallVersion'](arg1);
 }
 
+export function IsOnlineVersion(arg1) {
+  return window['go']['main']['App']['IsOnlineVersion'](arg1);
+}
+
 export function LaunchGame(arg1) {
   return window['go']['main']['App']['LaunchGame'](arg1);
 }

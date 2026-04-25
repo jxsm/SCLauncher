@@ -118,6 +118,7 @@
                     :placeholder="t('mods.selectVersion')"
                     style="width: 300px"
                     :disabled="installedVersionOptions.length === 0"
+                    @update:value="handleVersionChange"
                   >
                     <template #prefix>
                       <n-icon><GameControllerIcon /></n-icon>
@@ -250,6 +251,10 @@ const downloadingMods = ref<Set<string>>(new Set())
 const hasSearched = ref(false)
 const selectedSourceId = ref<string>('')
 
+// 版本类型检测
+const isOnlineVersion = ref(false) // 当前版本是否是联机版
+const isInitialized = ref(false) // 是否已完成初始化
+
 // 分页状态
 const currentPage = ref(1)
 const pageSize = 10 // 固定每页10条
@@ -299,22 +304,58 @@ const filteredMods = computed(() => {
   return mods
 })
 
-// 下载源选项（只显示模组类型的下载源）
+// 下载源选项（根据版本类型显示相应的下载源）
 const sourceOptions = computed(() => {
+  const sourceType = isOnlineVersion.value ? 'online-mods' : 'mods'
   return ModSourceManager.getEnabledSources()
-    .filter(source => source.type === 'mods')
+    .filter(source => source.type === sourceType)
     .map(source => ({
       label: source.name,
       value: source.id
     }))
 })
 
-function handleVersionChange() {
+// 检测版本是否是联机版
+async function checkVersionType() {
+  if (!selectedVersion.value) {
+    isOnlineVersion.value = false
+    return
+  }
+
+  try {
+    const { IsOnlineVersion } = await import('../api/version')
+    isOnlineVersion.value = await IsOnlineVersion(selectedVersion.value)
+  } catch (error) {
+    console.error('检测版本类型失败:', error)
+    isOnlineVersion.value = false
+  }
+}
+
+async function handleVersionChange() {
   if (selectedVersion.value) {
-    modStore.loadMods(selectedVersion.value)
+    await modStore.loadMods(selectedVersion.value)
     // Reset filters when changing version
     searchText.value = ''
     filterType.value = 'all'
+
+    // 检测版本类型（会触发 watch(isOnlineVersion) 自动切换源）
+    const oldIsOnline = isOnlineVersion.value
+    await checkVersionType()
+
+    // 如果版本类型改变了，watch 会自动处理
+    // 如果版本类型没变，但当前在下载视图，需要手动重新加载
+    if (oldIsOnline === isOnlineVersion.value && currentView.value === 'download') {
+      // 重置搜索状态
+      searchResults.value = []
+      currentPage.value = 1
+      hasSearched.value = false
+      isSearchMode.value = false
+      downloadSearchText.value = ''
+      totalPages.value = 0
+
+      // 重新加载第一页数据
+      await loadModList()
+    }
   }
 }
 
@@ -371,12 +412,12 @@ function handleDeleteMod(mod: any) {
 }
 
 // 视图切换函数
-function switchView(view: 'manage' | 'download') {
+async function switchView(view: 'manage' | 'download') {
   currentView.value = view
 
   // 切换到下载视图时自动加载第一页
   if (view === 'download' && !hasSearched.value && !isSearchMode.value) {
-    loadModList()
+    await loadModList()
   }
 }
 
@@ -593,6 +634,10 @@ onMounted(async () => {
       if (version) {
         selectedVersion.value = versionIdFromRoute
         await modStore.loadMods(selectedVersion.value)
+        // 检测版本类型
+        await checkVersionType()
+        // 标记初始化完成
+        isInitialized.value = true
         return
       }
       message.warning(t('mods.versionPathMissing'))
@@ -603,14 +648,21 @@ onMounted(async () => {
     if (primaryInValid) {
       selectedVersion.value = primaryInValid.id
       await modStore.loadMods(selectedVersion.value)
+      // 检测版本类型
+      await checkVersionType()
     } else if (validVersions.length > 0) {
       // If no primary version in valid versions, select the first valid version
       selectedVersion.value = validVersions[0].id
       await modStore.loadMods(selectedVersion.value)
+      // 检测版本类型
+      await checkVersionType()
     } else {
       // No valid versions found
       message.warning(t('mods.noValidVersions'))
     }
+
+    // 标记初始化完成
+    isInitialized.value = true
   } catch (error) {
     message.error(t('mods.loadVersionsFailed') + '：' + error)
   }
@@ -620,49 +672,115 @@ onMounted(async () => {
 onActivated(async () => {
   await ModSourceManager.reloadSources()
 
-  // 优先选择模组类型的默认源
-  const defaultModSource = ModSourceManager.getAllSources().find(s => s.type === 'mods' && s.isDefault)
-  if (defaultModSource) {
-    selectedSourceId.value = defaultModSource.id
-    ModSourceManager.setCurrentSource(defaultModSource.id)
+  // 根据版本类型选择相应的默认源
+  const sourceType = isOnlineVersion.value ? 'online-mods' : 'mods'
+  const defaultSource = ModSourceManager.getAllSources().find(s => s.type === sourceType && s.isDefault)
+  if (defaultSource) {
+    selectedSourceId.value = defaultSource.id
+    ModSourceManager.setCurrentSource(defaultSource.id)
   } else {
-    // 如果没有默认源，选择第一个启用的模组源
-    const firstModSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
-    if (firstModSource) {
-      selectedSourceId.value = firstModSource.id
-      ModSourceManager.setCurrentSource(firstModSource.id)
+    // 如果没有默认源，选择第一个启用的相应类型源
+    const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === sourceType)
+    if (firstSource) {
+      selectedSourceId.value = firstSource.id
+      ModSourceManager.setCurrentSource(firstSource.id)
     }
+  }
+
+  // 如果当前在下载视图，重新加载模组列表
+  if (currentView.value === 'download') {
+    // 重置搜索状态
+    searchResults.value = []
+    currentPage.value = 1
+    hasSearched.value = false
+    isSearchMode.value = false
+    downloadSearchText.value = ''
+    totalPages.value = 0
+
+    // 重新加载第一页数据
+    await loadModList()
   }
 })
 
 // 监听下载源选项变化，确保当前选中的源ID始终有效
-watch(sourceOptions, (newOptions) => {
+watch(sourceOptions, async (newOptions) => {
   if (newOptions.length > 0) {
     const currentIdExists = newOptions.some(opt => opt.value === selectedSourceId.value)
     if (!currentIdExists) {
       // 当前选中的源ID不存在了，切换到该类型的默认源
-      const defaultModSource = ModSourceManager.getAllSources().find(s => s.type === 'mods' && s.isDefault)
-      if (defaultModSource) {
-        selectedSourceId.value = defaultModSource.id
-        ModSourceManager.setCurrentSource(defaultModSource.id)
+      const sourceType = isOnlineVersion.value ? 'online-mods' : 'mods'
+      const defaultSource = ModSourceManager.getAllSources().find(s => s.type === sourceType && s.isDefault)
+      if (defaultSource) {
+        selectedSourceId.value = defaultSource.id
+        ModSourceManager.setCurrentSource(defaultSource.id)
       } else {
-        // 如果没有默认源，切换到第一个可用的模组源
-        const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === 'mods')
+        // 如果没有默认源，切换到第一个可用的相应类型源
+        const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === sourceType)
         if (firstSource) {
           selectedSourceId.value = firstSource.id
           ModSourceManager.setCurrentSource(firstSource.id)
         }
       }
-      // 重置搜索状态
-      searchResults.value = []
-      currentPage.value = 1
-      hasSearched.value = false
-      isSearchMode.value = false
-      downloadSearchText.value = ''
-      totalPages.value = 0
+
+      // 仅在当前是下载视图时，才重置搜索状态并重新加载模组列表
+      if (currentView.value === 'download') {
+        // 重置搜索状态
+        searchResults.value = []
+        currentPage.value = 1
+        hasSearched.value = false
+        isSearchMode.value = false
+        downloadSearchText.value = ''
+        totalPages.value = 0
+
+        // 重新加载第一页数据
+        await loadModList()
+      }
     }
   }
 }, { deep: true })
+
+// 监听版本类型变化，自动切换下载源并重新加载模组列表（仅在下载视图和初始化完成后）
+watch(isOnlineVersion, async (newValue, oldValue) => {
+  // 如果版本类型没有实际变化，不执行操作
+  if (newValue === oldValue) {
+    return
+  }
+
+  // 如果还未完成初始化，不执行操作（避免初始化时的重复触发）
+  if (!isInitialized.value) {
+    return
+  }
+
+  // 根据版本类型切换下载源
+  const sourceType = newValue ? 'online-mods' : 'mods'
+  const defaultSource = ModSourceManager.getAllSources().find(s => s.type === sourceType && s.isDefault)
+
+  if (defaultSource) {
+    selectedSourceId.value = defaultSource.id
+    ModSourceManager.setCurrentSource(defaultSource.id)
+  } else {
+    // 如果没有默认源，选择第一个启用的相应类型源
+    const firstSource = ModSourceManager.getEnabledSources().find(s => s.type === sourceType)
+    if (firstSource) {
+      selectedSourceId.value = firstSource.id
+      ModSourceManager.setCurrentSource(firstSource.id)
+    }
+  }
+
+  // 仅在当前是下载视图时，才重新加载模组列表
+  if (currentView.value === 'download') {
+    // 重置搜索状态
+    searchResults.value = []
+    currentPage.value = 1
+    hasSearched.value = false
+    isSearchMode.value = false
+    downloadSearchText.value = ''
+    totalPages.value = 0
+
+    // 重新加载第一页数据
+    await loadModList()
+  }
+})
 </script>
 
 <style scoped>

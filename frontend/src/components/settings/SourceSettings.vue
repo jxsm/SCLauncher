@@ -20,6 +20,16 @@
         />
       </n-tab-pane>
 
+      <n-tab-pane name="online-mods" :tab="t('mods.onlineModSources')">
+        <SourceList
+          :sources="getSourcesByType('online-mods')"
+          disabled-source-id="suancaixianyu-online"
+          @toggle="handleToggleSource"
+          @set-default="handleSetDefaultSource"
+          @delete="handleDeleteSource"
+        />
+      </n-tab-pane>
+
       <n-tab-pane name="savegames" :tab="t('mods.savegameSources')">
         <SourceList
           :sources="getSourcesByType('savegames')"

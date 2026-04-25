@@ -250,6 +250,7 @@ export default {
     versionNotFound: '版本未找到',
     manageSources: '管理下载源',
     modSources: '模组下载源',
+    onlineModSources: '联机模组下载源',
     savegameSources: '存档下载源',
     furnitureSources: '家具下载源',
     textureSources: '材质下载源',

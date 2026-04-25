@@ -106,6 +106,8 @@ export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
 
 export function InstallVersion(arg1:string):Promise<void>;
 
+export function IsOnlineVersion(arg1:string):Promise<boolean>;
+
 export function LaunchGame(arg1:string):Promise<void>;
 
 export function OpenFurnitureFolder(arg1:string):Promise<void>;

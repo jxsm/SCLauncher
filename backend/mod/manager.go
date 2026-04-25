@@ -57,19 +57,36 @@ func NewManager(cfg *config.Config) *Manager {
 	}
 }
 
-// getModPath 获取模组目录路径（处理导入版本）
+// getModPath 获取模组目录路径（处理导入版本和联机版）
 func (m *Manager) getModPath(versionID string) string {
 	versionPath := m.paths.GetVersionPath(versionID)
 
 	// 检查是否是导入的版本
 	originalPath, err := getImportedVersionOriginalPath(versionPath)
 	if err == nil && originalPath != "" {
-		// 是导入版本，使用原始路径的mods目录
+		// 是导入版本，检查是否是联机版
+		if m.isOnlineVersion(originalPath) {
+			// 联机版，使用原始路径的NetMods目录
+			return filepath.Join(originalPath, "NetMods")
+		}
+		// 插件版，使用原始路径的mods目录
 		return filepath.Join(originalPath, "mods")
 	}
 
-	// 正常版本，使用标准路径
+	// 正常版本，检查是否是联机版
+	if m.isOnlineVersion(versionPath) {
+		// 联机版，使用NetMods目录
+		return filepath.Join(versionPath, "NetMods")
+	}
+	// 插件版，使用mods目录
 	return m.paths.GetModPath(versionID)
+}
+
+// isOnlineVersion 检查版本是否是联机版（通过检查NetMods文件夹是否存在）
+func (m *Manager) isOnlineVersion(versionPath string) bool {
+	netModsPath := filepath.Join(versionPath, "NetMods")
+	info, err := os.Stat(netModsPath)
+	return err == nil && info.IsDir()
 }
 
 // GetMods 获取指定版本的模组列表

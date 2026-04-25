@@ -3,7 +3,7 @@
  */
 
 // 下载源类型
-export type SourceType = 'mods' | 'savegames' | 'furniture' | 'textures' | 'skins'
+export type SourceType = 'mods' | 'online-mods' | 'savegames' | 'furniture' | 'textures' | 'skins'
 
 // 模组搜索结果
 export interface ModSearchResult {

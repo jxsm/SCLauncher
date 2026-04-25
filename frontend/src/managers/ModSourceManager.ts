@@ -96,6 +96,64 @@ class ModSourceManagerClass {
           }
         },
         {
+          id: 'suancaixianyu-online',
+          type: 'online-mods',
+          name: '生存战争中文社区',
+          description: '生存战争中文社区联机模组仓库',
+          icon: '',
+          enabled: true,
+          isDefault: true, // 设置为联机模组的默认源
+          api: {
+            baseUrl: 'https://m.suancaixianyu.cn',
+            endpoint: {
+              method: 'GET',
+              url: '/api/post/list?type=2&orderType=1&fileTypes=8&page={page}&limit={limit}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            search: {
+              method: 'GET',
+              url: '/api/post/list?type=2&orderType=1&fileTypes=8&title={query}&page={page}&limit={limit}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            responseMapping: {
+              results: '$.data.list',
+              id: '$.id',
+              title: '$.title',
+              description: '$.content',
+              author: '$.creator.nickname',
+              authorAvatar: '$.creator.headImg',
+              views: '$.views',
+              likes: '$.likeCount',
+              cover: '$.cover',
+              versions: '$.postVersions',
+              version: '$.version',
+              downloadUrl: '$.files[0].url',
+              fileName: '$.files[0].filename',
+              fileSize: '$.files[0].size',
+              icon: '$.files[0].icon',
+              total: '$.data.total',
+              totalPages: '$.data.totalPages'
+            }
+          },
+          metadata: {
+            website: 'https://m.suancaixianyu.cn',
+            author: 'SuanCaiXianYu',
+            tags: ['中文', '社区', '联机模组']
+          }
+        },
+        {
           id: 'suancaixianyu-saves',
           type: 'savegames',
           name: '生存战争中文社区',
@@ -337,7 +395,7 @@ class ModSourceManagerClass {
         if (customSources && Array.isArray(customSources)) {
           console.log('加载到自定义下载源:', customSources)
           // 合并内置源和自定义源（允许自定义源覆盖内置源）
-          const builtinSourceIds = ['suancaixianyu', 'suancaixianyu-saves', 'suancaixianyu-furniture', 'suancaixianyu-skins', 'suancaixianyu-textures']
+          const builtinSourceIds = ['suancaixianyu', 'suancaixianyu-online', 'suancaixianyu-saves', 'suancaixianyu-furniture', 'suancaixianyu-skins', 'suancaixianyu-textures']
 
           customSources.forEach((source: any) => {
             const existingIndex = this.sources.value.findIndex(s => s.id === source.id)
@@ -377,7 +435,7 @@ class ModSourceManagerClass {
 
       // 检查每种类型是否有默认源，确保每种类型只有一个默认源
       // 优先尊重用户在配置文件中设置的默认源
-      const sourceTypes = ['mods', 'savegames', 'furniture', 'textures', 'skins'] as const
+      const sourceTypes = ['mods', 'online-mods', 'savegames', 'furniture', 'textures', 'skins'] as const
 
       sourceTypes.forEach(type => {
         // 获取该类型的所有源和默认源
@@ -755,7 +813,7 @@ class ModSourceManagerClass {
       const { SaveModSources } = await import('../api/config')
 
       // 内置源ID列表
-      const builtinSourceIds = ['suancaixianyu', 'suancaixianyu-saves', 'suancaixianyu-furniture', 'suancaixianyu-skins', 'suancaixianyu-textures']
+      const builtinSourceIds = ['suancaixianyu', 'suancaixianyu-online', 'suancaixianyu-saves', 'suancaixianyu-furniture', 'suancaixianyu-skins', 'suancaixianyu-textures']
 
       // 只保存自定义源（排除内置源）
       const customSources = this.sources.value

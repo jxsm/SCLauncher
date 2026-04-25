@@ -87,6 +87,11 @@ export async function OpenVersionModsFolder(versionId: string): Promise<void> {
   await AppBindings.OpenVersionModsFolder(versionId)
 }
 
+// 检查版本是否是联机版（通过检查NetMods文件夹是否存在）
+export async function IsOnlineVersion(versionId: string): Promise<boolean> {
+  return await AppBindings.IsOnlineVersion(versionId)
+}
+
 // 选择游戏文件夹
 export async function SelectGameFolder(): Promise<string> {
   return await AppBindings.SelectGameFolder()
