@@ -1024,6 +1024,7 @@ func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
 		"survivalcraft":   manifest.Survivalcraft,
 		"mods":            manifest.Mods,
 		"overrides":       manifest.Overrides,
+		"hasExternalLinks": manifest.HasExternalLinks,
 	}, nil
 }
 

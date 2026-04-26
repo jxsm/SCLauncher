@@ -26,8 +26,9 @@ type Manifest struct {
 	Checksum string `json:"checksum"` // 校验方式（sha256）
 
 	// 解析后的额外信息
-	FilePath string `json:"-"` // 整合包文件路径
-	FileHash string `json:"-"` // 文件哈希值
+	FilePath        string `json:"-"` // 整合包文件路径
+	FileHash        string `json:"-"` // 文件哈希值
+	HasExternalLinks bool   `json:"hasExternalLinks"` // 是否包含外部链接
 }
 
 // SurvivalcraftConfig 生存战争配置

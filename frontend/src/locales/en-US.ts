@@ -220,7 +220,8 @@ export default {
     modpackOverrides: 'Override Files',
     modpackParseFailed: 'Failed to parse modpack',
     startInstall: 'Start Installation',
-    modpackNotSupportedWindows: 'This modpack does not support Windows'
+    modpackNotSupportedWindows: 'This modpack does not support Windows',
+    modpackExternalLinksWarning: 'This modpack contains external links, please be careful'
   },
   mods: {
     title: 'Mod Management',

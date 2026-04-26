@@ -115,6 +115,9 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 		}
 	}
 
+	// 检查是否有外部链接
+	hasExternalLinks := checkExternalLinks(v1)
+
 	return &Manifest{
 		ManifestType:    v1.ManifestType,
 		ManifestVersion: v1.ManifestVersion,
@@ -131,7 +134,27 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 		Checksum:        v1.Checksum,
 		FilePath:        v1.FilePath,
 		FileHash:        v1.FileHash,
+		HasExternalLinks: hasExternalLinks,
 	}
+}
+
+// checkExternalLinks 检查整合包中是否包含外部链接
+func checkExternalLinks(v1 *v0_1.V01Manifest) bool {
+	// 检查 Windows 版本是否有外部下载链接
+	if v1.Survivalcraft != nil && v1.Survivalcraft.Version.Windows != nil {
+		if v1.Survivalcraft.Version.Windows.Path != "" {
+			return true
+		}
+	}
+
+	// 检查模组列表中是否有外部下载链接
+	for _, mod := range v1.Mods {
+		if mod.Path != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // convertPlatformVersion 转换平台版本信息

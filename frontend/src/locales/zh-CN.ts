@@ -220,7 +220,8 @@ export default {
     modpackOverrides: '覆盖文件',
     modpackParseFailed: '解析整合包失败',
     startInstall: '开始安装',
-    modpackNotSupportedWindows: '该整合包暂不支持 Windows'
+    modpackNotSupportedWindows: '该整合包暂不支持 Windows',
+    modpackExternalLinksWarning: '该整合包中使用了其他外部链接，请注意风险'
   },
   mods: {
     title: '模组管理',

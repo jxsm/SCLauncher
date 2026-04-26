@@ -8,6 +8,11 @@
   >
     <n-spin :show="loading">
       <div v-if="modpackInfo" class="modpack-info">
+        <!-- 外部链接警告 -->
+        <n-alert v-if="modpackInfo.hasExternalLinks" type="warning" style="margin-bottom: 16px;">
+          {{ t('installed.modpackExternalLinksWarning') }}
+        </n-alert>
+
         <!-- 基本信息 -->
         <n-descriptions :column="2" bordered size="small">
           <n-descriptions-item :label="t('installed.modpackName')" :span="2">
