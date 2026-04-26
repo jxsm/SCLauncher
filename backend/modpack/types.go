@@ -17,7 +17,8 @@ type Manifest struct {
 	Survivalcraft *SurvivalcraftConfig `json:"survivalcraft"` // 生存战争配置
 
 	// 模组列表
-	Mods []ModInfo `json:"mods"` // 模组列表
+	Mods    []ModInfo `json:"mods"`    // 模组列表
+	ModPath string    `json:"modPath"` // 模组存放路径（默认为/Mods，联机版为/NetMods）
 
 	// 自定义覆盖文件
 	Overrides string `json:"overrides"` // 覆盖文件目录名
@@ -63,4 +64,5 @@ type ModInfo struct {
 	Name      string `json:"name"`      // 模组名称
 	Required  bool   `json:"required"`  // 是否必须
 	Path      string `json:"path"`      // 下载路径
+	ModPath   string `json:"modPath"`   // 模组安装路径（可选，如果为空则使用全局ModPath）
 }

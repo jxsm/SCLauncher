@@ -73,6 +73,14 @@
               <div class="card-value">{{ modpackInfo.overrides }}</div>
             </div>
           </div>
+
+          <!-- 模组路径 -->
+          <div v-if="modpackInfo.modPath" class="info-card">
+            <div class="card-content">
+              <div class="card-label">模组路径</div>
+              <div class="card-value">{{ modpackInfo.modPath }}</div>
+            </div>
+          </div>
         </div>
 
         <!-- 模组详情（可折叠） -->
@@ -81,10 +89,16 @@
             <n-list bordered size="small">
               <n-list-item v-for="(mod, index) in modpackInfo.mods" :key="index">
                 <div class="mod-item">
-                  <div class="mod-name">{{ mod.name || `Mod #${mod.projectID}` }}</div>
-                  <div class="mod-version">{{ mod.version }}</div>
-                  <n-tag v-if="mod.required" type="error" size="small">{{ t('installed.modpackModRequired') }}</n-tag>
-                  <n-tag v-else type="default" size="small">{{ t('installed.modpackModOptional') }}</n-tag>
+                  <div class="mod-info">
+                    <div class="mod-name">{{ mod.name || `Mod #${mod.projectID}` }}</div>
+                    <div class="mod-version">{{ mod.version }}</div>
+                  </div>
+                  <n-space align="center">
+                    <n-tag v-if="mod.modPath" size="small" type="info">{{ mod.modPath }}</n-tag>
+                    <n-tag v-else size="small" type="info">{{ modpackInfo.modPath || '/Mods' }}</n-tag>
+                    <n-tag v-if="mod.required" type="error" size="small">{{ t('installed.modpackModRequired') }}</n-tag>
+                    <n-tag v-else type="default" size="small">{{ t('installed.modpackModOptional') }}</n-tag>
+                  </n-space>
                 </div>
               </n-list-item>
             </n-list>
@@ -109,7 +123,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage } from 'naive-ui'
 
 const props = defineProps<{
   show: boolean
@@ -122,7 +135,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const message = useMessage()
 
 const showModal = ref(props.show)
 const loading = ref(false)
@@ -213,11 +225,18 @@ async function handleInstall() {
 .mod-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mod-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
 .mod-name {
-  flex: 1;
   font-weight: 500;
 }
 

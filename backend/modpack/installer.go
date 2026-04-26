@@ -486,7 +486,7 @@ func (m *ModpackInstaller) downloadMods(manifest *Manifest, targetVersionID stri
 		m.updateProgress(StageDownloadMods, progress,
 			fmt.Sprintf("下载模组 %d/%d: %s", i+1, totalMods, modInfo.Name))
 
-		if err := m.downloadMod(modInfo, targetVersionID); err != nil {
+		if err := m.downloadMod(modInfo, targetVersionID, manifest.ModPath); err != nil {
 			if modInfo.Required {
 				return fmt.Errorf("下载必需模组 %s 失败: %w", modInfo.Name, err)
 			}
@@ -501,11 +501,22 @@ func (m *ModpackInstaller) downloadMods(manifest *Manifest, targetVersionID stri
 }
 
 // downloadMod 下载单个模组
-func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string) error {
+func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, globalModPath string) error {
 	// TODO: 实现模组下载逻辑
 	// 这里需要调用模组管理器的下载功能
+
+	// 确定模组的安装路径
+	modPath := modInfo.ModPath
+	if modPath == "" {
+		modPath = globalModPath
+	}
+	if modPath == "" {
+		modPath = "/Mods" // 默认路径
+	}
+
 	_ = targetVersionID // 暂时避免未使用参数警告
 	_ = modInfo
+	_ = modPath
 	return nil
 }
 

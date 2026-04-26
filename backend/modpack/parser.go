@@ -106,6 +106,7 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 			Name:      mod.Name,
 			Required:  mod.Required,
 			Path:      mod.Path,
+			ModPath:   mod.ModPath,
 		}
 	}
 
@@ -138,6 +139,7 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 		Changelog:       v1.Changelog,
 		Survivalcraft:   survivalcraft,
 		Mods:            mods,
+		ModPath:         v1.ModPath,
 		Overrides:       v1.Overrides,
 		Checksum:        v1.Checksum,
 		FilePath:        v1.FilePath,
