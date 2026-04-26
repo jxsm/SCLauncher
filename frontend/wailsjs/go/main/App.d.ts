@@ -122,6 +122,8 @@ export function OpenVersionFolder(arg1:string):Promise<void>;
 
 export function OpenVersionModsFolder(arg1:string):Promise<void>;
 
+export function ParseModpack(arg1:string):Promise<Record<string, any>>;
+
 export function PreviewSaveGame(arg1:string):Promise<savegame.SaveGame>;
 
 export function RenameFurniture(arg1:string,arg2:string,arg3:string):Promise<void>;

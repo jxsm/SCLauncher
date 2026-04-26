@@ -1,0 +1,323 @@
+package v0_1
+
+import (
+	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// V01Parser 版本 0.1 的解析器
+type V01Parser struct{}
+
+// NewV01Parser 创建版本 0.1 的解析器
+func NewV01Parser() *V01Parser {
+	return &V01Parser{}
+}
+
+// GetVersion 获取解析器版本
+func (p *V01Parser) GetVersion() string {
+	return "0.1"
+}
+
+// V01Manifest 整合包清单（v0.1）
+type V01Manifest struct {
+	// 基本信息
+	ManifestType    string  `json:"manifestType"`    // 固定值：SurvivalcraftModpack
+	ManifestVersion float64 `json:"manifestVersion"` // 清单版本号
+	Name            string  `json:"name"`            // 整合包名称
+	Version         string  `json:"version"`         // 整合包版本
+	Author          string  `json:"author"`          // 作者
+	Description     string  `json:"description"`     // 描述
+	Icon            string  `json:"icon"`            // 图标文件路径
+	Created         string  `json:"created"`         // 创建时间
+	Changelog       string  `json:"changelog"`       // 更新日志
+
+	// 游戏核心配置
+	Survivalcraft *V01SurvivalcraftConfig `json:"survivalcraft"` // 生存战争配置
+
+	// 模组列表
+	Mods []V01ModInfo `json:"mods"` // 模组列表
+
+	// 自定义覆盖文件
+	Overrides string `json:"overrides"` // 覆盖文件目录名
+
+	// 校验
+	Checksum string `json:"checksum"` // 校验方式（sha256）
+
+	// 解析后的额外信息
+	FilePath string `json:"-"` // 整合包文件路径
+	FileHash string `json:"-"` // 文件哈希值
+}
+
+// V01SurvivalcraftConfig 生存战争配置
+type V01SurvivalcraftConfig struct {
+	Version    V01VersionConfig      `json:"version"`    // 版本配置
+	VersionList V01VersionListConfig `json:"versionList"` // 版本列表配置
+}
+
+// V01VersionConfig 版本配置
+type V01VersionConfig struct {
+	Android *V01PlatformVersion `json:"android"` // Android 平台配置
+	Windows *V01PlatformVersion `json:"windows"` // Windows 平台配置
+}
+
+// V01PlatformVersion 平台版本信息
+type V01PlatformVersion struct {
+	Version        string `json:"version"`         // 版本号（如：2.4:api-1.8.2.3）
+	APKPackageName string `json:"apkPackageName"`  // APK 包名（Android）
+	Path           string `json:"path"`            // 下载路径
+}
+
+// V01VersionListConfig 版本列表配置
+type V01VersionListConfig struct {
+	Android string `json:"android"` // Android 版本列表 URL
+	Windows string `json:"windows"` // Windows 版本列表 URL
+}
+
+// V01ModInfo 模组信息
+type V01ModInfo struct {
+	ProjectID int    `json:"projectId"` // 模组项目 ID
+	Version   string `json:"version"`   // 模组版本
+	Name      string `json:"name"`      // 模组名称
+	Required  bool   `json:"required"`  // 是否必须
+	Path      string `json:"path"`      // 下载路径
+}
+
+// Parse 解析整合包
+func (p *V01Parser) Parse(modpackPath string) (any, error) {
+	// 创建临时目录
+	tempDir, err := os.MkdirTemp("", "sc-modpack-v0.1-*")
+	if err != nil {
+		return nil, fmt.Errorf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 解压整合包
+	if err := p.extractZip(modpackPath, tempDir); err != nil {
+		return nil, fmt.Errorf("解压整合包失败: %v", err)
+	}
+
+	// 查找清单文件
+	manifestFile, err := p.findManifestFile(tempDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// 读取清单文件
+	data, err := os.ReadFile(manifestFile)
+	if err != nil {
+		return nil, fmt.Errorf("读取清单文件失败: %v", err)
+	}
+
+	// 移除 JSON 注释（支持 jsonc）
+	data = p.removeJSONComments(data)
+
+	// 解析清单
+	var manifest V01Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("解析清单文件失败: %v", err)
+	}
+
+	// 验证清单
+	if err := p.Validate(&manifest); err != nil {
+		return nil, err
+	}
+
+	// 检查 Windows 平台支持
+	if err := p.checkPlatformSupport(&manifest); err != nil {
+		return nil, err
+	}
+
+	// 计算文件哈希
+	fileHash, err := p.calculateFileHash(modpackPath)
+	if err != nil {
+		return nil, fmt.Errorf("计算文件哈希失败: %v", err)
+	}
+
+	// 校验文件完整性
+	if err := p.verifyChecksum(&manifest, fileHash); err != nil {
+		return nil, err
+	}
+
+	// 设置额外信息
+	manifest.FilePath = modpackPath
+	manifest.FileHash = fileHash
+
+	return &manifest, nil
+}
+
+// Validate 验证清单
+func (p *V01Parser) Validate(manifest any) error {
+	m, ok := manifest.(*V01Manifest)
+	if !ok {
+		return fmt.Errorf("无效的清单类型")
+	}
+
+	// 验证清单类型
+	if m.ManifestType != "SurvivalcraftModpack" {
+		return fmt.Errorf("不支持的清单类型: %s", m.ManifestType)
+	}
+
+	// 验证清单版本
+	if m.ManifestVersion != 0.1 {
+		return fmt.Errorf("不支持的清单版本: %.1f", m.ManifestVersion)
+	}
+
+	// 验证必填字段
+	if m.Name == "" {
+		return fmt.Errorf("整合包名称不能为空")
+	}
+
+	if m.Version == "" {
+		return fmt.Errorf("整合包版本不能为空")
+	}
+
+	if m.Author == "" {
+		return fmt.Errorf("作者不能为空")
+	}
+
+	return nil
+}
+
+// checkPlatformSupport 检查平台支持
+func (p *V01Parser) checkPlatformSupport(manifest *V01Manifest) error {
+	// 检查是否有 Windows 版本配置
+	if manifest.Survivalcraft == nil || manifest.Survivalcraft.Version.Windows == nil {
+		return fmt.Errorf("该整合包暂不支持 Windows")
+	}
+
+	// 检查 Windows 版本配置是否有效
+	windowsConfig := manifest.Survivalcraft.Version.Windows
+	if windowsConfig.Version == "" {
+		return fmt.Errorf("该整合包的 Windows 版本配置无效")
+	}
+
+	return nil
+}
+
+// extractZip 解压 zip 文件
+func (p *V01Parser) extractZip(zipPath, destDir string) error {
+	// 打开 zip 文件
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return fmt.Errorf("打开 zip 文件失败: %v", err)
+	}
+	defer reader.Close()
+
+	// 解压每个文件
+	for _, file := range reader.File {
+		// 构建目标路径
+		path := filepath.Join(destDir, file.Name)
+
+		// 检查是否是 Zip Slip 漏洞
+		if !strings.HasPrefix(path, filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("非法的文件路径: %s", file.Name)
+		}
+
+		if file.FileInfo().IsDir() {
+			// 创建目录
+			os.MkdirAll(path, 0755)
+			continue
+		}
+
+		// 创建父目录
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return fmt.Errorf("创建目录失败: %v", err)
+		}
+
+		// 解压文件
+		fileReader, err := file.Open()
+		if err != nil {
+			return fmt.Errorf("打开文件失败: %v", err)
+		}
+		defer fileReader.Close()
+
+		destFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			return fmt.Errorf("创建文件失败: %v", err)
+		}
+		defer destFile.Close()
+
+		if _, err := io.Copy(destFile, fileReader); err != nil {
+			return fmt.Errorf("写入文件失败: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// findManifestFile 查找清单文件
+func (p *V01Parser) findManifestFile(dir string) (string, error) {
+	// 尝试查找 manifest.jsonc 或 manifest.json
+	for _, name := range []string{"manifest.jsonc", "manifest.json"} {
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("未找到清单文件 (manifest.jsonc 或 manifest.json)")
+}
+
+// removeJSONComments 移除 JSON 中的注释（支持 jsonc）
+func (p *V01Parser) removeJSONComments(data []byte) []byte {
+	lines := strings.Split(string(data), "\n")
+	var result []string
+
+	for _, line := range lines {
+		// 移除行内注释
+		if idx := strings.Index(line, "//"); idx != -1 {
+			line = strings.TrimSpace(line[:idx])
+		}
+		// 保留非空行
+		if line != "" {
+			result = append(result, line)
+		}
+	}
+
+	return []byte(strings.Join(result, "\n"))
+}
+
+// calculateFileHash 计算文件哈希
+func (p *V01Parser) calculateFileHash(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// verifyChecksum 验证文件校验和
+func (p *V01Parser) verifyChecksum(manifest *V01Manifest, fileHash string) error {
+	// 如果没有配置 checksum，跳过校验
+	if manifest.Checksum == "" {
+		return nil
+	}
+
+	// 检查校验方式
+	if manifest.Checksum != "sha256" && manifest.Checksum != "SHA256" {
+		return fmt.Errorf("不支持的校验方式: %s", manifest.Checksum)
+	}
+
+	// TODO: 这里应该有一个预存的哈希值来比较
+	// 目前只是计算哈希并存储，实际应用中需要从清单中获取期望的哈希值进行比较
+	// 可以在未来添加校验逻辑：
+	// expectedHash := manifest.ExpectedChecksum // 从清单中读取期望的哈希值
+	// if fileHash != expectedHash {
+	//     return fmt.Errorf("整合包已损坏，校验和不匹配")
+	// }
+
+	return nil
+}

@@ -121,3 +121,8 @@ export async function SelectModpackFile(): Promise<string> {
 export async function InstallModpack(modpackPath: string): Promise<string> {
   return await AppBindings.InstallModpack(modpackPath)
 }
+
+// 解析整合包（用于展示信息）
+export async function ParseModpack(modpackPath: string): Promise<any> {
+  return await AppBindings.ParseModpack(modpackPath)
+}

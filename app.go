@@ -17,6 +17,7 @@ import (
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
+	"SCLauncher/backend/modpack"
 	"SCLauncher/backend/savegame"
 	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
@@ -50,18 +51,19 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 
 // App 应用结构体
 type App struct {
-	ctx         context.Context
-	config      *config.Config
-	paths       *config.Paths
-	db          *storage.Database
-	repository  *storage.Repository
-	versionMgr  *version.Manager
-	gameMgr     *game.GameManager
-	modMgr      *mod.Manager
-	skinMgr     *skin.Manager
-	savegameMgr *savegame.Manager
-	textureMgr  *texture.Manager
-	backgroundMgr *background.Manager
+	ctx            context.Context
+	config         *config.Config
+	paths          *config.Paths
+	db             *storage.Database
+	repository     *storage.Repository
+	versionMgr     *version.Manager
+	gameMgr        *game.GameManager
+	modMgr         *mod.Manager
+	skinMgr        *skin.Manager
+	savegameMgr    *savegame.Manager
+	textureMgr     *texture.Manager
+	backgroundMgr  *background.Manager
+	modpackRegistry *modpack.ParserRegistry
 }
 
 // NewApp 创建应用实例
@@ -120,6 +122,7 @@ func (a *App) startup(ctx context.Context) {
 	a.savegameMgr = savegame.NewManager(cfg)
 	a.textureMgr = texture.NewManager(a.paths.GetVersionPath)
 	a.backgroundMgr = background.NewManager(cfg)
+	a.modpackRegistry = modpack.NewParserRegistry()
 
 	// 自动设置主要版本（如果没有的话）
 	if err := a.versionMgr.AutoSetPrimaryVersion(); err != nil {
@@ -928,66 +931,13 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装整合包: %s", modpackPath))
 
-	// 创建临时目录用于解压整合包
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("sc-modpack-%d", time.Now().UnixNano()))
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return "", fmt.Errorf("创建临时目录失败: %v", err)
-	}
-	defer os.RemoveAll(tempDir) // 清理临时目录
-
-	// 解压整合包
-	installer := version.NewInstaller()
-	if err := installer.Install(modpackPath, tempDir, nil); err != nil {
-		return "", fmt.Errorf("解压整合包失败: %v", err)
-	}
-
-	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解压完成，读取清单文件..."))
-
-	// 查找清单文件（支持 manifest.json 和 modpack.json）
-	var manifestFile string
-	for _, name := range []string{"manifest.json", "modpack.json"} {
-		path := filepath.Join(tempDir, name)
-		if _, err := os.Stat(path); err == nil {
-			manifestFile = path
-			break
-		}
-	}
-
-	if manifestFile == "" {
-		return "", fmt.Errorf("整合包中未找到清单文件 (manifest.json 或 modpack.json)")
-	}
-
-	// 读取清单文件
-	manifestData, err := os.ReadFile(manifestFile)
+	// 使用解析器解析整合包
+	manifest, err := a.modpackRegistry.ParseModpack(modpackPath)
 	if err != nil {
-		return "", fmt.Errorf("读取清单文件失败: %v", err)
+		return "", fmt.Errorf("解析整合包失败: %v", err)
 	}
 
-	// 解析清单文件
-	var manifest struct {
-		Name            string `json:"name"`
-		Version         string `json:"version"`
-		Author          string `json:"author"`
-		Description     string `json:"description"`
-		ManifestType    string `json:"manifestType"`
-		ManifestVersion int    `json:"manifestVersion"`
-	}
-
-	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		return "", fmt.Errorf("解析清单文件失败: %v", err)
-	}
-
-	// 验证清单类型
-	if manifest.ManifestType != "SurvivalcraftModpack" {
-		return "", fmt.Errorf("不支持的清单类型: %s", manifest.ManifestType)
-	}
-
-	// 验证清单版本
-	if manifest.ManifestVersion != 1 {
-		return "", fmt.Errorf("不支持的清单版本: %d", manifest.ManifestVersion)
-	}
-
-	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包名称: %s, 版本: %s, 作者: %s", manifest.Name, manifest.Version, manifest.Author))
+	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
 
 	// 生成版本ID
 	versionID := fmt.Sprintf("modpack-%d", time.Now().UnixNano())
@@ -996,6 +946,29 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 	versionPath := a.paths.GetVersionPath(versionID)
 	if err := os.MkdirAll(filepath.Dir(versionPath), 0755); err != nil {
 		return "", fmt.Errorf("创建版本目录失败: %v", err)
+	}
+
+	// 创建临时目录用于解压
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("sc-modpack-%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// 解压整合包到临时目录
+	installer := version.NewInstaller()
+	if err := installer.Install(modpackPath, tempDir, nil); err != nil {
+		return "", fmt.Errorf("解压整合包失败: %v", err)
+	}
+
+	// 查找并排除清单文件
+	var manifestFile string
+	for _, name := range []string{"manifest.jsonc", "manifest.json"} {
+		path := filepath.Join(tempDir, name)
+		if _, err := os.Stat(path); err == nil {
+			manifestFile = path
+			break
+		}
 	}
 
 	// 复制整合包内容到版本目录（除了清单文件）
@@ -1021,6 +994,37 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("成功安装整合包: %s", versionID))
 	return versionID, nil
+}
+
+// ParseModpack 解析整合包（用于前端展示）
+func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
+	// 验证文件是否存在
+	if _, err := os.Stat(modpackPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("文件不存在: %s", modpackPath)
+	}
+
+	// 使用解析器解析整合包
+	manifest, err := a.modpackRegistry.ParseModpack(modpackPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为前端格式
+	return map[string]interface{}{
+		"name":            manifest.Name,
+		"version":         manifest.Version,
+		"author":          manifest.Author,
+		"description":     manifest.Description,
+		"icon":            manifest.Icon,
+		"created":         manifest.Created,
+		"changelog":       manifest.Changelog,
+		"manifestVersion": manifest.ManifestVersion,
+		"filePath":        manifest.FilePath,
+		"fileHash":        manifest.FileHash,
+		"survivalcraft":   manifest.Survivalcraft,
+		"mods":            manifest.Mods,
+		"overrides":       manifest.Overrides,
+	}, nil
 }
 
 // copyDirectoryContents 复制目录内容（排除特定文件）

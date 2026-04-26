@@ -234,6 +234,10 @@ export function OpenVersionModsFolder(arg1) {
   return window['go']['main']['App']['OpenVersionModsFolder'](arg1);
 }
 
+export function ParseModpack(arg1) {
+  return window['go']['main']['App']['ParseModpack'](arg1);
+}
+
 export function PreviewSaveGame(arg1) {
   return window['go']['main']['App']['PreviewSaveGame'](arg1);
 }

@@ -37,6 +37,13 @@
           </template>
         </n-empty>
       </n-spin>
+
+    <!-- 整合包信息对话框 -->
+    <ModpackInfoDialog
+      v-model:show="showModpackDialog"
+      :modpack-data="parsedModpackInfo"
+      @install="handleModpackInstall"
+    />
     </n-space>
   </div>
 </template>
@@ -48,7 +55,8 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack } from '../api/version'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack } from '../api/version'
+import ModpackInfoDialog from '../components/ModpackInfoDialog.vue'
 import VersionToolbar from '../components/VersionToolbar.vue'
 import VersionListItem from '../components/VersionListItem.vue'
 import type { Version } from '../types/version'
@@ -64,6 +72,8 @@ const loading = ref(false)
 const renamingVersion = ref<Version | null>(null)
 const newName = ref('')
 const filterType = ref<string>('all')
+const showModpackDialog = ref(false)
+const parsedModpackInfo = ref<any>(null)
 
 const installedVersions = computed(() => versionStore.installedVersions)
 
@@ -266,25 +276,71 @@ async function handleInstallModpack() {
       return
     }
 
-    // 显示正在安装的消息
+    // 先在后台解析，不要立即打开弹窗
     const loadingMsg = message.loading(t('installed.installingModpack'), { duration: 0 })
 
     try {
-      // 安装整合包
-      const versionId = await InstallModpack(modpackPath)
+      // 解析整合包
+      const info = await ParseModpack(modpackPath)
 
       loadingMsg.destroy()
-      message.success(t('installed.modpackInstallSuccess'))
 
-      // 重新加载版本列表
-      await versionStore.getVersions()
-      await versionStore.getPrimaryVersion()
-    } catch (error) {
+      // 解析成功，保存解析的数据并打开弹窗
+      parsedModpackInfo.value = info
+      showModpackDialog.value = true
+    } catch (error: any) {
       loadingMsg.destroy()
-      message.error(t('installed.modpackInstallFailed') + '：' + error)
+
+      // 解析失败，显示错误对话框
+      const errorMsg = error?.message || error?.toString() || '未知错误'
+      console.error('解析整合包失败:', error)
+
+      // 检查是否是平台不支持错误
+      const isPlatformError = errorMsg.includes('暂不支持') || errorMsg.includes('does not support')
+
+      dialog.create({
+        title: isPlatformError ? t('installed.modpackNotSupportedWindows') : t('installed.modpackParseFailed'),
+        content: () => {
+          return h('div', [
+            isPlatformError
+              ? h('p', { style: 'margin-bottom: 12px; font-size: 14px; padding: 16px; background: var(--n-error-color); color: white; border-radius: 4px;' }, '该整合包仅支持 Android 平台，无法在 Windows 版启动器中安装。')
+              : h('div', [
+                  h('p', { style: 'margin-bottom: 12px;' }, '解析整合包时发生错误：'),
+                  h('div', {
+                    style: 'background: var(--n-code-color); padding: 12px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all;'
+                  }, errorMsg)
+                ])
+          ])
+        },
+        positiveText: t('common.confirm')
+      })
     }
   } catch (error) {
     message.error(t('installed.selectModpackFailed') + '：' + error)
+  }
+}
+
+async function handleModpackInstall() {
+  if (!parsedModpackInfo.value) {
+    return
+  }
+
+  // 显示正在安装的消息
+  const loadingMsg = message.loading(t('installed.installingModpack'), { duration: 0 })
+
+  try {
+    // 使用解析信息中的文件路径进行安装
+    const versionId = await InstallModpack(parsedModpackInfo.value.filePath)
+
+    loadingMsg.destroy()
+    message.success(t('installed.modpackInstallSuccess'))
+
+    // 重新加载版本列表
+    await versionStore.getVersions()
+    await versionStore.getPrimaryVersion()
+  } catch (error) {
+    loadingMsg.destroy()
+    message.error(t('installed.modpackInstallFailed') + '：' + error)
   }
 }
 
