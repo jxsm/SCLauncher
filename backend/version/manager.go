@@ -358,6 +358,8 @@ func (m *Manager) modelToVersion(model *storage.VersionModel) Version {
 		Illustrate:  model.Illustrate,
 		ReleaseDate: model.CreatedAt,
 		Installed:   model.Installed,
+		IsPrimary:   model.IsPrimary,
+		IsCustomName: model.IsCustomName,
 		LocalPath:   model.LocalPath,
 		PathExists:  pathExists,
 	}

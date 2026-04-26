@@ -12,6 +12,9 @@
           <n-tag v-if="!isImportedVersion" :type="versionTypeColor" size="small">
             {{ versionTypeText }}
           </n-tag>
+          <n-tag v-if="version.isCustomName" type="info" size="small">
+            {{ t('versions.customVersion') }}
+          </n-tag>
           <n-tag v-if="!isPathMissing" type="success" size="small">
             {{ t('versions.installed') }}
           </n-tag>
@@ -133,7 +136,8 @@ const versionTypeText = computed(() => {
   const types = {
     api: t('versions.apiVersion'),
     net: t('versions.netVersion'),
-    original: t('versions.originalVersion')
+    original: t('versions.originalVersion'),
+    modified: t('versions.modifiedVersion')
   }
   return types[props.version.versionType as keyof typeof types] || props.version.versionType
 })
@@ -143,6 +147,7 @@ const versionTypeColor = computed(() => {
     case 'api': return 'info'
     case 'net': return 'warning'
     case 'original': return 'success'
+    case 'modified': return 'error'
     default: return 'default'
   }
 })

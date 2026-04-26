@@ -93,6 +93,7 @@ export default {
   versions: {
     title: 'إدارة الإصدارات',
     allVersions: 'جميع الإصدارات',
+    all: 'الكل',
     stable: 'مستقر',
     beta: 'تجريبي',
     alpha: 'ألفا',
@@ -132,6 +133,8 @@ export default {
     apiVersion: 'إصدار البرنامج المساعد',
     netVersion: 'إصدار الشبكة',
     originalVersion: 'الإصدار الأصلي',
+    modifiedVersion: 'الإصدار المعدل',
+    customVersion: 'اسم مخصص',
     totalVersions: 'المجموع',
     versionsCount: 'إصدارات متاحة',
     versionListUpdated: 'تم تحديث قائمة الإصدارات',

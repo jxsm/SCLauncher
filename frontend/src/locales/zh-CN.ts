@@ -92,7 +92,8 @@ export default {
   },
   versions: {
     title: '版本管理',
-    allVersions: '所有版本',
+    allVersions: '全部版本',
+    all: '全部',
     stable: '稳定版',
     beta: '测试版',
     alpha: '内测版',
@@ -132,6 +133,8 @@ export default {
     apiVersion: '插件版',
     netVersion: '联机版',
     originalVersion: '原版',
+    modifiedVersion: '修改版',
+    customVersion: '自定义名称',
     totalVersions: '共',
     versionsCount: '个版本可下载',
     versionListUpdated: '版本列表已更新',

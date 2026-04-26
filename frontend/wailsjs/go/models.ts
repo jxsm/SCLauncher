@@ -153,6 +153,8 @@ export namespace version {
 	    // Go type: time
 	    releaseDate: any;
 	    installed: boolean;
+	    isPrimary: boolean;
+	    isCustomName: boolean;
 	    localPath?: string;
 	    pathExists: boolean;
 	
@@ -174,6 +176,8 @@ export namespace version {
 	        this.illustrate = source["illustrate"];
 	        this.releaseDate = this.convertValues(source["releaseDate"], null);
 	        this.installed = source["installed"];
+	        this.isPrimary = source["isPrimary"];
+	        this.isCustomName = source["isCustomName"];
 	        this.localPath = source["localPath"];
 	        this.pathExists = source["pathExists"];
 	    }

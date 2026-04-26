@@ -3,7 +3,10 @@
     <n-space vertical size="large">
       <!-- 工具栏 -->
       <VersionToolbar
-        :total-count="installedVersions.length"
+        :total-count="filteredVersions.length"
+        :filter-type="filterType"
+        :type-options="typeOptions"
+        @update:filter-type="filterType = $event"
         @import-game="handleImportGame"
         @local-install="handleLocalInstall"
       />
@@ -12,7 +15,7 @@
       <n-spin :show="loading">
         <n-list hoverable clickable>
           <VersionListItem
-            v-for="version in installedVersions"
+            v-for="version in filteredVersions"
             :key="version.id"
             :version="version"
             :is-path-missing="isPathMissing(version)"
@@ -25,7 +28,7 @@
             @delete="handleDelete"
           />
         </n-list>
-        <n-empty v-if="installedVersions.length === 0 && !loading" :description="t('installed.noVersions')">
+        <n-empty v-if="filteredVersions.length === 0 && !loading" :description="t('installed.noVersions')">
           <template #extra>
             <n-button type="primary" @click="$router.push('/versions')">
               {{ t('installed.goToVersions') }}
@@ -59,8 +62,28 @@ const router = useRouter()
 const loading = ref(false)
 const renamingVersion = ref<Version | null>(null)
 const newName = ref('')
+const filterType = ref<string>('all')
 
 const installedVersions = computed(() => versionStore.installedVersions)
+
+const typeOptions = computed(() => [
+  { label: t('versions.all'), value: 'all' },
+  { label: t('versions.apiVersion'), value: 'api' },
+  { label: t('versions.netVersion'), value: 'net' },
+  { label: t('versions.originalVersion'), value: 'original' },
+  { label: t('versions.modifiedVersion'), value: 'modified' },
+  { label: t('versions.customVersion'), value: 'custom' }
+])
+
+const filteredVersions = computed(() => {
+  if (filterType.value === 'all') {
+    return installedVersions.value
+  }
+  if (filterType.value === 'custom') {
+    return installedVersions.value.filter(v => v.isCustomName)
+  }
+  return installedVersions.value.filter(v => v.versionType === filterType.value)
+})
 
 // 判断路径是否缺失
 function isPathMissing(version: Version): boolean {

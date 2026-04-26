@@ -93,6 +93,7 @@ export default {
   versions: {
     title: 'Управление версиями',
     allVersions: 'Все версии',
+    all: 'Все',
     stable: 'Стабильная',
     beta: 'Бета',
     alpha: 'Альфа',
@@ -132,6 +133,8 @@ export default {
     apiVersion: 'Версия плагина',
     netVersion: 'Сетевая версия',
     originalVersion: 'Оригинальная версия',
+    modifiedVersion: 'Модифицированная версия',
+    customVersion: 'Пользовательское название',
     totalVersions: 'Всего',
     versionsCount: 'доступных версий',
     versionListUpdated: 'Список версий обновлён',

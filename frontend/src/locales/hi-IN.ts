@@ -93,6 +93,7 @@ export default {
   versions: {
     title: 'संस्करण प्रबंधन',
     allVersions: 'सभी संस्करण',
+    all: 'सभी',
     stable: 'स्थिर',
     beta: 'बीटा',
     alpha: 'अल्फा',
@@ -132,6 +133,8 @@ export default {
     apiVersion: 'प्लगइन संस्करण',
     netVersion: 'नेटवर्क संस्करण',
     originalVersion: 'मूल संस्करण',
+    modifiedVersion: 'संशोधित संस्करण',
+    customVersion: 'कस्टम नाम',
     totalVersions: 'कुल',
     versionsCount: 'उपलब्ध संस्करण',
     versionListUpdated: 'संस्करण सूची अपडेट की गई',

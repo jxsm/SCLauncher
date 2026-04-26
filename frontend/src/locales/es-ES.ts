@@ -93,6 +93,7 @@ export default {
   versions: {
     title: 'Administración de Versiones',
     allVersions: 'Todas las Versiones',
+    all: 'Todas',
     stable: 'Estable',
     beta: 'Beta',
     alpha: 'Alfa',
@@ -132,6 +133,8 @@ export default {
     apiVersion: 'Versión de Complementos',
     netVersion: 'Versión de Red',
     originalVersion: 'Versión Original',
+    modifiedVersion: 'Versión Modificada',
+    customVersion: 'Nombre Personalizado',
     totalVersions: 'Total',
     versionsCount: 'versiones disponibles',
     versionListUpdated: 'Lista de versiones actualizada',

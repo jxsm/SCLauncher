@@ -83,7 +83,9 @@ const selectedManifestSourceId = ref<string>('')
 
 const typeOptions = computed(() => [
   { label: t('versions.apiVersion'), value: 'api' },
-  { label: t('versions.netVersion'), value: 'net' }
+  { label: t('versions.netVersion'), value: 'net' },
+  { label: t('versions.originalVersion'), value: 'original' },
+  { label: t('versions.modifiedVersion'), value: 'modified' }
 ])
 
 const manifestSourceOptions = computed(() =>

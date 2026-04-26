@@ -93,6 +93,7 @@ export default {
   versions: {
     title: 'Manajemen Versi',
     allVersions: 'Semua Versi',
+    all: 'Semua',
     stable: 'Stabil',
     beta: 'Beta',
     alpha: 'Alpha',
@@ -132,6 +133,8 @@ export default {
     apiVersion: 'Versi Plugin',
     netVersion: 'Versi Jaringan',
     originalVersion: 'Versi Asli',
+    modifiedVersion: 'Versi Dimodifikasi',
+    customVersion: 'Nama Kustom',
     totalVersions: 'Total',
     versionsCount: 'versi tersedia',
     versionListUpdated: 'Daftar versi diperbarui',

@@ -153,7 +153,10 @@ func (r *Repository) CheckVersionNameExists(name string, excludeID string) (bool
 func (r *Repository) RenameVersion(id, newName string) error {
 	return r.db.Model(&VersionModel{}).
 		Where("id = ?", id).
-		Update("name", newName).Error
+		Updates(map[string]interface{}{
+			"name":          newName,
+			"is_custom_name": true,
+		}).Error
 }
 
 // ========== 模组相关 ==========

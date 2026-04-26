@@ -93,6 +93,7 @@ export default {
   versions: {
     title: 'Version Management',
     allVersions: 'All Versions',
+    all: 'All',
     stable: 'Stable',
     beta: 'Beta',
     alpha: 'Alpha',
@@ -132,6 +133,8 @@ export default {
     apiVersion: 'Plugin Version',
     netVersion: 'Network Version',
     originalVersion: 'Original Version',
+    modifiedVersion: 'Modified Version',
+    customVersion: 'Custom Name',
     totalVersions: 'Total',
     versionsCount: 'versions available',
     versionListUpdated: 'Version list updated',

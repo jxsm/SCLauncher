@@ -1,5 +1,5 @@
 // 版本类型
-export type VersionType = 'api' | 'net' | 'original'
+export type VersionType = 'api' | 'net' | 'original' | 'modified'
 
 // 版本信息
 export interface Version {
@@ -16,6 +16,7 @@ export interface Version {
   releaseDate: any         // 发布日期（Wails 生成的类型）
   installed?: boolean      // 是否已安装
   isPrimary?: boolean      // 是否为主要版本
+  isCustomName?: boolean   // 是否使用自定义名称（修改版）
   localPath?: string       // 本地路径
   pathExists?: boolean     // 路径是否存在（用于检测手动删除的情况）
 }

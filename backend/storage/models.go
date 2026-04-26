@@ -15,10 +15,11 @@ type VersionModel struct {
 	DownloadURL string    `gorm:"column:download_url" json:"downloadUrl"`       // 下载地址
 	Checksum    string    `gorm:"column:checksum" json:"checksum"`              // SHA256 校验和
 	FileFormat  string    `gorm:"column:file_format" json:"fileFormat"`        // 文件格式 (zip)
-	Installed   bool      `gorm:"column:installed;index" json:"installed"`      // 是否已安装
-	IsPrimary   bool      `gorm:"column:is_primary;index" json:"isPrimary"`     // 是否为主要版本
-	LocalPath   string    `gorm:"column:local_path" json:"localPath,omitempty"` // 本地路径
-	Illustrate  string    `gorm:"column:illustrate" json:"illustrate"`          // 说明
+	Installed     bool      `gorm:"column:installed;index" json:"installed"`         // 是否已安装
+	IsPrimary     bool      `gorm:"column:is_primary;index" json:"isPrimary"`        // 是否为主要版本
+	IsCustomName  bool      `gorm:"column:is_custom_name;default:false" json:"isCustomName"` // 是否使用自定义名称（修改版）
+	LocalPath     string    `gorm:"column:local_path" json:"localPath,omitempty"`   // 本地路径
+	Illustrate    string    `gorm:"column:illustrate" json:"illustrate"`            // 说明
 	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }

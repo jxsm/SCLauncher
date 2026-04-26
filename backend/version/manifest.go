@@ -13,6 +13,7 @@ type Manifest struct {
 	API      map[string][]ManifestVersion `json:"api"`      // 插件版
 	NET      map[string][]ManifestVersion `json:"net"`      // 联机版
 	Original map[string][]ManifestVersion `json:"original"` // 原版
+	Modified map[string][]ManifestVersion `json:"modified"` // 修改版
 }
 
 // ManifestVersion 清单中的版本信息
@@ -32,6 +33,7 @@ const (
 	VersionTypeAPI      VersionType = "api"      // 插件版
 	VersionTypeNET      VersionType = "net"      // 联机版
 	VersionTypeOriginal VersionType = "original" // 原版
+	VersionTypeModified VersionType = "modified" // 修改版
 )
 
 // Version 完整的版本信息
@@ -46,10 +48,12 @@ type Version struct {
 	Checksum    string     `json:"checksum"`    // SHA256 校验和
 	FileFormat  string     `json:"fileFormat"`  // 文件格式
 	Illustrate  string     `json:"illustrate"`  // 说明
-	ReleaseDate time.Time  `json:"releaseDate"` // 发布日期
-	Installed   bool       `json:"installed"`   // 是否已安装（运行时计算）
-	LocalPath   string     `json:"localPath,omitempty"` // 本地路径（运行时计算）
-	PathExists  bool       `json:"pathExists"` // 路径是否存在（用于检测手动删除）
+	ReleaseDate  time.Time  `json:"releaseDate"` // 发布日期
+	Installed    bool       `json:"installed"`   // 是否已安装（运行时计算）
+	IsPrimary    bool       `json:"isPrimary"`   // 是否为主要版本
+	IsCustomName bool       `json:"isCustomName"` // 是否使用自定义名称（修改版）
+	LocalPath    string     `json:"localPath,omitempty"` // 本地路径（运行时计算）
+	PathExists   bool       `json:"pathExists"` // 路径是否存在（用于检测手动删除）
 }
 
 // ManifestParser 清单解析器
@@ -164,6 +168,25 @@ func (m *Manifest) ToVersions() []Version {
 		}
 	}
 
+	// 解析修改版
+	for gameVersion, manifestVersions := range m.Modified {
+		for _, mv := range manifestVersions {
+			versions = append(versions, Version{
+				ID:          generateVersionID(VersionTypeModified, gameVersion, mv.SubVersion),
+				VersionType: VersionTypeModified,
+				GameVersion: gameVersion,
+				SubVersion:  mv.SubVersion,
+				Name:        fmt.Sprintf("修改版 %s %s", gameVersion, mv.SubVersion),
+				Size:        mv.Size,
+				DownloadURL: mv.Path,
+				Checksum:    mv.SHA256,
+				FileFormat:  mv.FileFormat,
+				Illustrate:  mv.Illustrate,
+				ReleaseDate: time.Now(),
+			})
+		}
+	}
+
 	return versions
 }
 
@@ -181,6 +204,8 @@ func (vt VersionType) GetDisplayName() string {
 		return "联机版"
 	case VersionTypeOriginal:
 		return "原版"
+	case VersionTypeModified:
+		return "修改版"
 	default:
 		return string(vt)
 	}
