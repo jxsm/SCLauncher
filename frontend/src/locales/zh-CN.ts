@@ -221,7 +221,17 @@ export default {
     modpackParseFailed: '解析整合包失败',
     startInstall: '开始安装',
     modpackNotSupportedWindows: '该整合包暂不支持 Windows',
-    modpackExternalLinksWarning: '该整合包中使用了其他外部链接，请注意风险'
+    modpackExternalLinksWarning: '该整合包中使用了其他外部链接，请注意风险',
+    installProgress: '安装进度',
+    installStages: '安装阶段',
+    stagePrepare: '准备环境',
+    stageDownloadGame: '下载游戏',
+    stageInstallGame: '安装游戏',
+    stageDownloadMods: '下载模组',
+    stageInstallMods: '安装模组',
+    stageCopyOverrides: '复制覆盖文件',
+    stageComplete: '完成',
+    installCancelled: '安装已取消'
   },
   mods: {
     title: '模组管理',

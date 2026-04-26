@@ -18,6 +18,10 @@ export function CancelDownload(arg1) {
   return window['go']['main']['App']['CancelDownload'](arg1);
 }
 
+export function CancelModpackInstall() {
+  return window['go']['main']['App']['CancelModpackInstall']();
+}
+
 export function CheckUpdate() {
   return window['go']['main']['App']['CheckUpdate']();
 }
@@ -200,6 +204,10 @@ export function InstallFromArchive(arg1, arg2) {
 
 export function InstallModpack(arg1) {
   return window['go']['main']['App']['InstallModpack'](arg1);
+}
+
+export function InstallModpackWithProgress(arg1) {
+  return window['go']['main']['App']['InstallModpackWithProgress'](arg1);
 }
 
 export function InstallVersion(arg1) {

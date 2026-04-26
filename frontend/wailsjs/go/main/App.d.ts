@@ -14,6 +14,8 @@ export function AutoSetPrimaryVersion():Promise<void>;
 
 export function CancelDownload(arg1:string):Promise<void>;
 
+export function CancelModpackInstall():Promise<void>;
+
 export function CheckUpdate():Promise<Record<string, any>>;
 
 export function CheckUpdateWithForce(arg1:boolean):Promise<Record<string, any>>;
@@ -105,6 +107,8 @@ export function ImportTexture(arg1:string,arg2:string):Promise<void>;
 export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
 
 export function InstallModpack(arg1:string):Promise<string>;
+
+export function InstallModpackWithProgress(arg1:string):Promise<string>;
 
 export function InstallVersion(arg1:string):Promise<void>;
 

@@ -11,6 +11,14 @@ import (
 	v0_1 "SCLauncher/backend/modpack/v0.1"
 )
 
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // Parser 解析器接口
 type Parser interface {
 	// Parse 解析整合包
@@ -199,14 +207,33 @@ func readManifestFile(modpackPath string) (*Manifest, error) {
 		return nil, fmt.Errorf("读取清单文件失败: %v", err)
 	}
 
+	// 输出原始内容用于调试
+	originalContent := string(data)
+	fmt.Printf("=== 主解析器 - 原始清单文件内容 ===\n%s\n=== 结束 ===\n", originalContent)
+
 	// 解析 JSON（支持 jsonc 格式，去除注释）
 	data = removeJSONComments(data)
+
+	// 修复常见的JSON错误（去除多余的逗号）
+	data = fixJSONCommonErrors(data)
+
+	// 输出处理后的内容用于调试
+	processedContent := string(data)
+	fmt.Printf("=== 主解析器 - 处理后的清单文件内容 ===\n%s\n=== 结束 ===\n", processedContent)
 
 	// 解析基本信息（只需要获取 manifestVersion）
 	var basicInfo struct {
 		ManifestVersion float64 `json:"manifestVersion"`
 	}
 	if err := json.Unmarshal(data, &basicInfo); err != nil {
+		// 输出详细的错误信息
+		fmt.Printf("=== 主解析器 - JSON 解析错误详情 ===\n")
+		fmt.Printf("错误: %v\n", err)
+		fmt.Printf("处理后的内容长度: %d\n", len(data))
+		if len(data) > 0 {
+			fmt.Printf("前100个字符: %s\n", string(data[:min(100, len(data))]))
+		}
+		fmt.Printf("=== 错误详情结束 ===\n")
 		return nil, fmt.Errorf("解析清单文件失败: %v", err)
 	}
 
@@ -279,12 +306,61 @@ func removeJSONComments(data []byte) []byte {
 	var result []string
 
 	for _, line := range lines {
-		// 移除行内注释
-		if idx := strings.Index(line, "//"); idx != -1 {
-			line = strings.TrimSpace(line[:idx])
+		// 移除行内注释（但要小心字符串中的 "//"）
+		inString := false
+		escaped := false
+		commentStart := -1
+
+		for i, char := range line {
+			if escaped {
+				escaped = false
+				continue
+			}
+
+			switch char {
+			case '\\':
+				escaped = true
+			case '"':
+				inString = !inString
+			case '/':
+				if !inString && i+1 < len(line) && line[i+1] == '/' {
+					commentStart = i
+				}
+			}
+
+			if commentStart != -1 {
+				break
+			}
 		}
-		result = append(result, line)
+
+		if commentStart != -1 {
+			line = strings.TrimSpace(line[:commentStart])
+		}
+
+		// 保留非空行
+		if line != "" {
+			result = append(result, line)
+		}
 	}
 
-	return []byte(strings.Join(result, "\n"))
+	joined := strings.Join(result, "\n")
+
+	// 如果处理后为空，返回原始数据
+	if len(joined) == 0 {
+		return data
+	}
+
+	return []byte(joined)
+}
+
+// fixJSONCommonErrors 修复常见的JSON错误
+func fixJSONCommonErrors(data []byte) []byte {
+	content := string(data)
+
+	// 修复多余的逗号（在 } 或 ] 之前的逗号）
+	// 匹配 ",}" 或 ",]" 并替换为 "}" 或 "]"
+	content = strings.ReplaceAll(content, ",}", "}")
+	content = strings.ReplaceAll(content, ",]", "]")
+
+	return []byte(content)
 }

@@ -63,7 +63,8 @@ type App struct {
 	savegameMgr    *savegame.Manager
 	textureMgr     *texture.Manager
 	backgroundMgr  *background.Manager
-	modpackRegistry *modpack.ParserRegistry
+	modpackRegistry    *modpack.ParserRegistry
+	modpackInstaller   *modpack.ModpackInstaller
 }
 
 // NewApp 创建应用实例
@@ -123,6 +124,7 @@ func (a *App) startup(ctx context.Context) {
 	a.textureMgr = texture.NewManager(a.paths.GetVersionPath)
 	a.backgroundMgr = background.NewManager(cfg)
 	a.modpackRegistry = modpack.NewParserRegistry()
+	a.modpackInstaller = modpack.NewModpackInstaller(cfg, a.versionMgr, a.modMgr)
 
 	// 自动设置主要版本（如果没有的话）
 	if err := a.versionMgr.AutoSetPrimaryVersion(); err != nil {
@@ -1027,6 +1029,106 @@ func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
 		"hasExternalLinks": manifest.HasExternalLinks,
 	}, nil
 }
+
+// InstallModpackWithProgress 安装整合包（带进度反馈）
+func (a *App) InstallModpackWithProgress(modpackPath string) (string, error) {
+	// 验证文件是否存在
+	if _, err := os.Stat(modpackPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("文件不存在: %s", modpackPath)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装整合包: %s", modpackPath))
+
+	// 使用解析器解析整合包
+	manifest, err := a.modpackRegistry.ParseModpack(modpackPath)
+	if err != nil {
+		return "", fmt.Errorf("解析整合包失败: %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
+
+	// 生成版本ID
+	versionID := fmt.Sprintf("modpack-%d", time.Now().UnixNano())
+
+	// 创建版本目录
+	versionPath := a.paths.GetVersionPath(versionID)
+	if err := os.MkdirAll(filepath.Dir(versionPath), 0755); err != nil {
+		return "", fmt.Errorf("创建版本目录失败: %v", err)
+	}
+
+	// 设置进度回调
+	a.modpackInstaller.SetProgressCallback(func(stage string, progress float64, message string) {
+		runtime.EventsEmit(a.ctx, "modpack:install:progress", map[string]interface{}{
+			"stage":    stage,
+			"progress": progress,
+			"message":  message,
+		})
+	})
+
+	// 发送开始事件
+	runtime.EventsEmit(a.ctx, "modpack:install:start", map[string]interface{}{
+		"versionID": versionID,
+		"name":      manifest.Name,
+		"version":   manifest.Version,
+	})
+
+	// 执行安装（在后台运行）
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
+					"error": fmt.Sprintf("安装过程中发生错误: %v", r),
+				})
+			}
+		}()
+
+		err := a.modpackInstaller.Install(manifest, versionID)
+		if err != nil {
+			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
+				"error": err.Error(),
+			})
+			runtime.LogError(a.ctx, fmt.Sprintf("安装整合包失败: %v", err))
+			return
+		}
+
+		// 创建版本模型
+		versionModel := &storage.VersionModel{
+			ID:          versionID,
+			Name:        manifest.Name,
+			VersionType: "modpack",
+			GameVersion: manifest.Version,
+			Installed:   true,
+			LocalPath:   versionPath,
+			Illustrate:  fmt.Sprintf("整合包: %s\n作者: %s\n版本: %s\n描述: %s", manifest.Name, manifest.Author, manifest.Version, manifest.Description),
+		}
+
+		// 保存到数据库
+		if err := a.repository.CreateVersion(versionModel); err != nil {
+			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
+				"error": fmt.Sprintf("保存版本信息失败: %v", err),
+			})
+			runtime.LogError(a.ctx, fmt.Sprintf("保存版本信息失败: %v", err))
+			return
+		}
+
+		// 发送完成事件
+		runtime.EventsEmit(a.ctx, "modpack:install:complete", map[string]interface{}{
+			"versionID": versionID,
+			"name":      manifest.Name,
+		})
+
+		runtime.LogInfo(a.ctx, fmt.Sprintf("成功安装整合包: %s", versionID))
+	}()
+
+	return versionID, nil
+}
+
+// CancelModpackInstall 取消整合包安装
+func (a *App) CancelModpackInstall() {
+	a.modpackInstaller.Cancel()
+	runtime.EventsEmit(a.ctx, "modpack:install:cancelled", map[string]interface{}{})
+}
+
 
 // copyDirectoryContents 复制目录内容（排除特定文件）
 func copyDirectoryContents(src, dst, excludeFile string) error {

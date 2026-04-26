@@ -12,6 +12,14 @@ import (
 	"strings"
 )
 
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // V01Parser 版本 0.1 的解析器
 type V01Parser struct{}
 
@@ -115,12 +123,29 @@ func (p *V01Parser) Parse(modpackPath string) (any, error) {
 		return nil, fmt.Errorf("读取清单文件失败: %v", err)
 	}
 
+	// 输出原始内容用于调试
+	originalContent := string(data)
+	fmt.Printf("=== 原始清单文件内容 ===\n%s\n=== 结束 ===\n", originalContent)
+
 	// 移除 JSON 注释（支持 jsonc）
 	data = p.removeJSONComments(data)
+
+	// 修复常见的JSON错误（去除多余的逗号）
+	data = p.fixJSONCommonErrors(data)
+
+	// 输出处理后的内容用于调试
+	processedContent := string(data)
+	fmt.Printf("=== 处理后的清单文件内容 ===\n%s\n=== 结束 ===\n", processedContent)
 
 	// 解析清单
 	var manifest V01Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
+		// 输出详细的错误信息
+		fmt.Printf("=== JSON 解析错误详情 ===\n")
+		fmt.Printf("错误: %v\n", err)
+		fmt.Printf("处理后的内容长度: %d\n", len(data))
+		fmt.Printf("前100个字符: %s\n", string(data[:min(100, len(data))]))
+		fmt.Printf("=== 错误详情结束 ===\n")
 		return nil, fmt.Errorf("解析清单文件失败: %v", err)
 	}
 
@@ -187,15 +212,31 @@ func (p *V01Parser) Validate(manifest any) error {
 
 // checkPlatformSupport 检查平台支持
 func (p *V01Parser) checkPlatformSupport(manifest *V01Manifest) error {
+	// survivalcraft 配置是可选的，如果缺失则提示用户
+	if manifest.Survivalcraft == nil {
+		return fmt.Errorf("该整合包未配置游戏版本信息，暂不支持安装")
+	}
+
+	// 检查 Version 配置是否存在
+	if manifest.Survivalcraft.Version.Windows == nil && manifest.Survivalcraft.Version.Android == nil {
+		return fmt.Errorf("该整合包未配置任何平台版本信息")
+	}
+
 	// 检查是否有 Windows 版本配置
-	if manifest.Survivalcraft == nil || manifest.Survivalcraft.Version.Windows == nil {
-		return fmt.Errorf("该整合包暂不支持 Windows")
+	if manifest.Survivalcraft.Version.Windows == nil {
+		return fmt.Errorf("该整合包暂不支持 Windows 平台（仅支持 Android）")
 	}
 
 	// 检查 Windows 版本配置是否有效
 	windowsConfig := manifest.Survivalcraft.Version.Windows
 	if windowsConfig.Version == "" {
 		return fmt.Errorf("该整合包的 Windows 版本配置无效")
+	}
+
+	// 检查是否是完整包格式（carry格式）
+	if strings.HasPrefix(windowsConfig.Version, "2.4:carry/") {
+		// 完整包格式，暂时不支持
+		return fmt.Errorf("完整包格式暂不支持，请使用版本列表或外部下载链接")
 	}
 
 	return nil
@@ -270,17 +311,74 @@ func (p *V01Parser) removeJSONComments(data []byte) []byte {
 	var result []string
 
 	for _, line := range lines {
-		// 移除行内注释
-		if idx := strings.Index(line, "//"); idx != -1 {
-			line = strings.TrimSpace(line[:idx])
+		// 移除行内注释（但要小心字符串中的 "//"）
+		inString := false
+		escaped := false
+		commentStart := -1
+
+		for i, char := range line {
+			if escaped {
+				escaped = false
+				continue
+			}
+
+			switch char {
+			case '\\':
+				escaped = true
+			case '"':
+				inString = !inString
+			case '/':
+				if !inString && i+1 < len(line) && line[i+1] == '/' {
+					commentStart = i
+				}
+			}
+
+			if commentStart != -1 {
+				break
+			}
 		}
-		// 保留非空行
-		if line != "" {
+
+		if commentStart != -1 {
+			line = strings.TrimSpace(line[:commentStart])
+		}
+
+		// 保留非空行和包含逗号或括号的行（保持JSON结构）
+		if line != "" || len(result) > 0 {
 			result = append(result, line)
 		}
 	}
 
-	return []byte(strings.Join(result, "\n"))
+	joined := strings.Join(result, "\n")
+
+	// 验证结果是否为有效的JSON
+	if len(joined) == 0 {
+		return data
+	}
+
+	return []byte(joined)
+}
+
+// fixJSONCommonErrors 修复常见的JSON错误
+func (p *V01Parser) fixJSONCommonErrors(data []byte) []byte {
+	content := string(data)
+
+	// 修复多余的逗号（在 } 或 ] 之前的逗号）
+	// 匹配 ",}" 或 ",]" 并替换为 "}" 或 "]"
+	content = strings.ReplaceAll(content, ",}", "}")
+	content = strings.ReplaceAll(content, ",]", "]")
+
+	// 修复空字符串值（将 "path": "" 等改为 null）
+	// 但要小心不要破坏正常的空字符串
+	content = p.fixEmptyStringValues(content)
+
+	return []byte(content)
+}
+
+// fixEmptyStringValues 修复空字符串值
+func (p *V01Parser) fixEmptyStringValues(content string) string {
+	// 暂时不处理空字符串，因为它们在某些情况下是有效的
+	// 如果需要，可以在这里添加逻辑来处理特定的空字符串情况
+	return content
 }
 
 // calculateFileHash 计算文件哈希
@@ -318,6 +416,7 @@ func (p *V01Parser) verifyChecksum(manifest *V01Manifest, fileHash string) error
 	// if fileHash != expectedHash {
 	//     return fmt.Errorf("整合包已损坏，校验和不匹配")
 	// }
+	_ = fileHash // 暂时避免未使用参数警告
 
 	return nil
 }

@@ -44,6 +44,14 @@
       :modpack-data="parsedModpackInfo"
       @install="handleModpackInstall"
     />
+
+    <!-- 整合包安装进度对话框 -->
+    <ModpackInstallDialog
+      v-model:show="showInstallDialog"
+      :modpack-info="parsedModpackInfo"
+      @completed="handleInstallCompleted"
+      @error="handleInstallError"
+    />
     </n-space>
   </div>
 </template>
@@ -55,8 +63,9 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack } from '../api/version'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack, InstallModpackWithProgress } from '../api/version'
 import ModpackInfoDialog from '../components/ModpackInfoDialog.vue'
+import ModpackInstallDialog from '../components/ModpackInstallDialog.vue'
 import VersionToolbar from '../components/VersionToolbar.vue'
 import VersionListItem from '../components/VersionListItem.vue'
 import type { Version } from '../types/version'
@@ -73,6 +82,7 @@ const renamingVersion = ref<Version | null>(null)
 const newName = ref('')
 const filterType = ref<string>('all')
 const showModpackDialog = ref(false)
+const showInstallDialog = ref(false)
 const parsedModpackInfo = ref<any>(null)
 
 const installedVersions = computed(() => versionStore.installedVersions)
@@ -325,23 +335,39 @@ async function handleModpackInstall() {
     return
   }
 
-  // 显示正在安装的消息
-  const loadingMsg = message.loading(t('installed.installingModpack'), { duration: 0 })
-
   try {
-    // 使用解析信息中的文件路径进行安装
-    const versionId = await InstallModpack(parsedModpackInfo.value.filePath)
+    // 关闭信息对话框
+    showModpackDialog.value = false
 
-    loadingMsg.destroy()
-    message.success(t('installed.modpackInstallSuccess'))
+    // 打开安装进度对话框
+    showInstallDialog.value = true
 
-    // 重新加载版本列表
-    await versionStore.getVersions()
-    await versionStore.getPrimaryVersion()
+    // 使用新的安装方法（带进度反馈）
+    await InstallModpackWithProgress(parsedModpackInfo.value.filePath)
   } catch (error) {
-    loadingMsg.destroy()
     message.error(t('installed.modpackInstallFailed') + '：' + error)
+    showInstallDialog.value = false
   }
+}
+
+// 安装完成回调
+async function handleInstallCompleted(versionId: string) {
+  message.success(t('installed.modpackInstallSuccess'))
+
+  // 延迟关闭对话框，让用户看到完成状态
+  setTimeout(() => {
+    showInstallDialog.value = false
+  }, 2000)
+
+  // 重新加载版本列表
+  await versionStore.getVersions()
+  await versionStore.getPrimaryVersion()
+}
+
+// 安装错误回调
+function handleInstallError(error: string) {
+  console.error('整合包安装失败:', error)
+  // 对话框会显示错误信息，用户可以手动关闭
 }
 
 async function getCustomVersionName(defaultName: string): Promise<string | null> {

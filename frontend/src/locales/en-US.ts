@@ -221,7 +221,17 @@ export default {
     modpackParseFailed: 'Failed to parse modpack',
     startInstall: 'Start Installation',
     modpackNotSupportedWindows: 'This modpack does not support Windows',
-    modpackExternalLinksWarning: 'This modpack contains external links, please be careful'
+    modpackExternalLinksWarning: 'This modpack contains external links, please be careful',
+    installProgress: 'Installation Progress',
+    installStages: 'Installation Stages',
+    stagePrepare: 'Preparing Environment',
+    stageDownloadGame: 'Downloading Game',
+    stageInstallGame: 'Installing Game',
+    stageDownloadMods: 'Downloading Mods',
+    stageInstallMods: 'Installing Mods',
+    stageCopyOverrides: 'Copying Override Files',
+    stageComplete: 'Complete',
+    installCancelled: 'Installation cancelled'
   },
   mods: {
     title: 'Mod Management',

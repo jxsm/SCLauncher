@@ -126,3 +126,13 @@ export async function InstallModpack(modpackPath: string): Promise<string> {
 export async function ParseModpack(modpackPath: string): Promise<any> {
   return await AppBindings.ParseModpack(modpackPath)
 }
+
+// 安装整合包（带进度反馈）
+export async function InstallModpackWithProgress(modpackPath: string): Promise<string> {
+  return await AppBindings.InstallModpackWithProgress(modpackPath)
+}
+
+// 取消整合包安装
+export async function CancelModpackInstall(): Promise<void> {
+  await AppBindings.CancelModpackInstall()
+}
