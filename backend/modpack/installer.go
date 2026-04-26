@@ -1,6 +1,7 @@
 package modpack
 
 import (
+	"archive/zip"
 	"fmt"
 	"io"
 	"net/http"
@@ -193,18 +194,27 @@ func (m *ModpackInstaller) Install(manifest *Manifest, targetVersionID string) e
 		return fmt.Errorf("安装已取消")
 	}
 
+	fmt.Printf("=== 开始阶段4: 复制覆盖文件 ===\n")
+	fmt.Printf("manifest.Overrides 值: '%s'\n", manifest.Overrides)
+	fmt.Printf("gamePath 值: '%s'\n", gamePath)
+
 	m.updateProgress(StageCopyOverrides, 0, "复制覆盖文件...")
 	if manifest.Overrides != "" {
+		fmt.Printf("overrides 字段不为空，开始执行覆盖逻辑...\n")
 		if err := m.copyOverrides(manifest, gamePath); err != nil {
 			// 覆盖文件复制失败不应该阻止整个安装过程
 			// 只记录错误，不中断安装
+			fmt.Printf("覆盖文件复制失败: %v\n", err)
 			m.updateProgress(StageCopyOverrides, 50, fmt.Sprintf("覆盖文件复制跳过: %v", err))
 		} else {
+			fmt.Printf("覆盖文件复制成功！\n")
 			m.updateProgress(StageCopyOverrides, 100, "覆盖文件复制完成")
 		}
 	} else {
+		fmt.Printf("overrides 字段为空，跳过覆盖逻辑\n")
 		m.updateProgress(StageCopyOverrides, 100, "无覆盖文件，跳过")
 	}
+	fmt.Printf("=== 阶段4结束 ===\n")
 
 	// 完成
 	m.updateProgress(StageComplete, 100, "安装完成！")
@@ -468,43 +478,89 @@ func (m *ModpackInstaller) installGameToVersion(archivePath string, versionPath 
 	return versionPath, nil
 }
 
-// downloadMods 下载模组
+// downloadMods 下载模组（使用并发控制，最多2个并发）
 func (m *ModpackInstaller) downloadMods(manifest *Manifest, targetVersionID string) error {
 	if len(manifest.Mods) == 0 {
 		m.updateProgress(StageDownloadMods, 100, "无需下载模组")
 		return nil
 	}
 
+	// 创建semaphore限制并发数为2
+	sem := make(chan struct{}, 2)
+	var wg sync.WaitGroup
+
+	// 用于收集错误
+	errorChan := make(chan error, len(manifest.Mods))
+	successCount := 0
+	failedMods := make([]string, 0)
+	var successMutex sync.Mutex
+
 	totalMods := len(manifest.Mods)
+	completedCount := 0
+
+	// 创建SCBBS API客户端
+	scbbsClient := NewSCBBSApiClient()
+
 	for i, modInfo := range manifest.Mods {
+		// 检查是否已取消
 		if m.IsCancelled() {
 			return fmt.Errorf("下载已取消")
 		}
 
-		// 计算进度
-		progress := float64(i) / float64(totalMods) * 100
-		m.updateProgress(StageDownloadMods, progress,
-			fmt.Sprintf("下载模组 %d/%d: %s", i+1, totalMods, modInfo.Name))
+		wg.Add(1)
+		go func(index int, mod ModInfo) {
+			defer wg.Done()
 
-		if err := m.downloadMod(modInfo, targetVersionID, manifest.ModPath); err != nil {
-			if modInfo.Required {
-				return fmt.Errorf("下载必需模组 %s 失败: %w", modInfo.Name, err)
+			// 获取semaphore槽位
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			// 下载模组
+			err := m.downloadMod(mod, targetVersionID, manifest.ModPath, scbbsClient)
+
+			// 线程安全地更新结果
+			successMutex.Lock()
+			completedCount++
+			if err != nil {
+				if mod.Required {
+					errorChan <- fmt.Errorf("下载必需模组 %s 失败: %w", mod.Name, err)
+				} else {
+					// 非必需模组，记录失败但继续
+					failedMods = append(failedMods, fmt.Sprintf("%s: %v", mod.Name, err))
+				}
+			} else {
+				successCount++
 			}
-			// 非必需模组，记录错误但继续
-			m.updateProgress(StageDownloadMods, progress,
-				fmt.Sprintf("跳过可选模组 %s: %v", modInfo.Name, err))
-		}
+
+			// 更新进度
+			progress := float64(completedCount) / float64(totalMods) * 100
+			currentMsg := fmt.Sprintf("下载模组 %d/%d: %s", completedCount, totalMods, mod.Name)
+			m.updateProgress(StageDownloadMods, progress, currentMsg)
+			successMutex.Unlock()
+		}(i, modInfo)
 	}
 
-	m.updateProgress(StageDownloadMods, 100, fmt.Sprintf("成功下载 %d 个模组", totalMods))
+	// 等待所有下载完成
+	wg.Wait()
+	close(errorChan)
+
+	// 检查是否有必需模组下载失败
+	for err := range errorChan {
+		return err
+	}
+
+	// 显示最终结果
+	resultMsg := fmt.Sprintf("成功下载 %d 个模组", successCount)
+	if len(failedMods) > 0 {
+		resultMsg += fmt.Sprintf("，跳过 %d 个可选模组", len(failedMods))
+	}
+	m.updateProgress(StageDownloadMods, 100, resultMsg)
+
 	return nil
 }
 
 // downloadMod 下载单个模组
-func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, globalModPath string) error {
-	// TODO: 实现模组下载逻辑
-	// 这里需要调用模组管理器的下载功能
-
+func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, globalModPath string, scbbsClient *SCBBSApiClient) error {
 	// 确定模组的安装路径
 	modPath := modInfo.ModPath
 	if modPath == "" {
@@ -514,13 +570,116 @@ func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, 
 		modPath = "/Mods" // 默认路径
 	}
 
-	_ = targetVersionID // 暂时避免未使用参数警告
-	_ = modInfo
-	_ = modPath
+	// 确定下载URL和文件名
+	var downloadURL string
+	var fileName string
+
+	// 优先使用自定义下载链接
+	if modInfo.Path != "" && m.isValidURL(modInfo.Path) {
+		downloadURL = modInfo.Path
+		// 从URL中提取文件名，如果没有则使用模组名称
+		if idx := strings.LastIndex(downloadURL, "/"); idx != -1 {
+			fileName = downloadURL[idx+1:]
+		} else {
+			fileName = modInfo.Name + ".scmod"
+		}
+	} else {
+		// 从SCBBS获取下载链接
+		postDetail, err := scbbsClient.GetModVersions(modInfo.ProjectID)
+		if err != nil {
+			return fmt.Errorf("获取模组版本信息失败: %w", err)
+		}
+
+		// 查找匹配的版本
+		_, modFile, err := scbbsClient.FindMatchingVersion(postDetail.Data.PostVersions, modInfo.Version)
+		if err != nil {
+			return fmt.Errorf("查找匹配版本失败: %w", err)
+		}
+
+		downloadURL = modFile.URL
+		fileName = modFile.Filename
+	}
+
+	// 下载模组文件
+	tempFilePath, err := m.downloadModFile(downloadURL, fileName, modInfo.Name)
+	if err != nil {
+		return fmt.Errorf("下载模组文件失败: %w", err)
+	}
+	defer os.Remove(tempFilePath) // 下载完成后删除临时文件
+
+	// 构建目标路径
+	versionPath := m.paths.GetVersionPath(targetVersionID)
+	destPath := filepath.Join(versionPath, modPath, fileName)
+
+	// 确保目标目录存在
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return fmt.Errorf("创建目标目录失败: %w", err)
+	}
+
+	// 移动文件到目标位置
+	if err := os.Rename(tempFilePath, destPath); err != nil {
+		// 如果跨设备移动失败，尝试复制
+		if err := copyFile(tempFilePath, destPath); err != nil {
+			return fmt.Errorf("移动模组文件失败: %w", err)
+		}
+	}
+
 	return nil
 }
 
-// copyOverrides 复制覆盖文件
+// downloadModFile 下载模组文件到临时目录
+func (m *ModpackInstaller) downloadModFile(downloadURL, fileName, _ string) (string, error) {
+	// 创建临时文件（使用fileName作为临时文件名的一部分，方便调试）
+	tempFile, err := os.CreateTemp("", fmt.Sprintf("scmod-%s-*.tmp", fileName))
+	if err != nil {
+		return "", fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	defer tempFile.Close()
+
+	tempFilePath := tempFile.Name()
+
+	// 发起HTTP请求
+	resp, err := m.httpClient.Get(downloadURL)
+	if err != nil {
+		os.Remove(tempFilePath)
+		return "", fmt.Errorf("下载请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		os.Remove(tempFilePath)
+		return "", fmt.Errorf("下载失败: HTTP %d", resp.StatusCode)
+	}
+
+	// 下载文件
+	buffer := make([]byte, 32*1024)
+	for {
+		if m.IsCancelled() {
+			os.Remove(tempFilePath)
+			return "", fmt.Errorf("下载已取消")
+		}
+
+		n, err := resp.Body.Read(buffer)
+		if n > 0 {
+			if _, err := tempFile.Write(buffer[:n]); err != nil {
+				os.Remove(tempFilePath)
+				return "", fmt.Errorf("写入文件失败: %w", err)
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			os.Remove(tempFilePath)
+			return "", fmt.Errorf("下载失败: %w", err)
+		}
+	}
+
+	return tempFilePath, nil
+}
+
+// copyOverrides 复制覆盖文件（直接从压缩包中提取 overrides 目录）
 func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) error {
 	// 检查 overrides 字段是否为空
 	if manifest.Overrides == "" {
@@ -529,57 +688,90 @@ func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) er
 
 	m.updateProgress(StageCopyOverrides, 10, "准备复制覆盖文件...")
 
-	// 解压整合包到临时目录
-	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("sc-modpack-overrides-%s", manifest.FileHash))
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return fmt.Errorf("创建临时目录失败: %w", err)
+	// 打开整合包压缩包（.scmodpack 实际上是 zip 文件）
+	zipReader, err := zip.OpenReader(manifest.FilePath)
+	if err != nil {
+		return fmt.Errorf("打开整合包失败: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer zipReader.Close()
 
-	// 解压
-	installer := version.NewInstaller()
-	if err := installer.Install(manifest.FilePath, tempDir, nil); err != nil {
-		return fmt.Errorf("解压整合包失败: %w", err)
+	// 构建 overrides 目录前缀（zip 文件中路径总是使用 /）
+	overridesPrefix := strings.TrimSuffix(manifest.Overrides, "/") + "/"
+
+	// 添加调试信息：列出所有文件
+	fmt.Printf("=== 覆盖文件调试信息 ===\n")
+	fmt.Printf("Overrides 字段: %s\n", manifest.Overrides)
+	fmt.Printf("查找前缀: %s\n", overridesPrefix)
+	fmt.Printf("游戏根目录: %s\n", gamePath)
+	fmt.Printf("压缩包中的所有文件:\n")
+
+	// 统计需要复制的文件数量，用于进度显示
+	totalFiles := 0
+	var filesToCopy []*zip.File
+
+	// 第一遍扫描：收集所有需要复制的文件
+	for _, file := range zipReader.File {
+		// zip 文件中的路径总是使用正斜杠
+		filePath := file.Name
+		fmt.Printf("  - %s (目录: %v)\n", filePath, file.FileInfo().IsDir())
+
+		// 检查文件是否在 overrides 目录中
+		if strings.HasPrefix(filePath, overridesPrefix) {
+			filesToCopy = append(filesToCopy, file)
+			if !file.FileInfo().IsDir() {
+				totalFiles++
+			}
+			fmt.Printf("    ✓ 匹配！将复制到: %s\n", strings.TrimPrefix(filePath, overridesPrefix))
+		}
 	}
 
-	// 查找覆盖目录
-	overridesPath := filepath.Join(tempDir, manifest.Overrides)
-	if _, err := os.Stat(overridesPath); os.IsNotExist(err) {
-		return fmt.Errorf("覆盖目录不存在: %s", manifest.Overrides)
+	fmt.Printf("匹配的文件总数: %d\n", totalFiles)
+	fmt.Printf("=== 调试信息结束 ===\n")
+
+	if totalFiles == 0 {
+		return fmt.Errorf("覆盖目录中没有文件: %s (查找前缀: %s)", manifest.Overrides, overridesPrefix)
 	}
 
-	// 复制文件
-	m.updateProgress(StageCopyOverrides, 50, "复制覆盖文件...")
-	if err := copyDirectory(overridesPath, gamePath); err != nil {
-		return fmt.Errorf("复制覆盖文件失败: %w", err)
+	m.updateProgress(StageCopyOverrides, 20, fmt.Sprintf("发现 %d 个文件需要覆盖", totalFiles))
+
+	// 第二遍扫描：复制文件
+	copiedCount := 0
+	for _, file := range filesToCopy {
+		if m.IsCancelled() {
+			return fmt.Errorf("复制已取消")
+		}
+
+		// 计算相对路径（去掉 overrides 前缀）
+		relPath := strings.TrimPrefix(file.Name, overridesPrefix)
+
+		// 构建目标路径
+		destPath := filepath.Join(gamePath, relPath)
+
+		fmt.Printf("复制: %s -> %s\n", file.Name, destPath)
+
+		if file.FileInfo().IsDir() {
+			// 创建目录
+			if err := os.MkdirAll(destPath, file.FileInfo().Mode()); err != nil {
+				return fmt.Errorf("创建目录失败 %s: %w", relPath, err)
+			}
+		} else {
+			// 复制文件
+			if err := extractFileFromFile(file, destPath); err != nil {
+				return fmt.Errorf("复制文件失败 %s: %w", relPath, err)
+			}
+			copiedCount++
+
+			// 更新进度
+			progress := 20.0 + (float64(copiedCount)/float64(totalFiles))*70.0
+			if copiedCount%10 == 0 || copiedCount == totalFiles {
+				m.updateProgress(StageCopyOverrides, progress,
+					fmt.Sprintf("复制覆盖文件 %d/%d", copiedCount, totalFiles))
+			}
+		}
 	}
 
-	m.updateProgress(StageCopyOverrides, 100, "覆盖文件复制完成")
+	m.updateProgress(StageCopyOverrides, 100, fmt.Sprintf("覆盖文件复制完成，共 %d 个文件", copiedCount))
 	return nil
-}
-
-// copyDirectory 复制目录
-func copyDirectory(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// 计算相对路径
-		relPath, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-
-		dstPath := filepath.Join(dst, relPath)
-
-		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
-		}
-
-		// 复制文件
-		return copyFile(path, dstPath)
-	})
 }
 
 // copyFile 复制文件
@@ -590,4 +782,33 @@ func copyFile(src, dst string) error {
 	}
 
 	return os.WriteFile(dst, input, 0644)
+}
+
+// extractFileFromFile 从 zip 文件中提取单个文件
+func extractFileFromFile(file *zip.File, destPath string) error {
+	// 确保目标目录存在
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return err
+	}
+
+	// 打开 zip 中的文件
+	srcFile, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	// 创建目标文件
+	dstFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.FileInfo().Mode())
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	// 复制文件内容
+	if _, err := dstFile.ReadFrom(srcFile); err != nil {
+		return err
+	}
+
+	return nil
 }
