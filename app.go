@@ -811,6 +811,24 @@ func (a *App) SelectArchiveFile() (string, error) {
 	return filename, err
 }
 
+// SelectModpackFile 选择整合包文件
+func (a *App) SelectModpackFile() (string, error) {
+	filename, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择整合包文件",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "整合包文件",
+				Pattern:     "*.scmodpack",
+			},
+			{
+				DisplayName: "所有文件",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	return filename, err
+}
+
 // InstallFromArchive 从压缩包安装游戏
 func (a *App) InstallFromArchive(archivePath string, customName string) (string, error) {
 	// 验证文件是否存在
@@ -899,6 +917,159 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("成功从压缩包安装游戏版本: %s", versionID))
 	return versionID, nil
+}
+
+// InstallModpack 安装整合包
+func (a *App) InstallModpack(modpackPath string) (string, error) {
+	// 验证文件是否存在
+	if _, err := os.Stat(modpackPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("文件不存在: %s", modpackPath)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装整合包: %s", modpackPath))
+
+	// 创建临时目录用于解压整合包
+	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("sc-modpack-%d", time.Now().UnixNano()))
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("创建临时目录失败: %v", err)
+	}
+	defer os.RemoveAll(tempDir) // 清理临时目录
+
+	// 解压整合包
+	installer := version.NewInstaller()
+	if err := installer.Install(modpackPath, tempDir, nil); err != nil {
+		return "", fmt.Errorf("解压整合包失败: %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解压完成，读取清单文件..."))
+
+	// 查找清单文件（支持 manifest.json 和 modpack.json）
+	var manifestFile string
+	for _, name := range []string{"manifest.json", "modpack.json"} {
+		path := filepath.Join(tempDir, name)
+		if _, err := os.Stat(path); err == nil {
+			manifestFile = path
+			break
+		}
+	}
+
+	if manifestFile == "" {
+		return "", fmt.Errorf("整合包中未找到清单文件 (manifest.json 或 modpack.json)")
+	}
+
+	// 读取清单文件
+	manifestData, err := os.ReadFile(manifestFile)
+	if err != nil {
+		return "", fmt.Errorf("读取清单文件失败: %v", err)
+	}
+
+	// 解析清单文件
+	var manifest struct {
+		Name            string `json:"name"`
+		Version         string `json:"version"`
+		Author          string `json:"author"`
+		Description     string `json:"description"`
+		ManifestType    string `json:"manifestType"`
+		ManifestVersion int    `json:"manifestVersion"`
+	}
+
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		return "", fmt.Errorf("解析清单文件失败: %v", err)
+	}
+
+	// 验证清单类型
+	if manifest.ManifestType != "SurvivalcraftModpack" {
+		return "", fmt.Errorf("不支持的清单类型: %s", manifest.ManifestType)
+	}
+
+	// 验证清单版本
+	if manifest.ManifestVersion != 1 {
+		return "", fmt.Errorf("不支持的清单版本: %d", manifest.ManifestVersion)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包名称: %s, 版本: %s, 作者: %s", manifest.Name, manifest.Version, manifest.Author))
+
+	// 生成版本ID
+	versionID := fmt.Sprintf("modpack-%d", time.Now().UnixNano())
+
+	// 创建版本目录
+	versionPath := a.paths.GetVersionPath(versionID)
+	if err := os.MkdirAll(filepath.Dir(versionPath), 0755); err != nil {
+		return "", fmt.Errorf("创建版本目录失败: %v", err)
+	}
+
+	// 复制整合包内容到版本目录（除了清单文件）
+	if err := copyDirectoryContents(tempDir, versionPath, manifestFile); err != nil {
+		return "", fmt.Errorf("复制整合包内容失败: %v", err)
+	}
+
+	// 创建版本模型
+	versionModel := &storage.VersionModel{
+		ID:          versionID,
+		Name:        manifest.Name,
+		VersionType: "modpack",
+		GameVersion: manifest.Version,
+		Installed:   true,
+		LocalPath:   versionPath,
+		Illustrate:  fmt.Sprintf("整合包: %s\n作者: %s\n版本: %s\n描述: %s", manifest.Name, manifest.Author, manifest.Version, manifest.Description),
+	}
+
+	// 保存到数据库
+	if err := a.repository.CreateVersion(versionModel); err != nil {
+		return "", fmt.Errorf("保存版本信息失败: %v", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("成功安装整合包: %s", versionID))
+	return versionID, nil
+}
+
+// copyDirectoryContents 复制目录内容（排除特定文件）
+func copyDirectoryContents(src, dst, excludeFile string) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		// 跳过排除的文件
+		if srcPath == excludeFile {
+			continue
+		}
+
+		if entry.IsDir() {
+			// 递归复制子目录
+			if err := os.MkdirAll(dstPath, 0755); err != nil {
+				return err
+			}
+			if err := copyDirectoryContents(srcPath, dstPath, excludeFile); err != nil {
+				return err
+			}
+		} else {
+			// 复制文件
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// copyFile 复制单个文件
+func copyFile(src, dst string) error {
+	input, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(dst, input, 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // findGameExecutableInFolder 在指定文件夹中查找游戏可执行文件

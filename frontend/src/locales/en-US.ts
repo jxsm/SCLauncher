@@ -198,7 +198,12 @@ export default {
     selectArchiveFailed: 'Failed to select archive file',
     enterVersionNameDesc: 'Please enter a name for this version (to distinguish different configurations)',
     pathMissing: 'Files Not Found',
-    pathMissingMessage: 'Files not found, game folder may have been manually deleted'
+    pathMissingMessage: 'Files not found, game folder may have been manually deleted',
+    installModpack: 'Install Modpack',
+    installingModpack: 'Installing modpack...',
+    modpackInstallSuccess: 'Modpack installed successfully',
+    modpackInstallFailed: 'Failed to install modpack',
+    selectModpackFailed: 'Failed to select modpack file'
   },
   mods: {
     title: 'Mod Management',

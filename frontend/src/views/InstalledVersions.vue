@@ -9,6 +9,7 @@
         @update:filter-type="filterType = $event"
         @import-game="handleImportGame"
         @local-install="handleLocalInstall"
+        @install-modpack="handleInstallModpack"
       />
 
       <!-- 版本列表 -->
@@ -47,7 +48,7 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive } from '../api/version'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack } from '../api/version'
 import VersionToolbar from '../components/VersionToolbar.vue'
 import VersionListItem from '../components/VersionListItem.vue'
 import type { Version } from '../types/version'
@@ -254,6 +255,36 @@ async function handleLocalInstall() {
     }
   } catch (error) {
     message.error(t('installed.selectArchiveFailed') + '：' + error)
+  }
+}
+
+async function handleInstallModpack() {
+  try {
+    // 选择整合包文件
+    const modpackPath = await SelectModpackFile()
+    if (!modpackPath) {
+      return
+    }
+
+    // 显示正在安装的消息
+    const loadingMsg = message.loading(t('installed.installingModpack'), { duration: 0 })
+
+    try {
+      // 安装整合包
+      const versionId = await InstallModpack(modpackPath)
+
+      loadingMsg.destroy()
+      message.success(t('installed.modpackInstallSuccess'))
+
+      // 重新加载版本列表
+      await versionStore.getVersions()
+      await versionStore.getPrimaryVersion()
+    } catch (error) {
+      loadingMsg.destroy()
+      message.error(t('installed.modpackInstallFailed') + '：' + error)
+    }
+  } catch (error) {
+    message.error(t('installed.selectModpackFailed') + '：' + error)
   }
 }
 

@@ -198,7 +198,12 @@ export default {
     selectArchiveFailed: '选择压缩包失败',
     enterVersionNameDesc: '请输入这个版本的名称（用于区分不同配置）',
     pathMissing: '文件不存在',
-    pathMissingMessage: '文件不存在，游戏文件夹可能已被手动删除'
+    pathMissingMessage: '文件不存在，游戏文件夹可能已被手动删除',
+    installModpack: '安装整合包',
+    installingModpack: '正在安装整合包...',
+    modpackInstallSuccess: '整合包安装成功',
+    modpackInstallFailed: '整合包安装失败',
+    selectModpackFailed: '选择整合包文件失败'
   },
   mods: {
     title: '模组管理',

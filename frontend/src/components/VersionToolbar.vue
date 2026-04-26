@@ -17,6 +17,12 @@
           </template>
           {{ t('installed.localInstall') }}
         </n-button>
+        <n-button type="warning" @click="$emit('installModpack')">
+          <template #icon>
+            <n-icon><BoxIcon /></n-icon>
+          </template>
+          {{ t('installed.installModpack') }}
+        </n-button>
         <n-text depth="3">
           {{ t('installed.totalInstalled') }} {{ totalCount }}
         </n-text>
@@ -27,7 +33,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { Download as ImportIcon, Archive as ArchiveIcon } from '@vicons/ionicons5'
+import { Download as ImportIcon, Archive as ArchiveIcon, CubeOutline as BoxIcon } from '@vicons/ionicons5'
 
 const { t } = useI18n()
 
@@ -38,5 +44,6 @@ defineProps<{
 defineEmits<{
   importGame: []
   localInstall: []
+  installModpack: []
 }>()
 </script>

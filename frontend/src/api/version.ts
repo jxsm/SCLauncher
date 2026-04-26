@@ -111,3 +111,13 @@ export async function SelectArchiveFile(): Promise<string> {
 export async function InstallFromArchive(archivePath: string, customName: string): Promise<string> {
   return await AppBindings.InstallFromArchive(archivePath, customName)
 }
+
+// 选择整合包文件
+export async function SelectModpackFile(): Promise<string> {
+  return await AppBindings.SelectModpackFile()
+}
+
+// 安装整合包
+export async function InstallModpack(modpackPath: string): Promise<string> {
+  return await AppBindings.InstallModpack(modpackPath)
+}

@@ -198,6 +198,10 @@ export function InstallFromArchive(arg1, arg2) {
   return window['go']['main']['App']['InstallFromArchive'](arg1, arg2);
 }
 
+export function InstallModpack(arg1) {
+  return window['go']['main']['App']['InstallModpack'](arg1);
+}
+
 export function InstallVersion(arg1) {
   return window['go']['main']['App']['InstallVersion'](arg1);
 }
@@ -276,6 +280,10 @@ export function SelectGameFolder() {
 
 export function SelectModFile() {
   return window['go']['main']['App']['SelectModFile']();
+}
+
+export function SelectModpackFile() {
+  return window['go']['main']['App']['SelectModpackFile']();
 }
 
 export function SelectSaveGameFile() {

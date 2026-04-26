@@ -104,6 +104,8 @@ export function ImportTexture(arg1:string,arg2:string):Promise<void>;
 
 export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
 
+export function InstallModpack(arg1:string):Promise<string>;
+
 export function InstallVersion(arg1:string):Promise<void>;
 
 export function IsOnlineVersion(arg1:string):Promise<boolean>;
@@ -143,6 +145,8 @@ export function SelectFurnitureFile():Promise<string>;
 export function SelectGameFolder():Promise<string>;
 
 export function SelectModFile():Promise<string>;
+
+export function SelectModpackFile():Promise<string>;
 
 export function SelectSaveGameFile():Promise<string>;
 
