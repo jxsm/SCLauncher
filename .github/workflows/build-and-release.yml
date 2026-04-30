@@ -22,7 +22,46 @@ jobs:
   build-and-release:
     runs-on: windows-latest
 
+    # 只有在满足条件时才执行
+    if: |
+      contains(github.event.head_commit.message, 'v') &&
+      github.event.head_commit.author.username == 'jxsm'
+
     steps:
+      - name: Check trigger conditions
+        shell: pwsh
+        run: |
+          $commitMessage = "${{ github.event.head_commit.message }}"
+          $author = "${{ github.event.head_commit.author.username }}"
+          $branch = "${{ github.ref_name }}"
+
+          Write-Output "提交者: $author"
+          Write-Output "分支: $branch"
+          Write-Output "提交消息: $commitMessage"
+
+          # 检查提交者
+          if ($author -ne "jxsm") {
+            Write-Output "错误: 只有 jxsm 才能触发打包流程"
+            exit 1
+          }
+
+          # 检查分支
+          if ($branch -ne "main") {
+            Write-Output "错误: 只有合并到 main 分支才能触发打包流程"
+            exit 1
+          }
+
+          # 检查提交消息中是否包含版本号
+          if ($commitMessage -notmatch "v(\d+\.\d+\.\d+)") {
+            Write-Output "错误: 提交消息中未找到版本号格式 (如 v1.1.1)"
+            Write-Output "当前提交消息: $commitMessage"
+            exit 1
+          }
+
+          $version = $matches[1]
+          Write-Output "检测到版本号: v$version"
+          Write-Output "✅ 所有条件满足，开始构建流程"
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -64,8 +103,8 @@ jobs:
             # 使用手动输入的版本号
             $newVersion = $customVersion
             Write-Output "使用自定义版本号: $newVersion"
-          } elseif ($commitMessage -match "release:\s*v?(\d+\.\d+\.\d+)") {
-            # 从提交信息中提取版本号
+          } elseif ($commitMessage -match "v(\d+\.\d+\.\d+)") {
+            # 从提交信息中提取版本号（支持 v1.1.1 格式）
             $newVersion = $matches[1]
             Write-Output "从提交信息提取版本号: $newVersion"
           } else {
