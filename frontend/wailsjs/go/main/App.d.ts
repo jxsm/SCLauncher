@@ -50,6 +50,8 @@ export function DownloadVersionWithCustomName(arg1:string,arg2:string):Promise<v
 
 export function ExportSaveGame(arg1:string,arg2:string):Promise<boolean>;
 
+export function ExportSaveGameAsModpack(arg1:string,arg2:string):Promise<boolean>;
+
 export function FetchVersions():Promise<Array<version.Version>>;
 
 export function FormatSize(arg1:number):Promise<string>;

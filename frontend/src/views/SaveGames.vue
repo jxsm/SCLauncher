@@ -191,7 +191,7 @@ import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon } from '@vicons/ionicons5'
 import { useVersionStore } from '../stores/version'
-import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL } from '../api/savegame'
+import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ExportSaveGameAsModpack, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL } from '../api/savegame'
 import { ModSourceManager } from '../managers'
 import type { SaveGame } from '../types/savegame'
 import type { ModSearchResult } from '../types/mod-source'
@@ -356,16 +356,67 @@ async function handleExportSave(save: SaveGame) {
     return
   }
 
-  try {
-    const result = await ExportSaveGame(selectedVersionId.value, save.id)
-    // 只有在真正导出时才显示成功消息
-    if (result) {
-      message.success(t('saveGames.exportSuccess'))
+  // 导出格式选择
+  const exportFormat = ref<'scworld' | 'modpack'>('scworld')
+
+  // 显示导出格式选择对话框
+  dialog.create({
+    title: t('saveGames.selectExportFormat'),
+    content: () => {
+      return h('div', { style: 'padding: 8px 0;' }, [
+        h('div', { style: 'margin-bottom: 16px;' }, t('saveGames.selectExportFormatDescription')),
+        h('div', { style: 'display: flex; flex-direction: column; gap: 12px;' }, [
+          h('label', { style: 'display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;' }, [
+            h('input', {
+              type: 'radio',
+              value: 'scworld',
+              checked: exportFormat.value === 'scworld',
+              onChange: () => { exportFormat.value = 'scworld' },
+              style: 'margin-top: 2px;'
+            }),
+            h('div', { style: 'flex: 1;' }, [
+              h('strong', { style: 'display: block; margin-bottom: 4px; color: #2080f0;' }, '.scworld'),
+              h('div', { style: 'font-size: 12px; color: #666;' }, t('saveGames.scworldFormatDescription'))
+            ])
+          ]),
+          h('label', { style: 'display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;' }, [
+            h('input', {
+              type: 'radio',
+              value: 'modpack',
+              checked: exportFormat.value === 'modpack',
+              onChange: () => { exportFormat.value = 'modpack' },
+              style: 'margin-top: 2px;'
+            }),
+            h('div', { style: 'flex: 1;' }, [
+              h('strong', { style: 'display: block; margin-bottom: 4px; color: #18a058;' }, '整合包 (.scmodpack)'),
+              h('div', { style: 'font-size: 12px; color: #666;' }, t('saveGames.modpackFormatDescription'))
+            ])
+          ])
+        ])
+      ])
+    },
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      try {
+        if (exportFormat.value === 'scworld') {
+          const result = await ExportSaveGame(selectedVersionId.value, save.id)
+          if (result) {
+            message.success(t('saveGames.exportSuccess'))
+          }
+        } else {
+          const result = await ExportSaveGameAsModpack(selectedVersionId.value, save.id)
+          if (result) {
+            message.success(t('saveGames.exportSuccess'))
+          }
+        }
+        return true
+      } catch (error) {
+        message.error(t('saveGames.exportFailed') + '：' + error)
+        return false
+      }
     }
-    // 如果 result 为 false/undefined，说明用户取消了，不显示任何消息
-  } catch (error) {
-    message.error(t('saveGames.exportFailed') + '：' + error)
-  }
+  })
 }
 
 // 重命名存档

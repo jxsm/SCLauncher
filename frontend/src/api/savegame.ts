@@ -26,6 +26,11 @@ export async function ExportSaveGame(versionId: string, saveId: string): Promise
   return await AppBindings.ExportSaveGame(versionId, saveId)
 }
 
+// 导出存档为整合包
+export async function ExportSaveGameAsModpack(versionId: string, saveId: string): Promise<boolean> {
+  return await AppBindings.ExportSaveGameAsModpack(versionId, saveId)
+}
+
 // 导入存档
 export async function ImportSaveGame(versionId: string, sourcePath: string): Promise<void> {
   await AppBindings.ImportSaveGame(versionId, sourcePath)

@@ -2029,6 +2029,56 @@ func (a *App) ExportSaveGame(versionID, saveID string) (bool, error) {
 	return true, nil // 导出成功
 }
 
+// ExportSaveGameAsModpack 导出存档为整合包
+func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (bool, error) {
+	// 获取存档信息以使用存档名称作为默认文件名
+	saveGames, err := a.savegameMgr.GetSaveGames(versionID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get save games: %w", err)
+	}
+
+	// 查找对应的存档
+	var saveName string
+	for _, sg := range saveGames {
+		if sg.ID == saveID {
+			saveName = sg.Name
+			break
+		}
+	}
+
+	// 如果没有找到，使用ID作为名称
+	if saveName == "" {
+		saveName = saveID
+	}
+
+	// 让用户选择保存位置和文件名
+	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "选择导出位置",
+		DefaultFilename: saveName + ".scmodpack",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "整合包文件",
+				Pattern:     "*.scmodpack",
+			},
+		},
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("failed to open save dialog: %w", err)
+	}
+
+	if filename == "" {
+		return false, nil // 用户取消，返回 false 但不返回错误
+	}
+
+	err = a.savegameMgr.ExportSaveGameAsModpack(versionID, saveID, filename)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil // 导出成功
+}
+
 // ImportSaveGame 导入存档
 func (a *App) ImportSaveGame(versionID, sourcePath string) error {
 	return a.savegameMgr.ImportSaveGame(versionID, sourcePath)

@@ -90,6 +90,10 @@ export function ExportSaveGame(arg1, arg2) {
   return window['go']['main']['App']['ExportSaveGame'](arg1, arg2);
 }
 
+export function ExportSaveGameAsModpack(arg1, arg2) {
+  return window['go']['main']['App']['ExportSaveGameAsModpack'](arg1, arg2);
+}
+
 export function FetchVersions() {
   return window['go']['main']['App']['FetchVersions']();
 }
