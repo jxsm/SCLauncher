@@ -93,7 +93,7 @@ jobs:
         id: release_notes
         shell: pwsh
         run: |
-          $customNotes = "${{ github.event.inputs.release_notes }}"
+          $customNotes = '${{ github.event.inputs.release_notes }}'
           $version = "${{ steps.version.outputs.version }}"
           $previousTag = "${{ steps.version.outputs.previous_tag }}"
 
