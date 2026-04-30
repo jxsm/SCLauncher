@@ -825,7 +825,7 @@ func (a *App) SelectModpackFile() (string, error) {
 		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "整合包文件",
-				Pattern:     "*.scmodpack",
+				Pattern:     "*.scmodpack;*.zip",
 			},
 			{
 				DisplayName: "所有文件",
