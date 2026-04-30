@@ -1,15 +1,8 @@
 name: Build and Release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
-      version:
-        description: '自定义版本号 (留空则自动累加)'
-        required: false
-        default: ''
       release_notes:
         description: 'Release 发布信息 (留空则自动生成)'
         required: false
@@ -22,61 +15,22 @@ jobs:
   build-and-release:
     runs-on: windows-latest
 
-    # 只有在满足条件时才执行
-    if: |
-      contains(github.event.head_commit.message, 'v') &&
-      github.event.head_commit.author.username == 'jxsm'
-
     steps:
-      - name: Check trigger conditions
-        shell: pwsh
-        run: |
-          $commitMessage = "${{ github.event.head_commit.message }}"
-          $author = "${{ github.event.head_commit.author.username }}"
-          $branch = "${{ github.ref_name }}"
-
-          Write-Output "提交者: $author"
-          Write-Output "分支: $branch"
-          Write-Output "提交消息: $commitMessage"
-
-          # 检查提交者
-          if ($author -ne "jxsm") {
-            Write-Output "错误: 只有 jxsm 才能触发打包流程"
-            exit 1
-          }
-
-          # 检查分支
-          if ($branch -ne "main") {
-            Write-Output "错误: 只有合并到 main 分支才能触发打包流程"
-            exit 1
-          }
-
-          # 检查提交消息中是否包含版本号
-          if ($commitMessage -notmatch "v(\d+\.\d+\.\d+)") {
-            Write-Output "错误: 提交消息中未找到版本号格式 (如 v1.1.1)"
-            Write-Output "当前提交消息: $commitMessage"
-            exit 1
-          }
-
-          $version = $matches[1]
-          Write-Output "检测到版本号: v$version"
-          Write-Output "✅ 所有条件满足，开始构建流程"
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get current version and previous tag
+      - name: Get version from appinfo.go
         id: version
         shell: pwsh
         run: |
           $content = Get-Content "backend\appinfo\appinfo.go" -Raw
           if ($content -match 'Version\s*=\s*"([^"]+)"') {
-            $currentVersion = $matches[1]
-            Write-Output "current_version=$currentVersion" >> $env:GITHUB_OUTPUT
-            Write-Output "Current version: $currentVersion"
+            $version = $matches[1]
+            Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+            Write-Output "从 appinfo.go 读取版本号: v$version"
           } else {
             Write-Error "无法找到版本号"
             exit 1
@@ -86,54 +40,11 @@ jobs:
           $previousTag = git describe --tags --abbrev=0 HEAD^ 2>$null
           if ($previousTag) {
             Write-Output "previous_tag=$previousTag" >> $env:GITHUB_OUTPUT
-            Write-Output "Previous tag: $previousTag"
+            Write-Output "上一个 tag: $previousTag"
           } else {
             Write-Output "previous_tag=" >> $env:GITHUB_OUTPUT
-            Write-Output "No previous tag found"
+            Write-Output "未找到上一个 tag"
           }
-
-      - name: Determine new version
-        id: new_version
-        shell: pwsh
-        run: |
-          $customVersion = "${{ github.event.inputs.version }}"
-          $commitMessage = git log -1 --pretty=%B ${{ github.sha }}
-
-          if ($customVersion -ne "") {
-            # 使用手动输入的版本号
-            $newVersion = $customVersion
-            Write-Output "使用自定义版本号: $newVersion"
-          } elseif ($commitMessage -match "v(\d+\.\d+\.\d+)") {
-            # 从提交信息中提取版本号（支持 v1.1.1 格式）
-            $newVersion = $matches[1]
-            Write-Output "从提交信息提取版本号: $newVersion"
-          } else {
-            # 自动累加版本号
-            $currentVersion = "${{ steps.version.outputs.current_version }}"
-            $parts = $currentVersion.Split('.')
-            $patch = [int]$parts[2] + 1
-            $newVersion = "$($parts[0]).$($parts[1]).$patch"
-            Write-Output "自动累加版本号: $currentVersion -> $newVersion"
-          }
-
-          Write-Output "new_version=$newVersion" >> $env:GITHUB_OUTPUT
-
-      - name: Update version in appinfo.go
-        shell: pwsh
-        run: |
-          $newVersion = "${{ steps.new_version.outputs.new_version }}"
-          $content = Get-Content "backend\appinfo\appinfo.go" -Raw
-          $content = $content -replace 'Version\s*=\s*"[^"]+"', "Version = `"$newVersion`""
-          $content | Set-Content "backend\appinfo\appinfo.go" -NoNewline
-
-          # 配置 Git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 提交版本更新
-          git add backend/appinfo/appinfo.go
-          git commit -m "chore: bump version to $newVersion"
-          git push
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -161,7 +72,7 @@ jobs:
       - name: Prepare release assets
         shell: pwsh
         run: |
-          $version = "${{ steps.new_version.outputs.new_version }}"
+          $version = "${{ steps.version.outputs.version }}"
           $distPath = "build\bin"
           $outputPath = "release"
 
@@ -183,7 +94,7 @@ jobs:
         shell: pwsh
         run: |
           $customNotes = "${{ github.event.inputs.release_notes }}"
-          $version = "${{ steps.new_version.outputs.new_version }}"
+          $version = "${{ steps.version.outputs.version }}"
           $previousTag = "${{ steps.version.outputs.previous_tag }}"
 
           if ($customNotes -ne "") {
@@ -231,8 +142,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.new_version.outputs.new_version }}
-          name: SCLauncher v${{ steps.new_version.outputs.new_version }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SCLauncher v${{ steps.version.outputs.version }}
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
@@ -247,6 +158,6 @@ jobs:
         run: |
           Write-Output "## 构建完成! :rocket:" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "- **版本:** v${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **版本:** v${{ steps.version.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- **上一个 Tag:** ${{ steps.version.outputs.previous_tag }}" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "- **Release:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.new_version.outputs.new_version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **Release:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
