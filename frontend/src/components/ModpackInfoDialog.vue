@@ -62,7 +62,7 @@
           <div v-if="modpackInfo.mods && modpackInfo.mods.length > 0" class="info-card">
             <div class="card-content">
               <div class="card-label">{{ t('installed.modpackMods') }}</div>
-              <div class="card-value">{{ modpackInfo.mods.length }} 个</div>
+              <div class="card-value">{{ modpackInfo.mods.length }} {{ t('textures.unitCount') }}</div>
             </div>
           </div>
 
@@ -77,7 +77,7 @@
           <!-- 模组路径 -->
           <div v-if="modpackInfo.modPath" class="info-card">
             <div class="card-content">
-              <div class="card-label">模组路径</div>
+              <div class="card-label">{{ t('installed.modpackPath') }}</div>
               <div class="card-value">{{ modpackInfo.modPath }}</div>
             </div>
           </div>
@@ -85,7 +85,7 @@
 
         <!-- 模组详情（可折叠） -->
         <n-collapse v-if="modpackInfo.mods && modpackInfo.mods.length > 0" class="mod-details">
-          <n-collapse-item :title="`查看模组详情 (${modpackInfo.mods.length} 个)`">
+          <n-collapse-item :title="`${t('installed.modpackViewDetails')} (${modpackInfo.mods.length} ${t('textures.unitCount')})`">
             <n-list bordered size="small">
               <n-list-item v-for="(mod, index) in modpackInfo.mods" :key="index">
                 <div class="mod-item">

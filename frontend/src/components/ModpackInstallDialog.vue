@@ -145,6 +145,7 @@ const status = ref<'pending' | 'installing' | 'completed' | 'error'>('pending')
 const currentProgress = ref(0)
 const stageProgress = ref(0)
 const currentStage = ref('')
+const previousStage = ref('')
 const currentMessage = ref('')
 const errorMessage = ref('')
 const versionId = ref('')
@@ -155,7 +156,6 @@ const stages = ref([
   { id: 'download_game', label: t('installed.stageDownloadGame'), status: 'pending' },
   { id: 'install_game', label: t('installed.stageInstallGame'), status: 'pending' },
   { id: 'download_mods', label: t('installed.stageDownloadMods'), status: 'pending' },
-  { id: 'install_mods', label: t('installed.stageInstallMods'), status: 'pending' },
   { id: 'copy_overrides', label: t('installed.stageCopyOverrides'), status: 'pending' },
   { id: 'complete', label: t('installed.stageComplete'), status: 'pending' }
 ])
@@ -218,6 +218,7 @@ watch(() => props.show, (newVal) => {
     currentProgress.value = 0
     stageProgress.value = 0
     currentStage.value = ''
+    previousStage.value = ''
     currentMessage.value = ''
     errorMessage.value = ''
     stages.value.forEach(s => s.status = 'pending')
@@ -226,12 +227,23 @@ watch(() => props.show, (newVal) => {
 
 // 处理进度更新
 function handleProgress(data: { stage: string; progress: number; message: string }) {
+  // 如果是新阶段，将上一个阶段标记为完成
+  if (previousStage.value && previousStage.value !== data.stage) {
+    updateStageStatus(previousStage.value, 'completed')
+  }
+  previousStage.value = data.stage
+
   currentStage.value = data.stage
   stageProgress.value = data.progress
   currentMessage.value = data.message
 
   // 更新阶段状态
   updateStageStatus(data.stage, 'running')
+
+  // 如果当前阶段进度达到100%，标记为完成
+  if (data.progress >= 100) {
+    updateStageStatus(data.stage, 'completed')
+  }
 
   // 更新总体进度
   const stageIndex = stages.value.findIndex(s => s.id === data.stage)

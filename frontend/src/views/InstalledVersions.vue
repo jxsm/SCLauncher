@@ -354,11 +354,6 @@ async function handleModpackInstall() {
 async function handleInstallCompleted(versionId: string) {
   message.success(t('installed.modpackInstallSuccess'))
 
-  // 延迟关闭对话框，让用户看到完成状态
-  setTimeout(() => {
-    showInstallDialog.value = false
-  }, 2000)
-
   // 重新加载版本列表
   await versionStore.getVersions()
   await versionStore.getPrimaryVersion()

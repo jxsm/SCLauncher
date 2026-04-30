@@ -34,14 +34,14 @@
             👍 {{ skin?.likes }}
           </n-tag>
           <n-tag v-if="skin?.versions" size="small" type="success">
-            📦 {{ skin.versions.length }} 个文件
+            📦 {{ skin.versions.length }} {{ t('common.unitCount') }} {{ t('skins.files') }}
           </n-tag>
         </n-space>
 
         <!-- 文件列表 -->
         <n-divider />
         <n-space vertical size="medium">
-          <n-text strong>可下载文件</n-text>
+          <n-text strong>{{ t('skins.downloadableFiles') }}</n-text>
           <n-list v-if="skin && skin.versions && skin.versions.length > 0" bordered>
             <n-list-item v-for="(version, index) in skin.versions" :key="index">
               <n-space justify="space-between" align="center" style="width: 100%;">

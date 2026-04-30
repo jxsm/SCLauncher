@@ -12,6 +12,9 @@ export default {
     error: 'Error',
     warning: 'Warning',
     info: 'Info',
+    pending: 'Pending',
+    running: 'Running',
+    completed: 'Completed',
     refresh: 'Refresh',
     search: 'Search',
     clear: 'Clear',
@@ -218,6 +221,8 @@ export default {
     modpackModRequired: 'Required',
     modpackModOptional: 'Optional',
     modpackOverrides: 'Override Files',
+    modpackPath: 'Mod Path',
+    modpackViewDetails: 'View Mod Details',
     modpackParseFailed: 'Failed to parse modpack',
     startInstall: 'Start Installation',
     modpackNotSupportedWindows: 'This modpack does not support Windows',
@@ -360,7 +365,9 @@ export default {
     downloadFailed: 'Download failed',
     versionNotFound: 'Version not found',
     loadingSkins: 'Loading skins...',
-    noDownloadableFiles: 'No downloadable files'
+    noDownloadableFiles: 'No downloadable files',
+    downloadableFiles: 'Downloadable Files',
+    files: 'files'
   },
   furniture: {
     title: 'Furniture Management',
@@ -519,7 +526,8 @@ export default {
     nameCannotBeEmpty: 'Name cannot be empty',
     nameUnchanged: 'Name unchanged',
     openFolder: 'Open Folder',
-    openFolderFailed: 'Failed to open folder'
+    openFolderFailed: 'Failed to open folder',
+    unitCount: ''
   },
   settings: {
     title: 'Settings',

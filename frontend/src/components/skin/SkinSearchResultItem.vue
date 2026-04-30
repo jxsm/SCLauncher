@@ -18,7 +18,7 @@
           </div>
           <n-text strong>{{ skin.title }}</n-text>
           <n-tag v-if="skin.versions && skin.versions.length > 0" size="small" type="success">
-            {{ skin.versions.length }} 个文件
+            {{ skin.versions.length }} {{ t('common.unitCount') }} {{ t('skins.files') }}
           </n-tag>
         </n-space>
       </template>

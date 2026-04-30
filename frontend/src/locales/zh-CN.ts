@@ -12,6 +12,9 @@ export default {
     error: '错误',
     warning: '警告',
     info: '信息',
+    pending: '等待中',
+    running: '进行中',
+    completed: '完成',
     refresh: '刷新',
     search: '搜索',
     clear: '清除',
@@ -218,6 +221,8 @@ export default {
     modpackModRequired: '必需',
     modpackModOptional: '可选',
     modpackOverrides: '覆盖文件',
+    modpackPath: '模组路径',
+    modpackViewDetails: '查看模组详情',
     modpackParseFailed: '解析整合包失败',
     startInstall: '开始安装',
     modpackNotSupportedWindows: '该整合包暂不支持 Windows',
@@ -428,7 +433,9 @@ export default {
     downloadFailed: '下载失败',
     versionNotFound: '未找到指定版本',
     loadingSkins: '加载皮肤中...',
-    noDownloadableFiles: '暂无可下载文件'
+    noDownloadableFiles: '暂无可下载文件',
+    downloadableFiles: '可下载文件',
+    files: '文件'
   },
   furniture: {
     title: '家具管理',
@@ -520,7 +527,8 @@ export default {
     nameCannotBeEmpty: '名称不能为空',
     nameUnchanged: '名称未改变',
     openFolder: '打开文件夹',
-    openFolderFailed: '打开文件夹失败'
+    openFolderFailed: '打开文件夹失败',
+    unitCount: '个'
   },
   settings: {
     title: '设置',
