@@ -305,8 +305,8 @@ async function handleInstallModpack() {
       const errorMsg = error?.message || error?.toString() || '未知错误'
       console.error('解析整合包失败:', error)
 
-      // 检查是否是平台不支持错误
-      const isPlatformError = errorMsg.includes('暂不支持') || errorMsg.includes('does not support')
+      // 检查是否是平台不支持错误（更精确的匹配）
+      const isPlatformError = errorMsg.includes('仅支持 Android') || errorMsg.includes('不支持 Windows 平台') || errorMsg.includes('仅支持 Android 平台')
 
       dialog.create({
         title: isPlatformError ? t('installed.modpackNotSupportedWindows') : t('installed.modpackParseFailed'),
@@ -362,7 +362,65 @@ async function handleInstallCompleted(versionId: string) {
 // 安装错误回调
 function handleInstallError(error: string) {
   console.error('整合包安装失败:', error)
-  // 对话框会显示错误信息，用户可以手动关闭
+
+  // 在UI上显示详细错误信息
+  const errorMsg = parseInstallError(error)
+
+  // 使用通知显示错误
+  message.error(errorMsg, {
+    duration: 5000, // 5秒后自动关闭
+  })
+
+  // 同时在对话框中显示
+  dialog.error({
+    title: t('installed.installFailed'),
+    content: () => {
+      return h('div', [
+        h('p', { style: 'margin-bottom: 12px; color: #ff4d4f;' }, errorMsg),
+        h('p', { style: 'font-size: 12px; color: #999;' }, '详细错误信息已记录到控制台')
+      ])
+    },
+    positiveText: t('common.close'),
+    onPositiveClick: () => {}
+  })
+}
+
+// 解析安装错误，提供更友好的错误信息
+function parseInstallError(error: string): string {
+  const errorLower = error.toLowerCase()
+
+  // 磁盘空间错误
+  if (errorLower.includes('磁盘空间') || errorLower.includes('磁盘') || errorLower.includes('space')) {
+    return '磁盘空间不足，请清理磁盘空间后重试。'
+  }
+
+  // 网络错误
+  if (errorLower.includes('timeout') || errorLower.includes('连接') || errorLower.includes('network')) {
+    return '网络连接失败，请检查网络连接后重试。'
+  }
+
+  // 下载错误
+  if (errorLower.includes('下载') || errorLower.includes('download')) {
+    return '文件下载失败，请检查网络连接或稍后重试。'
+  }
+
+  // 路径错误
+  if (errorLower.includes('路径') || errorLower.includes('path')) {
+    return '文件路径错误，可能是安装路径包含不支持的字符。'
+  }
+
+  // 权限错误
+  if (errorLower.includes('权限') || errorLower.includes('permission')) {
+    return '权限不足，请以管理员身份运行启动器。'
+  }
+
+  // 平台不支持
+  if (errorLower.includes('平台') || errorLower.includes('platform') || errorLower.includes('windows')) {
+    return '该整合包仅支持Windows平台。'
+  }
+
+  // 默认错误信息
+  return error || '安装失败，请查看控制台了解详细错误信息。'
 }
 
 async function getCustomVersionName(defaultName: string): Promise<string | null> {

@@ -4,15 +4,19 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/mod"
+	"SCLauncher/backend/utils"
 	"SCLauncher/backend/version"
 )
 
@@ -58,12 +62,31 @@ const (
 
 // NewModpackInstaller 创建整合包安装器
 func NewModpackInstaller(cfg *config.Config, versionMgr *version.Manager, modMgr *mod.Manager) *ModpackInstaller {
+	// 创建带有超时设置的 HTTP 客户端
+	// 连接超时：30秒，总请求超时：5分钟（对于大文件下载）
+	httpClient := &http.Client{
+		Timeout: 5 * time.Minute,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          10,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			// 强制尝试 HTTP/2
+			ForceAttemptHTTP2: true,
+		},
+	}
+
 	return &ModpackInstaller{
 		config:     cfg,
 		paths:      config.NewPaths(cfg),
 		versionMgr: versionMgr,
 		modMgr:     modMgr,
-		httpClient: &http.Client{},
+		httpClient: httpClient,
 		cancelChan: make(chan struct{}),
 	}
 }
@@ -80,8 +103,38 @@ func (m *ModpackInstaller) Cancel() {
 
 	if !m.isCancelled {
 		m.isCancelled = true
+
+		// 关闭取消通道
 		close(m.cancelChan)
+
+		// 清理临时资源
+		m.cleanupOnCancel()
+
+		// 关闭 HTTP 客户端的连接
+		if m.httpClient != nil && m.httpClient.Transport != nil {
+			if transport, ok := m.httpClient.Transport.(*http.Transport); ok {
+				transport.CloseIdleConnections()
+			}
+		}
 	}
+}
+
+// cleanupOnCancel 取消时清理临时资源
+func (m *ModpackInstaller) cleanupOnCancel() {
+	// 清理临时目录
+	tempDir := filepath.Join(os.TempDir(), "sc-modpack-*")
+	matches, err := filepath.Glob(tempDir)
+	if err == nil {
+		for _, match := range matches {
+			// 尝试删除临时文件和目录
+			// 忽略错误，因为文件可能正在被使用
+			os.RemoveAll(match)
+		}
+	}
+
+	// 清理游戏下载临时目录
+	gameTempDir := filepath.Join(os.TempDir(), "sc-modpack-game-download")
+	os.RemoveAll(gameTempDir)
 }
 
 // IsCancelled 检查是否已取消
@@ -121,6 +174,21 @@ func (m *ModpackInstaller) isValidURL(s string) bool {
 	}
 
 	return true
+}
+
+// validateExternalURL 验证外部URL并给出警告
+func (m *ModpackInstaller) validateExternalURL(urlStr string) error {
+	if !m.isValidURL(urlStr) {
+		return fmt.Errorf("无效的URL格式")
+	}
+
+	// 使用 URL 验证器检查URL（但不强制要求可访问，因为下载时会再次尝试）
+	validator := utils.NewURLValidator()
+	if err := validator.ValidateURL(urlStr); err != nil {
+		return fmt.Errorf("URL验证失败: %w", err)
+	}
+
+	return nil
 }
 
 // updateProgress 更新进度
@@ -245,7 +313,17 @@ func (m *ModpackInstaller) prepareEnvironment(manifest *Manifest, targetVersionI
 
 // downloadAndInstallGame 下载并安装游戏
 func (m *ModpackInstaller) downloadAndInstallGame(manifest *Manifest, versionPath string) (string, error) {
-	if manifest.Survivalcraft == nil || manifest.Survivalcraft.Version.Windows == nil {
+	// 检查当前平台和整合包支持的配置
+	if manifest.Survivalcraft == nil {
+		return "", fmt.Errorf("整合包缺少游戏配置信息")
+	}
+
+	// 检查是否支持当前平台
+	if runtime.GOOS != "windows" {
+		return "", fmt.Errorf("该整合包仅支持 Windows 平台，当前平台: %s", runtime.GOOS)
+	}
+
+	if manifest.Survivalcraft.Version.Windows == nil {
 		return "", fmt.Errorf("该整合包不支持 Windows 平台")
 	}
 
@@ -410,8 +488,14 @@ func (m *ModpackInstaller) downloadGame(downloadURL, version string) (string, er
 		return "", fmt.Errorf("下载失败: HTTP %d", resp.StatusCode)
 	}
 
-	// 获取文件大小
+	// 获取文件大小并检查磁盘空间
 	totalSize := resp.ContentLength
+	if totalSize > 0 {
+		m.updateProgress(StageDownloadGame, 25, "检查磁盘空间...")
+		if err := utils.CheckPathDiskSpace(totalSize, tempDir); err != nil {
+			return "", fmt.Errorf("磁盘空间检查失败: %w", err)
+		}
+	}
 
 	// 创建文件
 	out, err := os.Create(filename)
@@ -550,9 +634,18 @@ func (m *ModpackInstaller) downloadMods(manifest *Manifest, targetVersionID stri
 	}
 
 	// 显示最终结果
-	resultMsg := fmt.Sprintf("成功下载 %d 个模组", successCount)
+	resultMsg := fmt.Sprintf("成功下载 %d/%d 个模组", successCount, totalMods)
 	if len(failedMods) > 0 {
 		resultMsg += fmt.Sprintf("，跳过 %d 个可选模组", len(failedMods))
+
+		// 提供详细的失败信息（前5个）
+		if len(failedMods) <= 5 {
+			failedList := strings.Join(failedMods, "; ")
+			resultMsg += fmt.Sprintf("\n失败列表: %s", failedList)
+		} else {
+			failedList := strings.Join(failedMods[:5], "; ")
+			resultMsg += fmt.Sprintf("\n失败列表（前5个）: %s ...", failedList)
+		}
 	}
 	m.updateProgress(StageDownloadMods, 100, resultMsg)
 
@@ -609,17 +702,28 @@ func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, 
 
 	// 构建目标路径
 	versionPath := m.paths.GetVersionPath(targetVersionID)
-	destPath := filepath.Join(versionPath, modPath, fileName)
+
+	// 安全验证：验证模组路径和文件名（防止路径遍历攻击）
+	safeModPath := utils.SanitizeFilename(modPath)
+	safeFileName := utils.SanitizeFilename(fileName)
+
+	safeDestPath := filepath.Join(versionPath, safeModPath, safeFileName)
+
+	// 再次验证最终路径是否在版本目录内
+	safeDestPath, err = utils.ValidatePath(versionPath, safeDestPath)
+	if err != nil {
+		return fmt.Errorf("模组目标路径验证失败: %w", err)
+	}
 
 	// 确保目标目录存在
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(safeDestPath), 0755); err != nil {
 		return fmt.Errorf("创建目标目录失败: %w", err)
 	}
 
 	// 移动文件到目标位置
-	if err := os.Rename(tempFilePath, destPath); err != nil {
+	if err := os.Rename(tempFilePath, safeDestPath); err != nil {
 		// 如果跨设备移动失败，尝试复制
-		if err := copyFile(tempFilePath, destPath); err != nil {
+		if err := copyFile(tempFilePath, safeDestPath); err != nil {
 			return fmt.Errorf("移动模组文件失败: %w", err)
 		}
 	}
@@ -649,6 +753,15 @@ func (m *ModpackInstaller) downloadModFile(downloadURL, fileName, _ string) (str
 	if resp.StatusCode != http.StatusOK {
 		os.Remove(tempFilePath)
 		return "", fmt.Errorf("下载失败: HTTP %d", resp.StatusCode)
+	}
+
+	// 检查磁盘空间（模组文件通常较小，但仍需检查）
+	fileSize := resp.ContentLength
+	if fileSize > 0 {
+		if err := utils.CheckPathDiskSpace(fileSize, tempFilePath); err != nil {
+			os.Remove(tempFilePath)
+			return "", fmt.Errorf("模组磁盘空间检查失败: %w", err)
+		}
 	}
 
 	// 下载文件
@@ -744,19 +857,24 @@ func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) er
 		// 计算相对路径（去掉 overrides 前缀）
 		relPath := strings.TrimPrefix(file.Name, overridesPrefix)
 
-		// 构建目标路径
-		destPath := filepath.Join(gamePath, relPath)
+		// 安全验证：验证目标路径（防止路径遍历攻击）
+		safeDestPath, err := utils.ValidateZipEntry(gamePath, relPath)
+		if err != nil {
+			// 记录安全警告，跳过此文件但继续处理其他文件
+			fmt.Printf("安全警告：跳过不安全的文件路径: %s (错误: %v)\n", relPath, err)
+			continue
+		}
 
-		fmt.Printf("复制: %s -> %s\n", file.Name, destPath)
+		fmt.Printf("复制: %s -> %s\n", file.Name, safeDestPath)
 
 		if file.FileInfo().IsDir() {
 			// 创建目录
-			if err := os.MkdirAll(destPath, file.FileInfo().Mode()); err != nil {
+			if err := os.MkdirAll(safeDestPath, file.FileInfo().Mode()); err != nil {
 				return fmt.Errorf("创建目录失败 %s: %w", relPath, err)
 			}
 		} else {
 			// 复制文件
-			if err := extractFileFromFile(file, destPath); err != nil {
+			if err := extractFileFromFile(file, safeDestPath); err != nil {
 				return fmt.Errorf("复制文件失败 %s: %w", relPath, err)
 			}
 			copiedCount++
@@ -785,9 +903,9 @@ func copyFile(src, dst string) error {
 }
 
 // extractFileFromFile 从 zip 文件中提取单个文件
-func extractFileFromFile(file *zip.File, destPath string) error {
+func extractFileFromFile(file *zip.File, safeDestPath string) error {
 	// 确保目标目录存在
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(safeDestPath), 0755); err != nil {
 		return err
 	}
 
@@ -799,7 +917,7 @@ func extractFileFromFile(file *zip.File, destPath string) error {
 	defer srcFile.Close()
 
 	// 创建目标文件
-	dstFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.FileInfo().Mode())
+	dstFile, err := os.OpenFile(safeDestPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.FileInfo().Mode())
 	if err != nil {
 		return err
 	}

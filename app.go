@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -941,8 +943,9 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
 
-	// 生成版本ID
-	versionID := fmt.Sprintf("modpack-%d", time.Now().UnixNano())
+	// 生成版本ID（添加随机数防止冲突）
+	randomSuffix := generateRandomSuffix(8)
+	versionID := fmt.Sprintf("modpack-%d-%s", time.Now().UnixNano(), randomSuffix)
 
 	// 创建版本目录
 	versionPath := a.paths.GetVersionPath(versionID)
@@ -1047,8 +1050,9 @@ func (a *App) InstallModpackWithProgress(modpackPath string) (string, error) {
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
 
-	// 生成版本ID
-	versionID := fmt.Sprintf("modpack-%d", time.Now().UnixNano())
+	// 生成版本ID（添加随机数防止冲突）
+	randomSuffix := generateRandomSuffix(8)
+	versionID := fmt.Sprintf("modpack-%d-%s", time.Now().UnixNano(), randomSuffix)
 
 	// 创建版本目录
 	versionPath := a.paths.GetVersionPath(versionID)
@@ -2966,4 +2970,14 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("材质下载并安装成功: %s", fileName))
 	return nil
+}
+
+// generateRandomSuffix 生成随机后缀字符串
+func generateRandomSuffix(length int) string {
+	bytes := make([]byte, length/2) // 每个字节转换为2个十六进制字符
+	if _, err := rand.Read(bytes); err != nil {
+		// 如果随机数生成失败，使用时间戳作为后备
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(bytes)[:length]
 }

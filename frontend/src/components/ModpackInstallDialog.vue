@@ -245,12 +245,37 @@ function handleProgress(data: { stage: string; progress: number; message: string
     updateStageStatus(data.stage, 'completed')
   }
 
-  // 更新总体进度
+  // 改进的总体进度计算：基于阶段的实际权重
+  // 不同阶段的时间差异很大，使用动态权重
+  const stageWeights: Record<string, number> = {
+    prepare: 5,        // 准备阶段：5%
+    download_game: 50,  // 下载游戏：50%（最耗时）
+    install_game: 10,   // 安装游戏：10%
+    download_mods: 25,  // 下载模组：25%
+    install_mods: 5,    // 安装模组：5%
+    copy_overrides: 3,  // 复制覆盖文件：3%
+    complete: 2         // 完成：2%
+  }
+
   const stageIndex = stages.value.findIndex(s => s.id === data.stage)
   if (stageIndex !== -1) {
-    const baseProgress = (stageIndex / stages.value.length) * 100
-    const stageWeight = 100 / stages.value.length
-    currentProgress.value = baseProgress + (data.progress / 100) * stageWeight
+    // 计算当前阶段之前所有阶段的总权重
+    let baseWeight = 0
+    for (let i = 0; i < stageIndex; i++) {
+      const stageId = stages.value[i].id
+      baseWeight += stageWeights[stageId] || (100 / stages.value.length)
+    }
+
+    // 获取当前阶段的权重
+    const currentWeight = stageWeights[data.stage] || (100 / stages.value.length)
+
+    // 计算总体进度
+    currentProgress.value = baseWeight + (data.progress / 100) * currentWeight
+
+    // 确保进度不超过100%
+    if (currentProgress.value > 100) {
+      currentProgress.value = 100
+    }
   }
 }
 
