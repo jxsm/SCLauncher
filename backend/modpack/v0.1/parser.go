@@ -225,6 +225,11 @@ func (p *V01Parser) checkPlatformSupport(manifest *V01Manifest) error {
 		return fmt.Errorf("该整合包未配置游戏版本信息，暂不支持安装")
 	}
 
+	// 如果是手动选择版本模式，则跳过平台版本配置检查
+	if manifest.Survivalcraft.Version.Manual {
+		return nil
+	}
+
 	// 检查 Version 配置是否存在
 	if manifest.Survivalcraft.Version.Windows == nil && manifest.Survivalcraft.Version.Android == nil {
 		return fmt.Errorf("该整合包未配置任何平台版本信息")
