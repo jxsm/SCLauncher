@@ -1034,13 +1034,16 @@ func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
 }
 
 // InstallModpackWithProgress 安装整合包（带进度反馈）
-func (a *App) InstallModpackWithProgress(modpackPath string) (string, error) {
+func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID string) (string, error) {
 	// 验证文件是否存在
 	if _, err := os.Stat(modpackPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("文件不存在: %s", modpackPath)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装整合包: %s", modpackPath))
+	if baseVersionID != "" {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("使用基础版本: %s", baseVersionID))
+	}
 
 	// 使用解析器解析整合包
 	manifest, err := a.modpackRegistry.ParseModpack(modpackPath)
@@ -1050,18 +1053,43 @@ func (a *App) InstallModpackWithProgress(modpackPath string) (string, error) {
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
 
-	// 生成版本ID（添加随机数防止冲突）
-	randomSuffix := generateRandomSuffix(8)
-	versionID := fmt.Sprintf("modpack-%d-%s", time.Now().UnixNano(), randomSuffix)
+	var versionID string
+	var versionPath string
 
-	// 创建版本目录
-	versionPath := a.paths.GetVersionPath(versionID)
-	if err := os.MkdirAll(filepath.Dir(versionPath), 0755); err != nil {
-		return "", fmt.Errorf("创建版本目录失败: %v", err)
+	// 检查是否为手动模式
+	if manifest.Survivalcraft.Version.Manual {
+		// 手动模式：直接在用户选择的已安装版本上操作
+		if baseVersionID == "" {
+			return "", fmt.Errorf("手动模式需要指定一个已安装的版本")
+		}
+
+		// 验证版本是否存在
+		baseVersionPath := a.paths.GetVersionPath(baseVersionID)
+		if _, err := os.Stat(baseVersionPath); os.IsNotExist(err) {
+			return "", fmt.Errorf("选择的版本不存在: %s", baseVersionID)
+		}
+
+		// 直接使用用户选择的版本ID，不创建新版本
+		versionID = baseVersionID
+		versionPath = baseVersionPath
+
+		runtime.LogInfo(a.ctx, fmt.Sprintf("手动模式：直接在版本 %s 上安装模组和覆盖文件", baseVersionID))
+	} else {
+		// 自动模式：生成新的版本ID
+		randomSuffix := generateRandomSuffix(8)
+		versionID = fmt.Sprintf("modpack-%d-%s", time.Now().UnixNano(), randomSuffix)
+		versionPath = a.paths.GetVersionPath(versionID)
+
+		// 创建版本目录
+		if err := os.MkdirAll(versionPath, 0755); err != nil {
+			return "", fmt.Errorf("创建版本目录失败: %v", err)
+		}
 	}
 
 	// 设置进度回调
+	runtime.LogInfo(a.ctx, fmt.Sprintf("设置进度回调: versionID=%s", versionID))
 	a.modpackInstaller.SetProgressCallback(func(stage string, progress float64, message string) {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("进度更新: stage=%s, progress=%.2f, message=%s", stage, progress, message))
 		runtime.EventsEmit(a.ctx, "modpack:install:progress", map[string]interface{}{
 			"stage":    stage,
 			"progress": progress,
@@ -1075,44 +1103,54 @@ func (a *App) InstallModpackWithProgress(modpackPath string) (string, error) {
 		"name":      manifest.Name,
 		"version":   manifest.Version,
 	})
+	runtime.LogInfo(a.ctx, fmt.Sprintf("发送开始安装事件: versionID=%s", versionID))
 
 	// 执行安装（在后台运行）
 	go func() {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("后台安装任务已启动: versionID=%s", versionID))
 		defer func() {
 			if r := recover(); r != nil {
+				runtime.LogInfo(a.ctx, fmt.Sprintf("安装任务发生panic: %v", r))
 				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 					"error": fmt.Sprintf("安装过程中发生错误: %v", r),
 				})
 			}
 		}()
 
+		runtime.LogInfo(a.ctx, fmt.Sprintf("开始调用安装器: versionID=%s", versionID))
 		err := a.modpackInstaller.Install(manifest, versionID)
 		if err != nil {
+			runtime.LogInfo(a.ctx, fmt.Sprintf("安装器返回错误: %v", err))
 			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 				"error": err.Error(),
 			})
 			runtime.LogError(a.ctx, fmt.Sprintf("安装整合包失败: %v", err))
 			return
 		}
+		runtime.LogInfo(a.ctx, fmt.Sprintf("安装器执行成功，准备保存版本信息"))
 
-		// 创建版本模型
-		versionModel := &storage.VersionModel{
-			ID:          versionID,
-			Name:        manifest.Name,
-			VersionType: "modpack",
-			GameVersion: manifest.Version,
-			Installed:   true,
-			LocalPath:   versionPath,
-			Illustrate:  fmt.Sprintf("整合包: %s\n作者: %s\n版本: %s\n描述: %s", manifest.Name, manifest.Author, manifest.Version, manifest.Description),
-		}
+		// 在手动模式下，不需要创建新版本记录，版本已经存在
+		// 在自动模式下，创建新的版本记录
+		if !manifest.Survivalcraft.Version.Manual {
+			// 创建版本模型
+			versionModel := &storage.VersionModel{
+				ID:          versionID,
+				Name:        manifest.Name,
+				VersionType: "modpack",
+				GameVersion: manifest.Version,
+				Installed:   true,
+				LocalPath:   versionPath,
+				Illustrate:  fmt.Sprintf("整合包: %s\n作者: %s\n版本: %s\n描述: %s", manifest.Name, manifest.Author, manifest.Version, manifest.Description),
+			}
 
-		// 保存到数据库
-		if err := a.repository.CreateVersion(versionModel); err != nil {
-			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
-				"error": fmt.Sprintf("保存版本信息失败: %v", err),
-			})
-			runtime.LogError(a.ctx, fmt.Sprintf("保存版本信息失败: %v", err))
-			return
+			// 保存到数据库
+			if err := a.repository.CreateVersion(versionModel); err != nil {
+				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
+					"error": fmt.Sprintf("保存版本信息失败: %v", err),
+				})
+				runtime.LogError(a.ctx, fmt.Sprintf("保存版本信息失败: %v", err))
+				return
+			}
 		}
 
 		// 发送完成事件

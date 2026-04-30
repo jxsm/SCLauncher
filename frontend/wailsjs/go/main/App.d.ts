@@ -108,7 +108,7 @@ export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
 
 export function InstallModpack(arg1:string):Promise<string>;
 
-export function InstallModpackWithProgress(arg1:string):Promise<string>;
+export function InstallModpackWithProgress(arg1:string,arg2:string):Promise<string>;
 
 export function InstallVersion(arg1:string):Promise<void>;
 

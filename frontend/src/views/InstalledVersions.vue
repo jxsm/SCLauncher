@@ -63,7 +63,7 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack, InstallModpackWithProgress } from '../api/version'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack, InstallModpackWithProgress, GetInstalledVersions } from '../api/version'
 import ModpackInfoDialog from '../components/ModpackInfoDialog.vue'
 import ModpackInstallDialog from '../components/ModpackInstallDialog.vue'
 import VersionToolbar from '../components/VersionToolbar.vue'
@@ -336,6 +336,79 @@ async function handleModpackInstall() {
   }
 
   try {
+    // 检查是否为手动模式
+    const isManualMode = parsedModpackInfo.value.survivalcraft?.version?.manual === true
+
+    if (isManualMode) {
+      // 手动模式：显示版本选择对话框
+      await showVersionSelectionDialog()
+    } else {
+      // 自动模式：直接开始安装
+      await startModpackInstall()
+    }
+  } catch (error) {
+    message.error(t('installed.modpackInstallFailed') + '：' + error)
+    showInstallDialog.value = false
+  }
+}
+
+// 显示版本选择对话框（手动模式）
+async function showVersionSelectionDialog() {
+  if (!parsedModpackInfo.value) {
+    return
+  }
+
+  // 获取所有已安装的版本
+  const installedVersions = await GetInstalledVersions()
+
+  if (installedVersions.length === 0) {
+    message.error('没有找到已安装的版本，请先安装游戏版本')
+    return
+  }
+
+  // 使用普通变量存储用户选择
+  let selectedVersionID = installedVersions[0]?.id || ''
+
+  // 创建版本选项
+  const versionOptions = installedVersions.map((v: Version) => ({
+    label: `${v.name} (${v.id})`,
+    value: v.id
+  }))
+
+  // 显示选择对话框
+  dialog.create({
+    title: '选择基础版本',
+    content: () => {
+      return h('div', [
+        h('p', { style: 'margin-bottom: 12px;' }, '请选择一个已安装的版本作为基础：'),
+        h('select', {
+          style: 'width: 100%; padding: 8px; border: 1px solid var(--n-border-color); border-radius: 4px; background: var(--n-color); color: var(--n-text-color);',
+          value: selectedVersionID,
+          onChange: (e: any) => {
+            selectedVersionID = e.target.value
+          }
+        }, versionOptions.map((opt: any) =>
+          h('option', { value: opt.value, style: 'padding: 8px;' }, opt.label)
+        ))
+      ])
+    },
+    positiveText: t('common.confirm'),
+    negativeText: t('common.cancel'),
+    onPositiveClick: async () => {
+      if (selectedVersionID) {
+        await startModpackInstall(selectedVersionID)
+      }
+    }
+  })
+}
+
+// 开始安装整合包
+async function startModpackInstall(baseVersionID?: string) {
+  if (!parsedModpackInfo.value) {
+    return
+  }
+
+  try {
     // 关闭信息对话框
     showModpackDialog.value = false
 
@@ -343,7 +416,7 @@ async function handleModpackInstall() {
     showInstallDialog.value = true
 
     // 使用新的安装方法（带进度反馈）
-    await InstallModpackWithProgress(parsedModpackInfo.value.filePath)
+    await InstallModpackWithProgress(parsedModpackInfo.value.filePath, baseVersionID)
   } catch (error) {
     message.error(t('installed.modpackInstallFailed') + '：' + error)
     showInstallDialog.value = false

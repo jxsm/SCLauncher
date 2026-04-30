@@ -128,8 +128,8 @@ export async function ParseModpack(modpackPath: string): Promise<any> {
 }
 
 // 安装整合包（带进度反馈）
-export async function InstallModpackWithProgress(modpackPath: string): Promise<string> {
-  return await AppBindings.InstallModpackWithProgress(modpackPath)
+export async function InstallModpackWithProgress(modpackPath: string, baseVersionID?: string): Promise<string> {
+  return await AppBindings.InstallModpackWithProgress(modpackPath, baseVersionID || "")
 }
 
 // 取消整合包安装

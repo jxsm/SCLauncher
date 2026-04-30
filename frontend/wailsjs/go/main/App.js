@@ -206,8 +206,8 @@ export function InstallModpack(arg1) {
   return window['go']['main']['App']['InstallModpack'](arg1);
 }
 
-export function InstallModpackWithProgress(arg1) {
-  return window['go']['main']['App']['InstallModpackWithProgress'](arg1);
+export function InstallModpackWithProgress(arg1, arg2) {
+  return window['go']['main']['App']['InstallModpackWithProgress'](arg1, arg2);
 }
 
 export function InstallVersion(arg1) {

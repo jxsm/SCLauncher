@@ -72,6 +72,7 @@ type V01SurvivalcraftConfig struct {
 
 // V01VersionConfig 版本配置
 type V01VersionConfig struct {
+	Manual  bool                 `json:"manual"`  // 是否手动选择版本（默认false）
 	Android *V01PlatformVersion `json:"android"` // Android 平台配置
 	Windows *V01PlatformVersion `json:"windows"` // Windows 平台配置
 }

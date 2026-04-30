@@ -41,6 +41,7 @@ type SurvivalcraftConfig struct {
 
 // VersionConfig 版本配置
 type VersionConfig struct {
+	Manual  bool             `json:"manual"`  // 是否手动选择版本（默认false）
 	Android *PlatformVersion `json:"android"` // Android 平台配置
 	Windows *PlatformVersion `json:"windows"` // Windows 平台配置
 }

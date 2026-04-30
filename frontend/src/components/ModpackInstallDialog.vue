@@ -322,10 +322,28 @@ async function handleCancel() {
 
 // 注册事件监听
 onMounted(() => {
-  EventsOn('modpack:install:progress', handleProgress)
-  EventsOn('modpack:install:complete', handleComplete)
-  EventsOn('modpack:install:error', handleError)
-  EventsOn('modpack:install:cancelled', handleCancelled)
+  console.log('[ModpackInstallDialog] 注册事件监听器')
+  EventsOn('modpack:install:start', (data: any) => {
+    console.log('[ModpackInstallDialog] 收到 start 事件:', data)
+    status.value = 'installing'
+    versionId.value = data.versionID
+  })
+  EventsOn('modpack:install:progress', (data: any) => {
+    console.log('[ModpackInstallDialog] 收到 progress 事件:', data)
+    handleProgress(data)
+  })
+  EventsOn('modpack:install:complete', (data: any) => {
+    console.log('[ModpackInstallDialog] 收到 complete 事件:', data)
+    handleComplete(data)
+  })
+  EventsOn('modpack:install:error', (data: any) => {
+    console.error('[ModpackInstallDialog] 收到 error 事件:', data)
+    handleError(data)
+  })
+  EventsOn('modpack:install:cancelled', (data: any) => {
+    console.log('[ModpackInstallDialog] 收到 cancelled 事件:', data)
+    handleCancelled()
+  })
 })
 
 // 清理事件监听

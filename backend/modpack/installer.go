@@ -241,10 +241,21 @@ func (m *ModpackInstaller) Install(manifest *Manifest, targetVersionID string) e
 		return fmt.Errorf("安装已取消")
 	}
 
-	m.updateProgress(StageDownloadGame, 0, "准备下载游戏...")
-	gamePath, err := m.downloadAndInstallGame(manifest, versionPath)
-	if err != nil {
-		return fmt.Errorf("下载游戏失败: %w", err)
+	var gamePath string
+
+	// 检查是否为手动模式
+	if manifest.Survivalcraft.Version.Manual {
+		// 手动模式：使用用户选择的已安装版本，跳过游戏下载
+		m.updateProgress(StageDownloadGame, 100, "手动模式：跳过游戏下载，使用已安装版本")
+		m.updateProgress(StageInstallGame, 100, "游戏路径已准备")
+		gamePath = versionPath
+	} else {
+		// 自动模式：下载并安装游戏
+		m.updateProgress(StageDownloadGame, 0, "准备下载游戏...")
+		gamePath, err = m.downloadAndInstallGame(manifest, versionPath)
+		if err != nil {
+			return fmt.Errorf("下载游戏失败: %w", err)
+		}
 	}
 
 	// 阶段3: 下载模组
@@ -291,15 +302,27 @@ func (m *ModpackInstaller) Install(manifest *Manifest, targetVersionID string) e
 
 // prepareEnvironment 准备安装环境
 func (m *ModpackInstaller) prepareEnvironment(manifest *Manifest, targetVersionID string) (string, error) {
-	m.updateProgress(StagePrepare, 10, "创建版本目录...")
+	m.updateProgress(StagePrepare, 10, "准备安装环境...")
 
-	// 创建版本目录（如果不存在）
+	// 获取版本路径
 	versionPath := m.paths.GetVersionPath(targetVersionID)
-	if err := os.MkdirAll(versionPath, 0755); err != nil {
-		return "", fmt.Errorf("创建版本目录失败: %w", err)
+
+	// 检查是否为手动模式
+	if manifest.Survivalcraft.Version.Manual {
+		// 手动模式：版本目录应该已经存在
+		if _, err := os.Stat(versionPath); os.IsNotExist(err) {
+			return "", fmt.Errorf("版本不存在: %s", targetVersionID)
+		}
+		m.updateProgress(StagePrepare, 50, fmt.Sprintf("使用已安装版本: %s", targetVersionID))
+	} else {
+		// 自动模式：创建版本目录
+		m.updateProgress(StagePrepare, 20, "创建版本目录...")
+		if err := os.MkdirAll(versionPath, 0755); err != nil {
+			return "", fmt.Errorf("创建版本目录失败: %w", err)
+		}
 	}
 
-	m.updateProgress(StagePrepare, 50, "创建工作目录...")
+	m.updateProgress(StagePrepare, 80, "创建工作目录...")
 
 	// 创建临时工作目录
 	tempDir := filepath.Join(os.TempDir(), fmt.Sprintf("sc-modpack-%s", manifest.FileHash))

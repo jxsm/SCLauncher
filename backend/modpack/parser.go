@@ -114,6 +114,7 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 	if v1.Survivalcraft != nil {
 		survivalcraft = &SurvivalcraftConfig{
 			Version: VersionConfig{
+				Manual:  v1.Survivalcraft.Version.Manual,
 				Android: convertPlatformVersion(v1.Survivalcraft.Version.Android),
 				Windows: convertPlatformVersion(v1.Survivalcraft.Version.Windows),
 			},
