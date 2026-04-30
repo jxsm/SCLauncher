@@ -30,6 +30,7 @@ type Manifest struct {
 	FilePath        string `json:"-"` // 整合包文件路径
 	FileHash        string `json:"-"` // 文件哈希值
 	HasExternalLinks bool   `json:"hasExternalLinks"` // 是否包含外部链接
+	IsCarryFormat   bool   `json:"isCarryFormat"` // 是否为carry格式（自带游戏）
 }
 
 // SurvivalcraftConfig 生存战争配置
@@ -46,7 +47,7 @@ type VersionConfig struct {
 
 // PlatformVersion 平台版本信息
 type PlatformVersion struct {
-	Version        string `json:"version"`         // 版本号（如：2.4:api-1.8.2.3）
+	Version        string `json:"version"`         // 版本号（如：2.4:api-1.8.2.3 或 2.4:carry/game.zip）
 	APKPackageName string `json:"apkPackageName"`  // APK 包名（Android）
 	Path           string `json:"path"`            // 下载路径
 }

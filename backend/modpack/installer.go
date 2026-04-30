@@ -330,6 +330,13 @@ func (m *ModpackInstaller) downloadAndInstallGame(manifest *Manifest, versionPat
 	windowsConfig := manifest.Survivalcraft.Version.Windows
 	versionStr := windowsConfig.Version
 
+	// 检查是否为carry格式（自带游戏）
+	if manifest.IsCarryFormat {
+		m.updateProgress(StageDownloadGame, 0, fmt.Sprintf("检测到自带游戏版本: %s", versionStr))
+		return m.extractGameFromModpack(manifest, versionPath, versionStr)
+	}
+
+	// 非carry格式，需要下载游戏
 	m.updateProgress(StageDownloadGame, 0, fmt.Sprintf("准备下载游戏版本: %s", versionStr))
 
 	var downloadURL string
@@ -929,4 +936,92 @@ func extractFileFromFile(file *zip.File, safeDestPath string) error {
 	}
 
 	return nil
+}
+
+// extractGameFromModpack 从整合包中提取游戏文件（carry格式）
+func (m *ModpackInstaller) extractGameFromModpack(manifest *Manifest, versionPath string, versionStr string) (string, error) {
+	// 解析carry格式：2.4:carry/<游戏文件路径>
+	if !strings.HasPrefix(versionStr, "2.4:carry/") {
+		return "", fmt.Errorf("无效的carry格式: %s", versionStr)
+	}
+
+	// 获取游戏文件在整合包中的路径
+	gameFilePathInModpack := strings.TrimPrefix(versionStr, "2.4:carry/")
+	if gameFilePathInModpack == "" {
+		return "", fmt.Errorf("carry格式中缺少游戏文件路径")
+	}
+
+	m.updateProgress(StageDownloadGame, 10, fmt.Sprintf("从整合包提取游戏文件: %s", gameFilePathInModpack))
+
+	// 打开整合包文件
+	zipReader, err := zip.OpenReader(manifest.FilePath)
+	if err != nil {
+		return "", fmt.Errorf("打开整合包失败: %w", err)
+	}
+	defer zipReader.Close()
+
+	// 查找游戏文件
+	var gameFile *zip.File
+	for _, file := range zipReader.File {
+		// zip 文件中的路径总是使用正斜杠
+		if file.Name == gameFilePathInModpack || filepath.ToSlash(file.Name) == gameFilePathInModpack {
+			gameFile = file
+			break
+		}
+		// 也尝试匹配文件名（忽略路径）
+		if filepath.Base(file.Name) == filepath.Base(gameFilePathInModpack) {
+			if gameFile == nil {
+				gameFile = file // 使用第一个匹配的文件
+			}
+		}
+	}
+
+	if gameFile == nil {
+		// 列出压缩包中的所有文件用于调试
+		fmt.Printf("=== 整合包中的文件列表 ===\n")
+		for _, file := range zipReader.File {
+			fmt.Printf("  - %s\n", file.Name)
+		}
+		fmt.Printf("=== 文件列表结束 ===\n")
+		return "", fmt.Errorf("整合包中未找到游戏文件: %s", gameFilePathInModpack)
+	}
+
+	m.updateProgress(StageDownloadGame, 20, fmt.Sprintf("找到游戏文件: %s", gameFile.Name))
+
+	// 创建临时文件来存储游戏压缩包
+	tempDir := filepath.Join(os.TempDir(), "sc-modpack-carry-extract")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return "", fmt.Errorf("创建临时目录失败: %w", err)
+	}
+
+	tempGameArchive := filepath.Join(tempDir, filepath.Base(gameFile.Name))
+
+	// 提取游戏文件到临时目录
+	m.updateProgress(StageDownloadGame, 30, "提取游戏文件中...")
+	if err := extractFileFromFile(gameFile, tempGameArchive); err != nil {
+		return "", fmt.Errorf("提取游戏文件失败: %w", err)
+	}
+
+	m.updateProgress(StageDownloadGame, 50, "游戏文件提取完成")
+
+	// 检查文件大小
+	fileInfo, err := os.Stat(tempGameArchive)
+	if err != nil {
+		return "", fmt.Errorf("检查文件失败: %w", err)
+	}
+	m.updateProgress(StageDownloadGame, 60, fmt.Sprintf("游戏文件大小: %.2f MB", float64(fileInfo.Size())/(1024*1024)))
+
+	// 解压并安装游戏到版本目录
+	m.updateProgress(StageInstallGame, 70, "解压游戏文件到版本目录...")
+	gamePath, err := m.installGameToVersion(tempGameArchive, versionPath)
+	if err != nil {
+		return "", fmt.Errorf("安装游戏失败: %w", err)
+	}
+
+	// 清理临时文件
+	os.Remove(tempGameArchive)
+	os.Remove(tempDir)
+
+	m.updateProgress(StageInstallGame, 100, "自带游戏安装完成")
+	return gamePath, nil
 }

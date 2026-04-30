@@ -127,6 +127,12 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 	// 检查是否有外部链接
 	hasExternalLinks := checkExternalLinks(v1)
 
+	// 检查是否为carry格式（自带游戏）
+	isCarryFormat := false
+	if v1.Survivalcraft != nil && v1.Survivalcraft.Version.Windows != nil {
+		isCarryFormat = strings.HasPrefix(v1.Survivalcraft.Version.Windows.Version, "2.4:carry/")
+	}
+
 	return &Manifest{
 		ManifestType:    v1.ManifestType,
 		ManifestVersion: v1.ManifestVersion,
@@ -145,6 +151,7 @@ func convertV01ToMain(v1 *v0_1.V01Manifest) *Manifest {
 		FilePath:        v1.FilePath,
 		FileHash:        v1.FileHash,
 		HasExternalLinks: hasExternalLinks,
+		IsCarryFormat:   isCarryFormat,
 	}
 }
 

@@ -240,10 +240,18 @@ func (p *V01Parser) checkPlatformSupport(manifest *V01Manifest) error {
 		return fmt.Errorf("该整合包的 Windows 版本配置无效")
 	}
 
-	// 检查是否是完整包格式（carry格式）
+	// carry格式检查：验证版本号格式
 	if strings.HasPrefix(windowsConfig.Version, "2.4:carry/") {
-		// 完整包格式，暂时不支持
-		return fmt.Errorf("完整包格式暂不支持，请使用版本列表或外部下载链接")
+		// carry格式，版本号应该是 2.4:carry/<游戏文件路径>
+		// 例如: 2.4:carry/game.zip 或 2.4:carry/sc-game.zip
+		carryPath := strings.TrimPrefix(windowsConfig.Version, "2.4:carry/")
+		if carryPath == "" {
+			return fmt.Errorf("carry格式版本号无效: 缺少游戏文件路径")
+		}
+		// 游戏文件路径不能包含路径遍历字符
+		if strings.Contains(carryPath, "..") {
+			return fmt.Errorf("carry格式版本号无效: 游戏文件路径包含非法字符")
+		}
 	}
 
 	return nil
