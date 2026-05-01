@@ -96,8 +96,7 @@ func (c *SCBBSApiClient) FindMatchingVersion(versions []PostVersion, version str
 	}
 
 	// 如果指定了 latest，返回最新版本
-	// 支持 "latest" 和 "lastest"（兼容旧文档的拼写错误）
-	if version == "latest" || version == "lastest" || version == "" {
+	if version == "latest" || version == "" {
 		// 按更新时间倒序排序，取第一个
 		latest := versions[0]
 		for _, v := range versions[1:] {

@@ -728,16 +728,20 @@ func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, 
 	if err != nil {
 		return fmt.Errorf("下载模组文件失败: %w", err)
 	}
-	defer os.Remove(tempFilePath) // 下载完成后删除临时文件
 
 	// 构建目标路径
 	versionPath := m.paths.GetVersionPath(targetVersionID)
 
 	// 安全验证：验证模组路径和文件名（防止路径遍历攻击）
-	safeModPath := utils.SanitizeFilename(modPath)
+	// 清理模组路径：移除开头的分隔符，保留路径结构
+	cleanModPath := strings.TrimPrefix(modPath, "/")
+	cleanModPath = strings.TrimPrefix(cleanModPath, "\\")
+	cleanModPath = filepath.Clean(cleanModPath)
+
+	// 清理文件名：移除危险字符
 	safeFileName := utils.SanitizeFilename(fileName)
 
-	safeDestPath := filepath.Join(versionPath, safeModPath, safeFileName)
+	safeDestPath := filepath.Join(versionPath, cleanModPath, safeFileName)
 
 	// 再次验证最终路径是否在版本目录内
 	safeDestPath, err = utils.ValidatePath(versionPath, safeDestPath)
@@ -751,12 +755,28 @@ func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, 
 	}
 
 	// 移动文件到目标位置
+	fmt.Printf("[DEBUG] 移动模组文件: %s -> %s\n", tempFilePath, safeDestPath)
 	if err := os.Rename(tempFilePath, safeDestPath); err != nil {
+		fmt.Printf("[DEBUG] Rename 失败 (跨设备?): %v，尝试复制...\n", err)
 		// 如果跨设备移动失败，尝试复制
 		if err := copyFile(tempFilePath, safeDestPath); err != nil {
 			return fmt.Errorf("移动模组文件失败: %w", err)
 		}
+		fmt.Printf("[DEBUG] 复制成功\n")
+	} else {
+		fmt.Printf("[DEBUG] Rename 成功\n")
 	}
+
+	// 文件已经移动或复制到目标位置，可以安全删除临时文件
+	// 注意：如果 Rename 成功，文件已经被移动，Remove 会失败但这是预期的
+	// 如果复制成功，需要手动删除临时文件
+	os.Remove(tempFilePath)
+
+	// 验证文件确实存在
+	if _, err := os.Stat(safeDestPath); os.IsNotExist(err) {
+		return fmt.Errorf("模组文件移动后验证失败: 文件不存在于 %s", safeDestPath)
+	}
+	fmt.Printf("[DEBUG] 模组文件已成功放置在: %s\n", safeDestPath)
 
 	return nil
 }
@@ -854,9 +874,9 @@ func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) er
 
 	// 第一遍扫描：收集所有需要复制的文件
 	for _, file := range zipReader.File {
-		// zip 文件中的路径总是使用正斜杠
-		filePath := file.Name
-		fmt.Printf("  - %s (目录: %v)\n", filePath, file.FileInfo().IsDir())
+		// zip 文件中的路径可能使用正斜杠或反斜杠，统一转换为正斜杠进行比较
+		filePath := filepath.ToSlash(file.Name)
+		fmt.Printf("  - %s (目录: %v)\n", file.Name, file.FileInfo().IsDir())
 
 		// 检查文件是否在 overrides 目录中
 		if strings.HasPrefix(filePath, overridesPrefix) {
@@ -884,8 +904,9 @@ func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) er
 			return fmt.Errorf("复制已取消")
 		}
 
-		// 计算相对路径（去掉 overrides 前缀）
-		relPath := strings.TrimPrefix(file.Name, overridesPrefix)
+		// 需要统一使用正斜杠进行比较，因为 overridesPrefix 是正斜杠格式
+		filePath := filepath.ToSlash(file.Name)
+		relPath := strings.TrimPrefix(filePath, overridesPrefix)
 
 		// 安全验证：验证目标路径（防止路径遍历攻击）
 		safeDestPath, err := utils.ValidateZipEntry(gamePath, relPath)

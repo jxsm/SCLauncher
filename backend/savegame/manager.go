@@ -876,8 +876,36 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 	}
 	defer os.RemoveAll(tempDir)
 
-	// 创建overrides目录（将存档放入其中）
-	overridesDir := filepath.Join(tempDir, "overrides", "Worlds", saveID)
+	// 获取版本路径（用于计算相对路径）
+	versionPath := m.paths.GetVersionPath(versionID)
+
+	// 检查是否是导入版本
+	originalPath, _ := getImportedVersionOriginalPath(versionPath)
+
+	// 确定存档相对于游戏根目录的路径
+	// 存档可能在不同位置：Worlds/, doc/Worlds/, 或原始路径的相应位置
+	var relativeWorldPath string
+	if originalPath != "" {
+		// 导入版本，检查原始路径
+		if strings.HasPrefix(worldPath, filepath.Join(originalPath, "Worlds")) {
+			relativeWorldPath = "Worlds"
+		} else if strings.HasPrefix(worldPath, filepath.Join(originalPath, "doc", "Worlds")) {
+			relativeWorldPath = filepath.Join("doc", "Worlds")
+		} else {
+			// 默认使用 Worlds
+			relativeWorldPath = "Worlds"
+		}
+	} else {
+		// 非导入版本
+		if strings.HasPrefix(worldPath, m.paths.GetGameDocWorldsDir(versionID)) {
+			relativeWorldPath = filepath.Join("doc", "Worlds")
+		} else {
+			relativeWorldPath = "Worlds"
+		}
+	}
+
+	// 创建overrides目录（将存档放入其中，保留原始路径结构）
+	overridesDir := filepath.Join(tempDir, "overrides", relativeWorldPath, saveID)
 	if err := os.MkdirAll(overridesDir, 0755); err != nil {
 		return fmt.Errorf("failed to create overrides dir: %w", err)
 	}
@@ -991,18 +1019,8 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 		}
 	}
 
-	// 构建mods列表用于manifest
-	modsList := make([]map[string]interface{}, 0, len(enabledMods))
-	for _, modItem := range enabledMods {
-		modsList = append(modsList, map[string]interface{}{
-			"projectId": 0, // 存档导出时无法获取projectId，设为0
-			"version":   "",
-			"name":      modItem.Name,
-			"required":  false,
-			"path":      "",
-			"modPath":   "",
-		})
-	}
+	// 构建mods列表用于manifest（完整包格式，mods已包含在overrides中，所以设为空数组）
+	modsList := []interface{}{}
 
 	// 创建manifest.json
 	manifest := map[string]interface{}{
