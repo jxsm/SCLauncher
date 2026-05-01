@@ -1022,7 +1022,7 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 	// 构建mods列表用于manifest（完整包格式，mods已包含在overrides中，所以设为空数组）
 	modsList := []interface{}{}
 
-	// 创建manifest.json
+	// 创建manifest.jsonc
 	manifest := map[string]interface{}{
 		"manifestType":    "SurvivalcraftModpack",
 		"manifestVersion": 0.1,
@@ -1044,7 +1044,7 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
-	manifestPath := filepath.Join(tempDir, "manifest.json")
+	manifestPath := filepath.Join(tempDir, "manifest.jsonc")
 	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
@@ -1060,8 +1060,8 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	// 添加manifest.json
-	if err := addFileToZip(zipWriter, manifestPath, "manifest.json"); err != nil {
+	// 添加manifest.jsonc
+	if err := addFileToZip(zipWriter, manifestPath, "manifest.jsonc"); err != nil {
 		os.Remove(tempZipPath)
 		return err
 	}
