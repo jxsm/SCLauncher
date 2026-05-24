@@ -202,8 +202,8 @@ const groupedVersions = computed(() => {
 async function handleFetchVersions() {
   loading.value = true
   try {
-    // 获取清单文件中的版本列表（只包含原始版本）
-    const versions = await versionStore.fetchVersions()
+    // 强制刷新：跳过缓存，直接从服务器获取最新版本列表
+    const versions = await versionStore.fetchVersions(true)
     manifestVersions.value = versions
     message.success(t('versions.versionListUpdated'))
   } catch (error) {
@@ -379,10 +379,13 @@ onMounted(async () => {
   // 加载清单源列表
   await loadManifestSources()
 
-  // 初始化清单版本列表
+  // 初始化清单版本列表（带后台刷新回调，确保缓存过期时后台刷新结果能同步到组件）
   loading.value = true
   try {
-    const versions = await versionStore.fetchVersions()
+    const versions = await versionStore.fetchVersions(false, (updatedVersions) => {
+      console.log('[Versions] Background refresh completed, updating component data')
+      manifestVersions.value = updatedVersions
+    })
     manifestVersions.value = versions
   } catch (error) {
     message.error(t('versions.loadFailed') + '：' + error)

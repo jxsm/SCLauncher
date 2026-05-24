@@ -128,11 +128,39 @@ export const useVersionStore = defineStore('version', () => {
   }
 
   // 操作
-  async function fetchVersions(): Promise<Version[]> {
+  // @param forceRefresh - 是否强制刷新，跳过缓存直接请求服务器
+  // @param onBackgroundUpdate - 可选回调，当后台刷新完成时调用（用于同步组件数据）
+  async function fetchVersions(forceRefresh?: boolean, onBackgroundUpdate?: (versions: Version[]) => void): Promise<Version[]> {
     const now = Date.now()
     const cacheAge = manifestCacheTime.value ? now - manifestCacheTime.value : Infinity
     const hasCache = manifestCache.value !== null
     const isExpired = cacheAge > MANIFEST_CACHE_DURATION
+
+    // 情况0：强制刷新 - 跳过缓存，直接请求服务器
+    if (forceRefresh) {
+      console.log('[Version] Force refresh, fetching from server...')
+      loading.value = true
+      error.value = null
+      try {
+        const fetchedVersions = await versionApi.FetchVersions()
+        versions.value = fetchedVersions
+
+        // 更新缓存
+        manifestCache.value = fetchedVersions
+        manifestCacheTime.value = Date.now()
+        // 保存到 localStorage
+        saveManifestCacheToStorage(fetchedVersions)
+        console.log('[Version] Force refresh completed, cached at:', new Date(manifestCacheTime.value).toLocaleString())
+
+        return fetchedVersions
+      } catch (e) {
+        error.value = e as string
+        console.error('[Version] Force refresh failed:', e)
+        throw e
+      } finally {
+        loading.value = false
+      }
+    }
 
     // 情况1：有缓存且未过期 - 直接使用缓存
     if (hasCache && !isExpired) {
@@ -157,6 +185,10 @@ export const useVersionStore = defineStore('version', () => {
           saveManifestCacheToStorage(fetchedVersions)
           // 更新界面
           versions.value = fetchedVersions
+          // 通知调用方后台刷新完成
+          if (onBackgroundUpdate) {
+            onBackgroundUpdate(fetchedVersions)
+          }
         })
         .catch(e => {
           console.error('[Version] Background refresh failed:', e)
