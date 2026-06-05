@@ -586,40 +586,41 @@ function handleTabChange(value: string) {
 function handleGameCrash(data: any) {
   const { versionName, exitCode, log, crashTime } = data;
 
-  // 使用 dialogProvider 的实例
   if (dialogProviderInst.value) {
     const dialog = dialogProviderInst.value;
-    // 通过 create 方法创建对话框
     // @ts-ignore
     dialog.create({
       title: t('home.gameCrash') || "游戏崩溃",
       content: () => {
-        return h("div", [
-          h(
-            "p",
-            { style: "margin-bottom: 12px; font-weight: bold;" },
-            `${t('versions.version')}: ${versionName}`,
-          ),
-          h("p", { style: "margin-bottom: 12px;" }, `${t('installed.exitCode')}: ${exitCode}`),
-          h("p", { style: "margin-bottom: 12px;" }, `${t('installed.crashTime')}: ${crashTime}`),
-          h(
-            NAlert,
-            {
-              type: "error",
-              title: t('home.gameLog') || "运行日志",
-            },
-            {
-              default: () =>
-                h(
-                  "pre",
-                  {
-                    style:
-                      "max-height: 300px; overflow-y: auto; background: var(--n-code-color); color: var(--n-text-color); padding: 12px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; border: 1px solid var(--n-border-color); font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;",
-                  },
-                  log,
-                ),
-            },
-          ),
+        // 自动滚动到底部
+        setTimeout(() => {
+          const preEl = document.querySelector('.crash-log-content')
+          if (preEl) preEl.scrollTop = preEl.scrollHeight
+        }, 50)
+
+        return h("div", { style: "text-align: left;" }, [
+          h("p", { style: "margin-bottom: 12px; font-weight: bold;" },
+            `${t('versions.version')}: ${versionName}`),
+          h("p", { style: "margin-bottom: 12px;" },
+            `${t('installed.exitCode')}: ${exitCode}`),
+          h("p", { style: "margin-bottom: 12px;" },
+            `${t('installed.crashTime')}: ${crashTime}`),
+          h("div", { style: "display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;" }, [
+            h("span", { style: "font-weight: 600; font-size: 14px;" },
+              t('home.gameLog') || "运行日志"),
+            h(NButton, {
+              size: "small",
+              onClick: () => {
+                navigator.clipboard.writeText(log).then(() => {
+                  // 复制成功提示
+                })
+              }
+            }, { default: () => t('common.copy') || "复制" }),
+          ]),
+          h("pre", {
+            class: "crash-log-content",
+            style: "max-height: 300px; overflow-y: auto; background: #DA373C; color: #fff; padding: 12px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace; text-align: left;",
+          }, log),
         ]);
       },
       positiveText: t('common.confirm'),

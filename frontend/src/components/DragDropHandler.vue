@@ -18,13 +18,28 @@
     @select="handleVersionSelect"
     @cancel="handleCancel"
   />
+
+  <!-- 整合包信息对话框 -->
+  <ModpackInfoDialog
+    v-model:show="showModpackDialog"
+    :modpack-data="parsedModpackInfo"
+    @install="handleModpackInstall"
+  />
+
+  <!-- 整合包安装进度对话框 -->
+  <ModpackInstallDialog
+    v-model:show="showInstallDialog"
+    :modpack-info="parsedModpackInfo"
+    @completed="handleModpackCompleted"
+    @error="handleModpackError"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog, NInput } from 'naive-ui'
 import { CloudUploadOutline } from '@vicons/ionicons5'
 import { OnFileDrop, OnFileDropOff, EventsEmit } from '../../wailsjs/runtime/runtime'
 import { ImportMod } from '../api/mod'
@@ -32,13 +47,23 @@ import { ImportTexture } from '../api/texture'
 import { ImportFurniture } from '../api/furniture'
 import { ImportSaveGame } from '../api/savegame'
 import { ImportSkin } from '../api/skin'
+import { InspectArchive } from '../api/config'
+import { ParseModpack, InstallModpackWithProgress, InstallFromArchive } from '../api/version'
 import VersionSelectDialog from './VersionSelectDialog.vue'
+import ModpackInfoDialog from './ModpackInfoDialog.vue'
+import ModpackInstallDialog from './ModpackInstallDialog.vue'
 import { useVersionStore } from '../stores/version'
 
 const { t } = useI18n()
 const route = useRoute()
 const message = useMessage()
+const dialog = useDialog()
 const versionStore = useVersionStore()
+
+// 整合包安装状态
+const showModpackDialog = ref(false)
+const showInstallDialog = ref(false)
+const parsedModpackInfo = ref<any>(null)
 
 // 拖拽状态
 const isDragging = ref(false)
@@ -118,7 +143,7 @@ const dragTitle = computed(() => {
 const dragHint = computed(() => {
   if (isResourcePage.value && currentResourceType.value) {
     const extensions: Record<ResourceType, string> = {
-      'mod': '.scmod, .zip, .disable',
+      'mod': '.scmod, .zip, .7z, .disable',
       'texture': '.scbtex',
       'furniture': '.scfpack',
       'savegame': '.scworld, .scword, .zip',
@@ -149,13 +174,14 @@ function isFileSupportedForCurrentType(filePath: string): boolean {
   const ext = getFileExtension(filePath)
   const fileType = EXTENSION_MAP[ext]
 
+  // .zip 和 .7z 由 InspectArchive 单独处理，这里总是返回 true
+  if (ext === '.zip' || ext === '.7z') {
+    return true
+  }
+
   // Resources 总页面（无特定类型）：接受任何支持的格式
   if (!currentResourceType.value) {
     return !!fileType
-  }
-
-  if (ext === '.zip') {
-    return currentResourceType.value === 'mod' || currentResourceType.value === 'savegame'
   }
 
   return fileType === currentResourceType.value
@@ -221,11 +247,36 @@ async function handleFileDrop(paths: string[]) {
   // 判断资源类型
   let resourceType = EXTENSION_MAP[ext]
 
-  if (ext === '.zip') {
-    if (isResourcePage.value) {
-      resourceType = currentResourceType.value === 'savegame' ? 'savegame' : 'mod'
-    } else {
-      resourceType = 'mod'
+  // .scmodpack 是整合包
+  if (ext === '.scmodpack') {
+    console.log('[DragDrop] → .scmodpack, starting modpack install')
+    await startModpackInstall(filePath)
+    return
+  }
+
+  // .zip 和 .7z 需要检查压缩包内容来判断类型
+  if (ext === '.zip' || ext === '.7z') {
+    console.log('[DragDrop] Archive file, inspecting contents...')
+    try {
+      const archiveType = await InspectArchive(filePath)
+      console.log('[DragDrop] Archive type:', archiveType)
+
+      if (archiveType === 'game') {
+        console.log('[DragDrop] → Game archive, starting game install')
+        await startGameInstall(filePath)
+        return
+      } else if (archiveType === 'modpack') {
+        console.log('[DragDrop] → Modpack, starting modpack install')
+        await startModpackInstall(filePath)
+        return
+      } else {
+        message.warning(t('dragDrop.unsupportedArchive'))
+        return
+      }
+    } catch (error) {
+      console.error('[DragDrop] ❌ InspectArchive failed:', error)
+      message.error(t('dragDrop.importFailed') + '：' + error)
+      return
     }
   }
 
@@ -361,6 +412,97 @@ function handleCancel() {
   pendingFilePath.value = ''
   pendingFileName.value = ''
   pendingResourceType.value = ''
+}
+
+// ==================== 整合包安装 ====================
+
+// 解析并显示整合包信息
+async function startModpackInstall(filePath: string) {
+  console.log('[DragDrop] startModpackInstall:', filePath)
+  const loadingMsg = message.loading(t('installed.installingModpack') || '正在解析整合包...', { duration: 0 })
+  try {
+    const info = await ParseModpack(filePath)
+    loadingMsg.destroy()
+    parsedModpackInfo.value = info
+    showModpackDialog.value = true
+  } catch (error: any) {
+    loadingMsg.destroy()
+    const errorMsg = error?.message || error?.toString() || '未知错误'
+    console.error('[DragDrop] ParseModpack failed:', error)
+    dialog.error({
+      title: t('installed.modpackParseFailed') || '解析整合包失败',
+      content: errorMsg,
+      positiveText: t('common.confirm'),
+    })
+  }
+}
+
+// 用户确认安装整合包
+async function handleModpackInstall() {
+  if (!parsedModpackInfo.value) return
+  showModpackDialog.value = false
+  showInstallDialog.value = true
+  try {
+    await InstallModpackWithProgress(parsedModpackInfo.value.filePath)
+  } catch (error) {
+    console.error('[DragDrop] Modpack install failed:', error)
+    // 不关闭弹窗，让 ModpackInstallDialog 显示错误状态
+  }
+}
+
+// 整合包安装完成
+async function handleModpackCompleted(versionId: string) {
+  message.success(t('installed.modpackInstallSuccess') || '整合包安装成功')
+  showInstallDialog.value = false
+  await versionStore.getVersions()
+  await versionStore.getPrimaryVersion()
+}
+
+// 整合包安装失败
+function handleModpackError(error: string) {
+  console.error('[DragDrop] Modpack install error:', error)
+  // 不关闭弹窗，让 ModpackInstallDialog 显示错误状态
+}
+
+// ==================== 游戏安装 ====================
+
+// 弹窗输入别名后安装游戏
+async function startGameInstall(archivePath: string) {
+  const defaultName = archivePath.split('\\').pop()?.split('/').pop()?.replace(/\.(zip|7z|rar)$/i, '') || '本地安装的游戏'
+
+  const customName = await new Promise<string | null>((resolve) => {
+    let name = defaultName
+    dialog.create({
+      title: t('installed.enterVersionName') || '输入版本别名',
+      content: () => h('div', [
+        h('p', { style: 'margin-bottom: 12px;' }, t('installed.enterVersionNameDesc') || '为这个游戏版本起一个别名：'),
+        h(NInput, {
+          placeholder: defaultName,
+          defaultValue: defaultName,
+          onUpdateValue: (v: string) => { name = v },
+        }),
+      ]),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => resolve(name.trim() || defaultName),
+      onNegativeClick: () => resolve(null),
+      onClose: () => resolve(null),
+    })
+  })
+
+  if (!customName) return
+
+  const loadingMsg = message.loading(t('installed.installing') || '正在安装...', { duration: 0 })
+  try {
+    await InstallFromArchive(archivePath, customName)
+    loadingMsg.destroy()
+    message.success(t('installed.installSuccess') || '安装成功')
+    await versionStore.getVersions()
+    await versionStore.getPrimaryVersion()
+  } catch (error) {
+    loadingMsg.destroy()
+    message.error((t('installed.installFailed') || '安装失败') + '：' + error)
+  }
 }
 
 // 拖拽事件处理（视觉反馈）

@@ -202,6 +202,10 @@ export function ImportTexture(arg1, arg2) {
   return window['go']['main']['App']['ImportTexture'](arg1, arg2);
 }
 
+export function InspectArchive(arg1) {
+  return window['go']['main']['App']['InspectArchive'](arg1);
+}
+
 export function InstallFromArchive(arg1, arg2) {
   return window['go']['main']['App']['InstallFromArchive'](arg1, arg2);
 }

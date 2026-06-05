@@ -26,6 +26,7 @@ import (
 	"SCLauncher/backend/texture"
 	"SCLauncher/backend/version"
 
+	"github.com/mholt/archiver/v4"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -841,6 +842,59 @@ func (a *App) SelectModpackFile() (string, error) {
 	return filename, err
 }
 
+// errFound 用于提前终止 Extract 遍历的哨兵错误
+var errFound = fmt.Errorf("found")
+
+// InspectArchive 检查压缩包内容，判断类型
+// 返回: "game" (含 Survivalcraft.dll/exe), "modpack" (含 manifest.jsonc), "unknown"
+func (a *App) InspectArchive(archivePath string) (string, error) {
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("文件不存在: %s", archivePath)
+	}
+
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return "", fmt.Errorf("打开文件失败: %v", err)
+	}
+	defer file.Close()
+
+	ctx := context.Background()
+	format, input, err := archiver.Identify(ctx, archivePath, file)
+	if err != nil {
+		return "", fmt.Errorf("无法识别压缩格式: %v", err)
+	}
+	if closer, ok := input.(io.Closer); ok {
+		defer closer.Close()
+	}
+
+	extractor, ok := format.(archiver.Extractor)
+	if !ok {
+		return "", fmt.Errorf("该格式不支持解压")
+	}
+
+	archiveType := "unknown"
+	_ = extractor.Extract(ctx, input, func(ctx context.Context, f archiver.FileInfo) error {
+		name := f.NameInArchive
+		lower := strings.ToLower(name)
+
+		// 检查是否为游戏本体
+		if strings.HasSuffix(lower, "survivalcraft.dll") || strings.HasSuffix(lower, "survivalcraft.exe") {
+			archiveType = "game"
+			return errFound
+		}
+
+		// 检查是否为整合包
+		if lower == "manifest.jsonc" || lower == "manifest.json" {
+			archiveType = "modpack"
+			return errFound
+		}
+
+		return nil
+	})
+
+	return archiveType, nil
+}
+
 // InstallFromArchive 从压缩包安装游戏
 func (a *App) InstallFromArchive(archivePath string, customName string) (string, error) {
 	// 验证文件是否存在
@@ -954,7 +1008,7 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 
 	// 创建版本目录
 	versionPath := a.paths.GetVersionPath(versionID)
-	if err := os.MkdirAll(filepath.Dir(versionPath), 0755); err != nil {
+	if err := os.MkdirAll(versionPath, 0755); err != nil {
 		return "", fmt.Errorf("创建版本目录失败: %v", err)
 	}
 

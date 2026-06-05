@@ -651,6 +651,7 @@ export default {
     importSuccess: 'File {file} imported successfully',
     importFailed: 'Import failed',
     unsupportedFormat: 'Unsupported file format: {format}',
+    unsupportedArchive: 'Cannot identify the contents of this archive',
     typeMismatch: 'Current page only supports importing {current}, not {file}',
     noVersionSelected: 'Please select a version first',
     types: {

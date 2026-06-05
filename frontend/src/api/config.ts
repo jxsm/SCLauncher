@@ -101,3 +101,14 @@ export async function SaveManifestSources(sources: any[]): Promise<void> {
 export async function SetCurrentManifestSource(id: string): Promise<void> {
   await AppBindings.SetCurrentManifestSource(id)
 }
+
+// 检查压缩包内容类型
+// 返回: "game" (游戏本体), "modpack" (整合包), "unknown" (未知)
+export async function InspectArchive(archivePath: string): Promise<string> {
+  return await AppBindings.InspectArchive(archivePath)
+}
+
+// 从压缩包安装游戏版本
+export async function InstallFromArchive(archivePath: string, customName: string): Promise<string> {
+  return await AppBindings.InstallFromArchive(archivePath, customName)
+}

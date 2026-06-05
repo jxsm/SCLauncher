@@ -652,6 +652,7 @@ export default {
     importSuccess: '文件 {file} 导入成功',
     importFailed: '导入失败',
     unsupportedFormat: '不支持的文件格式：{format}',
+    unsupportedArchive: '无法识别该压缩包中包含的内容',
     typeMismatch: '当前页面只支持导入{current}，不支持{file}',
     noVersionSelected: '请先选择一个版本',
     types: {

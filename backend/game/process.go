@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,16 +39,19 @@ type ProcessInfo struct {
 
 // GameManager 游戏管理器
 type GameManager struct {
-	ctx        context.Context
-	config     *config.Config
-	paths      *config.Paths
-	repository *storage.Repository
-	process    *exec.Cmd
-	processID  int
-	status     Status
-	statusMu   sync.RWMutex
-	processMu  sync.Mutex
-	logBuffer  *bytes.Buffer // 日志缓冲区
+	ctx           context.Context
+	config        *config.Config
+	paths         *config.Paths
+	repository    *storage.Repository
+	process       *exec.Cmd
+	processID     int
+	status        Status
+	statusMu      sync.RWMutex
+	processMu     sync.Mutex
+	logBuffer     *bytes.Buffer // 日志缓冲区
+	killed        bool          // 是否被用户主动终止
+	gameWorkDir   string        // 本次启动的游戏工作目录
+	gameLogOffset int64         // 启动前 Game.log 的文件大小（用于读取本次运行的日志）
 }
 
 // NewGameManager 创建游戏管理器
@@ -107,6 +111,16 @@ func (g *GameManager) Launch(versionID string) error {
 
 	// 清空日志缓冲区
 	g.logBuffer.Reset()
+	g.killed = false
+	g.gameWorkDir = workDir
+
+	// 记录 Game.log 当前大小，用于崩溃时只读取本次运行的日志
+	gameLogPath := filepath.Join(workDir, "Bugs", "Game.log")
+	if info, err := os.Stat(gameLogPath); err == nil {
+		g.gameLogOffset = info.Size()
+	} else {
+		g.gameLogOffset = 0
+	}
 
 	// 创建进程
 	cmd := exec.Command(exePath)
@@ -163,6 +177,9 @@ func (g *GameManager) Stop() error {
 	if !g.isRunning() {
 		return fmt.Errorf("game is not running")
 	}
+
+	// 标记为用户主动终止（避免误报崩溃）
+	g.killed = true
 
 	// 发送终止信号
 	if err := g.process.Process.Kill(); err != nil {
@@ -287,23 +304,27 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout, 
 	exitCode := 0
 	isCrashed := false
 
-	// 记录日志
-	if g.ctx != nil {
-		runtime.LogInfo(g.ctx, fmt.Sprintf("游戏进程退出: PID=%d, 退出码=%d", g.processID, exitCode))
-	}
-
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
-			g.setStatus(StatusCrashed)
-			isCrashed = true
+		}
+	}
 
-			// 记录崩溃日志
-			if g.ctx != nil {
-				runtime.LogError(g.ctx, fmt.Sprintf("游戏崩溃: PID=%d, 退出码=%d", g.processID, exitCode))
-			}
-		} else {
-			g.setStatus(StatusStopped)
+	// 记录日志
+	if g.ctx != nil {
+		runtime.LogInfo(g.ctx, fmt.Sprintf("游戏进程退出: PID=%d, 退出码=%d, killed=%v", g.processID, exitCode, g.killed))
+	}
+
+	// 被用户主动终止 → 不算崩溃
+	if g.killed {
+		g.setStatus(StatusStopped)
+		g.killed = false
+	} else if exitCode != 0 {
+		// 非零退出码 + 非主动终止 = 崩溃
+		g.setStatus(StatusCrashed)
+		isCrashed = true
+		if g.ctx != nil {
+			runtime.LogError(g.ctx, fmt.Sprintf("游戏崩溃: PID=%d, 退出码=%d", g.processID, exitCode))
 		}
 	} else {
 		g.setStatus(StatusStopped)
@@ -320,23 +341,101 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout, 
 		fmt.Printf("Warning: failed to update process record: %v\n", err)
 	}
 
-	// 如果是崩溃，发送通知到前端（无日志内容，因为我们没有捕获）
+	// 如果是崩溃，发送通知到前端
 	if isCrashed && g.ctx != nil {
-		// 获取版本信息
 		version, _ := g.repository.GetVersion(versionID)
 		versionName := versionID
 		if version != nil {
 			versionName = version.Name
 		}
 
+		// 获取崩溃日志：优先用 stdout，为空则读 Game.log
+		logContent := ""
+		if stdout != nil && stdout.Len() > 0 {
+			logContent = stdout.String()
+		} else {
+			logContent = g.readGameLog(versionID)
+		}
+		if logContent == "" {
+			logContent = "游戏崩溃退出（日志未捕获）"
+		}
+
 		runtime.EventsEmit(g.ctx, "game:crashed", map[string]interface{}{
 			"versionId":   versionID,
 			"versionName": versionName,
 			"exitCode":    exitCode,
-			"log":         "游戏崩溃退出（日志未捕获）",
+			"log":         logContent,
 			"crashTime":   endTime.Format("2006-01-02 15:04:05"),
 		})
 	}
+}
+
+// readGameLog 读取游戏目录下的 Game.log（从启动前的偏移量开始，只取本次运行的日志）
+// 高版本路径：{gameDir}/Bugs/Game.log
+// 低版本路径：{gameDir}/Logs/Game.log
+func (g *GameManager) readGameLog(versionID string) string {
+	if g.gameWorkDir == "" {
+		runtime.LogWarning(g.ctx, "[GameLog] gameWorkDir is empty")
+		return ""
+	}
+
+	// 尝试两个可能的路径
+	candidates := []string{
+		filepath.Join(g.gameWorkDir, "Bugs", "Game.log"),
+		filepath.Join(g.gameWorkDir, "Logs", "Game.log"),
+	}
+
+	for _, gameLogPath := range candidates {
+		runtime.LogInfo(g.ctx, fmt.Sprintf("[GameLog] Trying: %s (offset=%d)", gameLogPath, g.gameLogOffset))
+
+		file, err := os.Open(gameLogPath)
+		if err != nil {
+			runtime.LogInfo(g.ctx, fmt.Sprintf("[GameLog] Not found: %v", err))
+			continue
+		}
+
+		// 从启动前的偏移量开始读取
+		if g.gameLogOffset > 0 {
+			if _, err := file.Seek(g.gameLogOffset, 0); err != nil {
+				file.Close()
+				continue
+			}
+		}
+
+		// 获取文件大小，只读取末尾部分（Game.log 可能很大）
+		stat, _ := file.Stat()
+		if stat == nil {
+			file.Close()
+			continue
+		}
+
+		// 计算本次运行的日志大小
+		logSize := stat.Size() - g.gameLogOffset
+		if logSize <= 0 {
+			file.Close()
+			continue
+		}
+
+		// 只读取最后 10KB（避免日志过大撑爆弹窗）
+		const maxLogSize int64 = 10 * 1024
+		if logSize > maxLogSize {
+			// 跳到末尾前 50KB 的位置
+			file.Seek(-maxLogSize, 2)
+		}
+
+		data, err := io.ReadAll(file)
+		file.Close()
+		if err != nil {
+			continue
+		}
+
+		content := string(data)
+		if content != "" {
+			return content
+		}
+	}
+
+	return ""
 }
 
 // isRunning 检查游戏是否正在运行
