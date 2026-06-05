@@ -18,6 +18,12 @@ export const useVersionStore = defineStore('version', () => {
   const installing = ref<Set<string>>(new Set())
   const downloadProgress = ref<Record<string, number>>({})
 
+  // 当前选中的版本ID（用于资源管理页面）
+  const selectedVersionId = ref<string>('')
+
+  // 当前资源管理页面的标签页（用于拖拽导入判断资源类型）
+  const activeResourceTab = ref<string>('mods')
+
   // 下载映射和完成状态（跨页面持久化）
   const originalToUniqueId = ref<Record<string, string>>({})
   const completedDownloads = ref<Set<string>>(new Set())
@@ -423,6 +429,8 @@ export const useVersionStore = defineStore('version', () => {
     error,
     currentVersion,
     primaryVersion,
+    selectedVersionId,
+    activeResourceTab,
     downloading,
     installing,
     downloadProgress,

@@ -639,5 +639,27 @@ export default {
     launchFailed: 'Launch failed',
     stopFailed: 'Failed to stop game',
     loadDataFailed: 'Failed to load data'
+  },
+  dragDrop: {
+    dropFile: 'Drop File',
+    dropToImport: 'Drop file to import {type}',
+    supportedFormats: 'Supported formats: {formats}',
+    supportedFormatsAll: 'Drag and drop resource files to import quickly',
+    selectVersion: 'Please select a version',
+    selectVersionTitle: 'Select version to import {type}',
+    file: 'File',
+    importSuccess: 'File {file} imported successfully',
+    importFailed: 'Import failed',
+    unsupportedFormat: 'Unsupported file format: {format}',
+    typeMismatch: 'Current page only supports importing {current}, not {file}',
+    noVersionSelected: 'Please select a version first',
+    types: {
+      mod: 'Mod',
+      texture: 'Texture Pack',
+      furniture: 'Furniture Pack',
+      savegame: 'Save Game',
+      skin: 'Skin',
+      modpack: 'Modpack'
+    }
   }
 }

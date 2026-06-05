@@ -640,5 +640,27 @@ export default {
     launchFailed: '启动失败',
     stopFailed: '停止游戏失败',
     loadDataFailed: '加载数据失败'
+  },
+  dragDrop: {
+    dropFile: '拖放文件',
+    dropToImport: '拖放文件以导入{type}',
+    supportedFormats: '支持的格式：{formats}',
+    supportedFormatsAll: '支持拖放资源文件进行快速导入',
+    selectVersion: '请选择版本',
+    selectVersionTitle: '选择要导入{type}的版本',
+    file: '文件',
+    importSuccess: '文件 {file} 导入成功',
+    importFailed: '导入失败',
+    unsupportedFormat: '不支持的文件格式：{format}',
+    typeMismatch: '当前页面只支持导入{current}，不支持{file}',
+    noVersionSelected: '请先选择一个版本',
+    types: {
+      mod: '模组',
+      texture: '纹理包',
+      furniture: '家具包',
+      savegame: '存档',
+      skin: '皮肤',
+      modpack: '整合包'
+    }
   }
 }

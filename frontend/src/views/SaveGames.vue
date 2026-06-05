@@ -186,11 +186,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, watch, nextTick, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NInput } from 'naive-ui'
 import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon } from '@vicons/ionicons5'
 import { useVersionStore } from '../stores/version'
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ExportSaveGameAsModpack, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL } from '../api/savegame'
 import { ModSourceManager } from '../managers'
 import type { SaveGame } from '../types/savegame'
@@ -212,6 +213,11 @@ const dialog = useDialog()
 
 const loading = ref(false)
 const selectedVersionId = ref<string>('')
+
+// 同步选中版本到全局 store
+watch(selectedVersionId, (newVal) => {
+  versionStore.selectedVersionId = newVal
+})
 
 // 存档列表
 const saveGames = ref<SaveGame[]>([])
@@ -750,6 +756,16 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+
+  EventsOn('dragdrop:imported', async () => {
+    if (selectedVersionId.value) {
+      await loadSaveGames()
+    }
+  })
+})
+
+onUnmounted(() => {
+  EventsOff('dragdrop:imported')
 })
 
 // 当页面激活时重新加载下载源列表

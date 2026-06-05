@@ -200,6 +200,7 @@
 import { ref, computed, onMounted, onActivated, onUnmounted, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSkinStore } from '../stores/skin'
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useMessage } from 'naive-ui'
 import { Add as AddIcon, Refresh as RefreshIcon, Image as ImageIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, Search as SearchIcon } from '@vicons/ionicons5'
 import { formatSize } from '../utils/format'
@@ -623,11 +624,15 @@ onMounted(async () => {
   } catch (error) {
     message.error(t('skins.loadFailed') + '：' + error)
   }
+
+  EventsOn('dragdrop:imported', async () => {
+    await skinStore.loadSkins()
+  })
 })
 
 onUnmounted(() => {
-  // 组件卸载时停止自动刷新
   stopAutoRefresh()
+  EventsOff('dragdrop:imported')
 })
 </script>
 

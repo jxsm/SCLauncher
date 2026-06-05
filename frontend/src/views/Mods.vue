@@ -218,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useModStore } from '../stores/mod'
@@ -226,6 +226,7 @@ import { useVersionStore } from '../stores/version'
 import { useMessage } from 'naive-ui'
 import { Add as AddIcon, Search as SearchIcon, FolderOpen as FolderIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon } from '@vicons/ionicons5'
 import { OpenVersionModsFolder } from '../api/version'
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { ModSourceManager } from '../managers'
 import type { ModSearchResult, ModSource } from '../types/mod-source'
 import ModListItem from '../components/mod/ModListItem.vue'
@@ -246,6 +247,11 @@ const currentView = ref<'manage' | 'download'>('manage')
 const selectedVersion = ref<string>('')
 const searchText = ref<string>('')
 const filterType = ref<string>('all')
+
+// 同步选中版本到全局 store
+watch(selectedVersion, (newVal) => {
+  versionStore.selectedVersionId = newVal
+})
 
 // 模组下载状态
 const downloadSearchText = ref<string>('')
@@ -670,6 +676,17 @@ onMounted(async () => {
   } catch (error) {
     message.error(t('mods.loadVersionsFailed') + '：' + error)
   }
+
+  // 监听拖拽导入事件，刷新列表
+  EventsOn('dragdrop:imported', async () => {
+    if (selectedVersion.value) {
+      await modStore.loadMods(selectedVersion.value)
+    }
+  })
+})
+
+onUnmounted(() => {
+  EventsOff('dragdrop:imported')
 })
 
 // 当页面激活时重新加载下载源列表

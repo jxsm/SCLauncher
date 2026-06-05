@@ -31,9 +31,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { useVersionStore } from "../stores/version";
 import ModsView from "./Mods.vue";
 import SaveGamesView from "./SaveGames.vue";
 import SkinsView from "./Skins.vue";
@@ -42,7 +43,13 @@ import TexturesView from "./Textures.vue";
 
 const { t } = useI18n();
 const route = useRoute();
+const versionStore = useVersionStore();
 const activeResourceTab = ref("mods");
+
+// 同步当前标签页到全局 store（供拖拽导入判断资源类型）
+watch(activeResourceTab, (val) => {
+  versionStore.activeResourceTab = val;
+}, { immediate: true });
 
 // 从路由获取版本ID
 const versionIdFromRoute = computed(() => route.query.versionId as string | undefined);

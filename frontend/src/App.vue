@@ -9,6 +9,9 @@
       <n-message-provider>
         <n-dialog-provider ref="dialogProviderInst">
           <n-notification-provider>
+            <!-- 拖拽文件处理 -->
+            <DragDropHandler />
+
             <div class="app-container">
               <!-- 固定在顶部的导航栏 -->
               <div class="app-nav">
@@ -69,6 +72,7 @@ import ResourcesView from "./views/Resources.vue";
 import SettingsView from "./views/Settings.vue";
 import BackToTop from "./components/BackToTop.vue";
 import DownloadProgress from "./components/DownloadProgress.vue";
+import DragDropHandler from "./components/DragDropHandler.vue";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -107,367 +111,367 @@ function handleSystemThemeChange(e: MediaQueryListEvent) {
   systemPrefersDark.value = e.matches;
 }
 
-// Apple Design System 主题配置 - 浅色
-const lightAppleTheme: GlobalThemeOverrides = {
+// Discord Design System 主题配置 - 浅色
+const discordLightTheme: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#0066cc',
-    primaryColorHover: '#0071e3',
-    primaryColorPressed: '#0055aa',
-    primaryColorSuppl: '#2997ff',
-    infoColor: '#0066cc',
-    successColor: '#34c759',
-    warningColor: '#ff9500',
-    errorColor: '#ff3b30',
-    textColorBase: '#1d1d1f',
-    textColor1: '#1d1d1f',
-    textColor2: '#333333',
-    textColor3: '#7a7a7a',
-    dividerColor: '#e0e0e0',
-    borderColor: '#e0e0e0',
-    borderRadius: '8px',
-    borderRadiusSmall: '5px',
-    fontFamily: '"SF Pro Text", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-    fontSize: '17px',
+    primaryColor: '#5865F2',
+    primaryColorHover: '#4752C4',
+    primaryColorPressed: '#3C45A5',
+    primaryColorSuppl: '#5865F2',
+    infoColor: '#5865F2',
+    successColor: '#23A559',
+    warningColor: '#F0B232',
+    errorColor: '#DA373C',
+    textColorBase: '#060607',
+    textColor1: '#060607',
+    textColor2: '#313338',
+    textColor3: '#5D6167',
+    dividerColor: 'rgba(0, 0, 0, 0.08)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: '4px',
+    borderRadiusSmall: '2px',
+    fontFamily: "'Noto Sans', Helvetica, Arial, sans-serif",
+    fontSize: '16px',
     fontSizeMini: '12px',
     fontSizeTiny: '12px',
     fontSizeSmall: '14px',
-    fontSizeMedium: '17px',
-    fontSizeLarge: '17px',
-    fontSizeHuge: '21px',
+    fontSizeMedium: '16px',
+    fontSizeLarge: '16px',
+    fontSizeHuge: '20px',
     heightMini: '28px',
     heightTiny: '32px',
     heightSmall: '36px',
     heightMedium: '40px',
     heightLarge: '44px',
     heightHuge: '48px',
-    lineHeight: '1.47',
-    hoverColor: 'rgba(0, 102, 204, 0.08)',
-    cardColor: '#ffffff',
-    modalColor: '#ffffff',
-    bodyColor: '#ffffff',
-    tagColor: '#f5f5f7',
-    avatarColor: '#f5f5f7',
-    inputColor: '#ffffff',
-    inputColorDisabled: '#f5f5f7',
-    tableColor: '#ffffff',
-    tableColorHover: '#f5f5f7',
-    codeColor: '#f5f5f7',
-    tabColor: '#ffffff',
-    closeIconColor: '#7a7a7a',
-    closeIconColorHover: '#1d1d1f',
-    closeColorHover: 'rgba(0, 0, 0, 0.06)',
-    closeColorPressed: 'rgba(0, 0, 0, 0.1)',
-    clearColor: '#7a7a7a',
-    clearColorHover: '#1d1d1f',
-    clearColorPressed: '#333333',
+    lineHeight: '1.25',
+    hoverColor: 'rgba(0, 0, 0, 0.08)',
+    cardColor: '#F2F3F5',
+    modalColor: '#FFFFFF',
+    bodyColor: '#FFFFFF',
+    tagColor: 'rgba(0, 0, 0, 0.06)',
+    avatarColor: '#F2F3F5',
+    inputColor: '#E3E5E8',
+    inputColorDisabled: '#F2F3F5',
+    tableColor: '#F2F3F5',
+    tableColorHover: '#E3E5E8',
+    codeColor: '#E3E5E8',
+    tabColor: '#FFFFFF',
+    closeIconColor: '#5D6167',
+    closeIconColorHover: '#060607',
+    closeColorHover: 'rgba(0, 0, 0, 0.08)',
+    closeColorPressed: 'rgba(0, 0, 0, 0.12)',
+    clearColor: '#5D6167',
+    clearColorHover: '#060607',
+    clearColorPressed: '#313338',
     scrollbarColor: 'rgba(0, 0, 0, 0.2)',
     scrollbarColorHover: 'rgba(0, 0, 0, 0.35)',
-    progressRailColor: '#e0e0e0',
-    railColor: '#e0e0e0',
-    popoverColor: '#ffffff',
-    tableHeaderColor: '#f5f5f7',
-    invertedColor: '#1d1d1f',
+    progressRailColor: 'rgba(0, 0, 0, 0.08)',
+    railColor: 'rgba(0, 0, 0, 0.08)',
+    popoverColor: '#FFFFFF',
+    tableHeaderColor: '#F2F3F5',
+    invertedColor: '#060607',
   },
   Button: {
-    textColorPrimary: '#ffffff',
-    textColorHoverPrimary: '#ffffff',
-    textColorPressedPrimary: '#ffffff',
-    textColorFocusPrimary: '#ffffff',
-    colorPrimary: '#0066cc',
-    colorHoverPrimary: '#0071e3',
-    colorPressedPrimary: '#0055aa',
-    colorFocusPrimary: '#0066cc',
-    borderPrimary: '#0066cc',
-    borderHoverPrimary: '#0071e3',
-    borderPressedPrimary: '#0055aa',
-    borderFocusPrimary: '#0066cc',
-    borderRadiusMedium: '9999px',
-    borderRadiusLarge: '9999px',
-    fontWeight: '400',
+    textColorPrimary: '#FFFFFF',
+    textColorHoverPrimary: '#FFFFFF',
+    textColorPressedPrimary: '#FFFFFF',
+    textColorFocusPrimary: '#FFFFFF',
+    colorPrimary: '#5865F2',
+    colorHoverPrimary: '#4752C4',
+    colorPressedPrimary: '#3C45A5',
+    colorFocusPrimary: '#5865F2',
+    borderPrimary: '#5865F2',
+    borderHoverPrimary: '#4752C4',
+    borderPressedPrimary: '#3C45A5',
+    borderFocusPrimary: '#5865F2',
+    borderRadiusMedium: '4px',
+    borderRadiusLarge: '4px',
+    fontWeight: '500',
   },
   Card: {
-    borderRadius: '18px',
-    borderColor: '#e0e0e0',
-    color: '#ffffff',
-    colorModal: '#ffffff',
-    colorPopover: '#ffffff',
-    titleFontSizeMedium: '17px',
-    titleFontWeight: '600',
-    paddingMedium: '24px',
+    borderRadius: '8px',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    color: '#F2F3F5',
+    colorModal: '#FFFFFF',
+    colorPopover: '#FFFFFF',
+    titleFontSizeMedium: '16px',
+    titleFontWeight: '700',
+    paddingMedium: '16px',
   },
   Input: {
-    borderRadius: '9999px',
-    borderHover: '1px solid #0066cc',
-    borderFocus: '2px solid #0066cc',
-    boxShadowFocus: '0 0 0 4px rgba(0, 102, 204, 0.15)',
-    color: '#ffffff',
-    colorDisabled: '#f5f5f7',
+    borderRadius: '4px',
+    borderHover: '1px solid #5865F2',
+    borderFocus: '1px solid #5865F2',
+    boxShadowFocus: '0 0 0 1px #5865F2',
+    color: '#E3E5E8',
+    colorDisabled: '#F2F3F5',
     heightMedium: '40px',
     heightLarge: '44px',
   },
   Select: {
     peers: {
       InternalSelection: {
-        borderRadius: '9999px',
-        borderHover: '1px solid #0066cc',
-        borderFocus: '2px solid #0066cc',
-        boxShadowFocus: '0 0 0 4px rgba(0, 102, 204, 0.15)',
+        borderRadius: '4px',
+        borderHover: '1px solid #5865F2',
+        borderFocus: '1px solid #5865F2',
+        boxShadowFocus: '0 0 0 1px #5865F2',
         heightMedium: '40px',
       }
     }
   },
   Tag: {
-    borderRadius: '9999px',
+    borderRadius: '4px',
     heightSmall: '24px',
     heightMedium: '28px',
     fontSizeSmall: '12px',
     fontSizeMedium: '14px',
-    fontWeight: '400',
+    fontWeight: '500',
   },
   Tabs: {
-    tabFontWeightActive: '600',
-    tabFontWeight: '400',
-    barColor: '#0066cc',
-    tabTextColorActiveLine: '#1d1d1f',
-    tabTextColorLine: '#7a7a7a',
-    tabTextColorHoverLine: '#1d1d1f',
-    tabFontSizeMedium: '17px',
-    tabFontSizeLarge: '21px',
+    tabFontWeightActive: '700',
+    tabFontWeight: '500',
+    barColor: '#5865F2',
+    tabTextColorActiveLine: '#060607',
+    tabTextColorLine: '#5D6167',
+    tabTextColorHoverLine: '#060607',
+    tabFontSizeMedium: '16px',
+    tabFontSizeLarge: '20px',
   },
   Dialog: {
-    borderRadius: '18px',
-    titleFontSize: '21px',
-    fontSize: '17px',
-    padding: '24px',
+    borderRadius: '8px',
+    titleFontSize: '20px',
+    fontSize: '16px',
+    padding: '16px',
   },
   Notification: {
-    borderRadius: '18px',
-    padding: '24px',
+    borderRadius: '8px',
+    padding: '16px',
   },
   Message: {
-    borderRadius: '9999px',
-    padding: '12px 20px',
+    borderRadius: '4px',
+    padding: '10px 16px',
   },
   List: {
-    borderRadius: '18px',
-    color: '#ffffff',
-    colorModal: '#ffffff',
+    borderRadius: '8px',
+    color: '#F2F3F5',
+    colorModal: '#FFFFFF',
   },
   DataTable: {
-    borderRadius: '18px',
-    thColor: '#f5f5f7',
+    borderRadius: '8px',
+    thColor: '#F2F3F5',
   },
   Pagination: {
-    itemBorderRadius: '9999px',
-    itemSize: '36px',
+    itemBorderRadius: '4px',
+    itemSize: '32px',
   },
   Switch: {
-    railColor: '#e0e0e0',
-    railColorActive: '#0066cc',
+    railColor: 'rgba(0, 0, 0, 0.08)',
+    railColorActive: '#5865F2',
   },
   Checkbox: {
-    colorChecked: '#0066cc',
-    borderChecked: '1px solid #0066cc',
+    colorChecked: '#5865F2',
+    borderChecked: '1px solid #5865F2',
   },
   Radio: {
-    dotColorActive: '#0066cc',
-    buttonBorderColorActive: '#0066cc',
-    buttonColorActive: '#0066cc',
-    buttonTextColorActive: '#ffffff',
+    dotColorActive: '#5865F2',
+    buttonBorderColorActive: '#5865F2',
+    buttonColorActive: '#5865F2',
+    buttonTextColorActive: '#FFFFFF',
   },
   Alert: {
-    borderRadius: '18px',
+    borderRadius: '8px',
   },
   Spin: {
-    color: '#0066cc',
+    color: '#5865F2',
   },
   Empty: {
-    textColor: '#7a7a7a',
+    textColor: '#5D6167',
   },
 };
 
-// Apple Design System 主题配置 - 深色
-const darkAppleTheme: GlobalThemeOverrides = {
+// Discord Design System 主题配置 - 深色
+const discordDarkTheme: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#2997ff',
-    primaryColorHover: '#40a3ff',
-    primaryColorPressed: '#1a8af0',
-    primaryColorSuppl: '#2997ff',
-    infoColor: '#2997ff',
-    successColor: '#30d158',
-    warningColor: '#ff9f0a',
-    errorColor: '#ff453a',
-    textColorBase: '#ffffff',
-    textColor1: '#ffffff',
-    textColor2: '#cccccc',
-    textColor3: '#888888',
-    dividerColor: '#38383a',
-    borderColor: '#38383a',
-    borderRadius: '8px',
-    borderRadiusSmall: '5px',
-    fontFamily: '"SF Pro Text", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif',
-    fontSize: '17px',
+    primaryColor: '#5865F2',
+    primaryColorHover: '#4752C4',
+    primaryColorPressed: '#3C45A5',
+    primaryColorSuppl: '#5865F2',
+    infoColor: '#5865F2',
+    successColor: '#23A559',
+    warningColor: '#F0B232',
+    errorColor: '#DA373C',
+    textColorBase: '#DBDEE1',
+    textColor1: '#F2F3F5',
+    textColor2: '#B5BAC1',
+    textColor3: '#949BA4',
+    dividerColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: '4px',
+    borderRadiusSmall: '2px',
+    fontFamily: "'Noto Sans', Helvetica, Arial, sans-serif",
+    fontSize: '16px',
     fontSizeMini: '12px',
     fontSizeTiny: '12px',
     fontSizeSmall: '14px',
-    fontSizeMedium: '17px',
-    fontSizeLarge: '17px',
-    fontSizeHuge: '21px',
+    fontSizeMedium: '16px',
+    fontSizeLarge: '16px',
+    fontSizeHuge: '20px',
     heightMini: '28px',
     heightTiny: '32px',
     heightSmall: '36px',
     heightMedium: '40px',
     heightLarge: '44px',
     heightHuge: '48px',
-    lineHeight: '1.47',
-    hoverColor: 'rgba(41, 151, 255, 0.12)',
-    cardColor: '#1c1c1e',
-    modalColor: '#2c2c2e',
-    bodyColor: '#000000',
-    tagColor: '#2c2c2e',
-    avatarColor: '#2c2c2e',
-    inputColor: '#1c1c1e',
-    inputColorDisabled: '#2c2c2e',
-    tableColor: '#1c1c1e',
-    tableColorHover: '#2c2c2e',
-    codeColor: '#2c2c2e',
-    tabColor: '#1c1c1e',
-    closeIconColor: '#888888',
-    closeIconColorHover: '#ffffff',
+    lineHeight: '1.25',
+    hoverColor: 'rgba(255, 255, 255, 0.08)',
+    cardColor: '#2B2D31',
+    modalColor: '#313338',
+    bodyColor: '#313338',
+    tagColor: 'rgba(255, 255, 255, 0.06)',
+    avatarColor: '#2B2D31',
+    inputColor: '#1E1F22',
+    inputColorDisabled: '#2B2D31',
+    tableColor: '#2B2D31',
+    tableColorHover: '#232428',
+    codeColor: '#1E1F22',
+    tabColor: '#313338',
+    closeIconColor: '#949BA4',
+    closeIconColorHover: '#DBDEE1',
     closeColorHover: 'rgba(255, 255, 255, 0.08)',
     closeColorPressed: 'rgba(255, 255, 255, 0.12)',
-    clearColor: '#888888',
-    clearColorHover: '#ffffff',
-    clearColorPressed: '#cccccc',
-    scrollbarColor: 'rgba(255, 255, 255, 0.2)',
-    scrollbarColorHover: 'rgba(255, 255, 255, 0.35)',
-    progressRailColor: '#38383a',
-    railColor: '#38383a',
-    popoverColor: '#2c2c2e',
-    tableHeaderColor: '#2c2c2e',
-    invertedColor: '#ffffff',
+    clearColor: '#949BA4',
+    clearColorHover: '#DBDEE1',
+    clearColorPressed: '#F2F3F5',
+    scrollbarColor: 'rgba(255, 255, 255, 0.1)',
+    scrollbarColorHover: 'rgba(255, 255, 255, 0.15)',
+    progressRailColor: 'rgba(255, 255, 255, 0.06)',
+    railColor: 'rgba(255, 255, 255, 0.06)',
+    popoverColor: '#111214',
+    tableHeaderColor: '#2B2D31',
+    invertedColor: '#F2F3F5',
   },
   Button: {
-    textColorPrimary: '#ffffff',
-    textColorHoverPrimary: '#ffffff',
-    textColorPressedPrimary: '#ffffff',
-    textColorFocusPrimary: '#ffffff',
-    colorPrimary: '#2997ff',
-    colorHoverPrimary: '#40a3ff',
-    colorPressedPrimary: '#1a8af0',
-    colorFocusPrimary: '#2997ff',
-    borderPrimary: '#2997ff',
-    borderHoverPrimary: '#40a3ff',
-    borderPressedPrimary: '#1a8af0',
-    borderFocusPrimary: '#2997ff',
-    borderRadiusMedium: '9999px',
-    borderRadiusLarge: '9999px',
-    fontWeight: '400',
+    textColorPrimary: '#FFFFFF',
+    textColorHoverPrimary: '#FFFFFF',
+    textColorPressedPrimary: '#FFFFFF',
+    textColorFocusPrimary: '#FFFFFF',
+    colorPrimary: '#5865F2',
+    colorHoverPrimary: '#4752C4',
+    colorPressedPrimary: '#3C45A5',
+    colorFocusPrimary: '#5865F2',
+    borderPrimary: '#5865F2',
+    borderHoverPrimary: '#4752C4',
+    borderPressedPrimary: '#3C45A5',
+    borderFocusPrimary: '#5865F2',
+    borderRadiusMedium: '4px',
+    borderRadiusLarge: '4px',
+    fontWeight: '500',
   },
   Card: {
-    borderRadius: '18px',
-    borderColor: '#38383a',
-    color: '#1c1c1e',
-    colorModal: '#2c2c2e',
-    colorPopover: '#2c2c2e',
-    titleFontSizeMedium: '17px',
-    titleFontWeight: '600',
-    paddingMedium: '24px',
+    borderRadius: '8px',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    color: '#2B2D31',
+    colorModal: '#313338',
+    colorPopover: '#111214',
+    titleFontSizeMedium: '16px',
+    titleFontWeight: '700',
+    paddingMedium: '16px',
   },
   Input: {
-    borderRadius: '9999px',
-    borderHover: '1px solid #2997ff',
-    borderFocus: '2px solid #2997ff',
-    boxShadowFocus: '0 0 0 4px rgba(41, 151, 255, 0.2)',
-    color: '#1c1c1e',
-    colorDisabled: '#2c2c2e',
+    borderRadius: '4px',
+    borderHover: '1px solid #5865F2',
+    borderFocus: '1px solid #5865F2',
+    boxShadowFocus: '0 0 0 1px #5865F2',
+    color: '#1E1F22',
+    colorDisabled: '#2B2D31',
     heightMedium: '40px',
     heightLarge: '44px',
   },
   Select: {
     peers: {
       InternalSelection: {
-        borderRadius: '9999px',
-        borderHover: '1px solid #2997ff',
-        borderFocus: '2px solid #2997ff',
-        boxShadowFocus: '0 0 0 4px rgba(41, 151, 255, 0.2)',
+        borderRadius: '4px',
+        borderHover: '1px solid #5865F2',
+        borderFocus: '1px solid #5865F2',
+        boxShadowFocus: '0 0 0 1px #5865F2',
         heightMedium: '40px',
       }
     }
   },
   Tag: {
-    borderRadius: '9999px',
+    borderRadius: '4px',
     heightSmall: '24px',
     heightMedium: '28px',
     fontSizeSmall: '12px',
     fontSizeMedium: '14px',
-    fontWeight: '400',
+    fontWeight: '500',
   },
   Tabs: {
-    tabFontWeightActive: '600',
-    tabFontWeight: '400',
-    barColor: '#2997ff',
-    tabTextColorActiveLine: '#ffffff',
-    tabTextColorLine: '#888888',
-    tabTextColorHoverLine: '#ffffff',
-    tabFontSizeMedium: '17px',
-    tabFontSizeLarge: '21px',
+    tabFontWeightActive: '700',
+    tabFontWeight: '500',
+    barColor: '#5865F2',
+    tabTextColorActiveLine: '#F2F3F5',
+    tabTextColorLine: '#949BA4',
+    tabTextColorHoverLine: '#F2F3F5',
+    tabFontSizeMedium: '16px',
+    tabFontSizeLarge: '20px',
   },
   Dialog: {
-    borderRadius: '18px',
-    titleFontSize: '21px',
-    fontSize: '17px',
-    padding: '24px',
+    borderRadius: '8px',
+    titleFontSize: '20px',
+    fontSize: '16px',
+    padding: '16px',
   },
   Notification: {
-    borderRadius: '18px',
-    padding: '24px',
+    borderRadius: '8px',
+    padding: '16px',
   },
   Message: {
-    borderRadius: '9999px',
-    padding: '12px 20px',
+    borderRadius: '4px',
+    padding: '10px 16px',
   },
   List: {
-    borderRadius: '18px',
-    color: '#1c1c1e',
-    colorModal: '#2c2c2e',
+    borderRadius: '8px',
+    color: '#2B2D31',
+    colorModal: '#313338',
   },
   DataTable: {
-    borderRadius: '18px',
-    thColor: '#2c2c2e',
+    borderRadius: '8px',
+    thColor: '#2B2D31',
   },
   Pagination: {
-    itemBorderRadius: '9999px',
-    itemSize: '36px',
+    itemBorderRadius: '4px',
+    itemSize: '32px',
   },
   Switch: {
-    railColor: '#38383a',
-    railColorActive: '#2997ff',
+    railColor: 'rgba(255, 255, 255, 0.06)',
+    railColorActive: '#5865F2',
   },
   Checkbox: {
-    colorChecked: '#2997ff',
-    borderChecked: '1px solid #2997ff',
+    colorChecked: '#5865F2',
+    borderChecked: '1px solid #5865F2',
   },
   Radio: {
-    dotColorActive: '#2997ff',
-    buttonBorderColorActive: '#2997ff',
-    buttonColorActive: '#2997ff',
-    buttonTextColorActive: '#ffffff',
+    dotColorActive: '#5865F2',
+    buttonBorderColorActive: '#5865F2',
+    buttonColorActive: '#5865F2',
+    buttonTextColorActive: '#FFFFFF',
   },
   Alert: {
-    borderRadius: '18px',
+    borderRadius: '8px',
   },
   Spin: {
-    color: '#2997ff',
+    color: '#5865F2',
   },
   Empty: {
-    textColor: '#888888',
+    textColor: '#949BA4',
   },
 };
 
 // 根据主题和背景图片动态设置主题覆盖
 const themeOverrides = computed<GlobalThemeOverrides>(() => {
-  const baseTheme = resolvedTheme.value === 'dark' ? darkAppleTheme : lightAppleTheme;
+  const baseTheme = resolvedTheme.value === 'dark' ? discordDarkTheme : discordLightTheme;
 
   if (hasBackgroundImage.value) {
     const isDark = resolvedTheme.value === 'dark';
@@ -502,39 +506,39 @@ watch(resolvedTheme, (theme) => {
   }
 
   const vars: Record<string, string> = isDark ? {
-    '--color-bg': '#000000',
-    '--color-surface': '#1c1c1e',
-    '--color-surface-elevated': '#2c2c2e',
-    '--color-text-primary': '#ffffff',
-    '--color-text-secondary': '#cccccc',
-    '--color-text-tertiary': '#888888',
-    '--color-border': '#38383a',
-    '--color-primary': '#2997ff',
-    '--color-primary-hover': '#40a3ff',
-    '--color-primary-hover-bg': 'rgba(41, 151, 255, 0.12)',
-    '--color-error': '#ff453a',
-    '--color-error-hover': '#ff6961',
-    '--color-scroll-thumb': 'rgba(255, 255, 255, 0.2)',
-    '--color-scroll-thumb-hover': 'rgba(255, 255, 255, 0.35)',
+    '--color-bg': '#313338',
+    '--color-surface': '#2B2D31',
+    '--color-surface-elevated': '#1E1F22',
+    '--color-text-primary': '#F2F3F5',
+    '--color-text-secondary': '#DBDEE1',
+    '--color-text-tertiary': '#949BA4',
+    '--color-border': 'rgba(255, 255, 255, 0.06)',
+    '--color-primary': '#5865F2',
+    '--color-primary-hover': '#4752C4',
+    '--color-primary-hover-bg': 'rgba(88, 101, 242, 0.1)',
+    '--color-error': '#DA373C',
+    '--color-error-hover': '#A12D31',
+    '--color-scroll-thumb': 'rgba(255, 255, 255, 0.1)',
+    '--color-scroll-thumb-hover': 'rgba(255, 255, 255, 0.15)',
     '--color-overlay': 'rgba(0, 0, 0, 0.5)',
-    '--color-nav-bg': 'rgba(28, 28, 30, 0.72)',
+    '--color-nav-bg': '#2B2D31',
   } : {
-    '--color-bg': '#ffffff',
-    '--color-surface': '#ffffff',
-    '--color-surface-elevated': '#f5f5f7',
-    '--color-text-primary': '#1d1d1f',
-    '--color-text-secondary': '#333333',
-    '--color-text-tertiary': '#7a7a7a',
-    '--color-border': '#e0e0e0',
-    '--color-primary': '#0066cc',
-    '--color-primary-hover': '#0071e3',
-    '--color-primary-hover-bg': 'rgba(0, 102, 204, 0.08)',
-    '--color-error': '#ff3b30',
-    '--color-error-hover': '#ff453a',
+    '--color-bg': '#FFFFFF',
+    '--color-surface': '#F2F3F5',
+    '--color-surface-elevated': '#E3E5E8',
+    '--color-text-primary': '#060607',
+    '--color-text-secondary': '#313338',
+    '--color-text-tertiary': '#5D6167',
+    '--color-border': 'rgba(0, 0, 0, 0.08)',
+    '--color-primary': '#5865F2',
+    '--color-primary-hover': '#4752C4',
+    '--color-primary-hover-bg': 'rgba(88, 101, 242, 0.1)',
+    '--color-error': '#DA373C',
+    '--color-error-hover': '#A12D31',
     '--color-scroll-thumb': 'rgba(0, 0, 0, 0.2)',
     '--color-scroll-thumb-hover': 'rgba(0, 0, 0, 0.35)',
     '--color-overlay': 'rgba(255, 255, 255, 0.5)',
-    '--color-nav-bg': 'rgba(255, 255, 255, 0.72)',
+    '--color-nav-bg': '#FFFFFF',
   };
 
   for (const [key, value] of Object.entries(vars)) {
@@ -751,6 +755,7 @@ onUnmounted(() => {
 .app-box {
   width: 100vw;
   height: 100vh;
+  --wails-drop-target: drop;
 }
 
 * {
@@ -760,12 +765,10 @@ onUnmounted(() => {
 }
 
 body {
-  font-family: "SF Pro Text", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-  background-color: var(--color-bg, #ffffff);
-  color: var(--color-text-primary, #1d1d1f);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Noto Sans', Helvetica, Arial, sans-serif;
+  background-color: var(--color-bg, #313338);
+  color: var(--color-text-primary, #F2F3F5);
+  transition: background-color 0.17s ease, color 0.17s ease;
 }
 
 .app-container {
@@ -774,20 +777,18 @@ body {
   overflow-y: auto;
 }
 
-/* Apple 风格顶部导航栏 */
+/* Discord 风格顶部导航栏 */
 .app-nav {
   position: sticky;
   top: 0;
   width: 100%;
-  padding: 12px 24px;
-  background-color: var(--color-nav-bg, rgba(255, 255, 255, 0.72));
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--color-border, #e0e0e0);
+  padding: 8px 16px;
+  background-color: var(--color-nav-bg, #2B2D31);
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
   z-index: 1000;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - Discord 风格 */
 .app-container::-webkit-scrollbar {
   width: 8px;
 }
@@ -797,12 +798,12 @@ body {
 }
 
 .app-container::-webkit-scrollbar-thumb {
-  background: var(--color-scroll-thumb, rgba(0, 0, 0, 0.2));
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
 
 .app-container::-webkit-scrollbar-thumb:hover {
-  background: var(--color-scroll-thumb-hover, rgba(0, 0, 0, 0.35));
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* 背景图片层 */
@@ -826,9 +827,9 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--color-overlay, rgba(255, 255, 255, 0.5));
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background-color: var(--color-overlay, rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* 确保内容在背景之上 */
@@ -842,33 +843,29 @@ body {
   z-index: 1;
 }
 
-/* 全局过渡动画 */
+/* Discord 风格按钮过渡 */
 .n-button {
-  transition: all 0.2s ease !important;
+  transition: background-color 0.17s ease, color 0.17s ease !important;
 }
 
-.n-button:active {
-  transform: scale(0.95);
-}
-
-/* Apple 风格卡片 */
+/* Discord 风格卡片 */
 .n-card {
-  border: 1px solid var(--color-border, #e0e0e0);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
   box-shadow: none;
-  transition: border-color 0.3s ease, background-color 0.3s ease;
+  transition: border-color 0.17s ease, background-color 0.17s ease;
 }
 
-/* Apple 风格列表项 */
+/* Discord 风格列表项 */
 .n-list-item {
-  transition: background-color 0.2s ease;
+  transition: background-color 0.17s ease;
 }
 
 .n-list-item:hover {
-  background-color: var(--color-surface-elevated, #f5f5f7) !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Apple 风格标签 */
+/* Discord 风格标签 */
 .n-tag {
-  font-weight: 400;
+  font-weight: 500;
 }
 </style>

@@ -1,28 +1,18 @@
 html {
-    background-color: #ffffff;
+    background-color: #313338;
     text-align: center;
-    color: #1d1d1f;
+    color: #DBDEE1;
 }
 
 body {
     margin: 0;
-    color: #1d1d1f;
-    font-family: "SF Pro Text", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-    font-size: 17px;
-    line-height: 1.47;
-    letter-spacing: -0.374px;
+    color: #DBDEE1;
+    font-family: 'Noto Sans', Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.25;
+    letter-spacing: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-}
-
-@font-face {
-    font-family: "Nunito";
-    font-style: normal;
-    font-weight: 400;
-    src: local(""),
-    url("assets/fonts/nunito-v16-latin-regular.woff2") format("woff2");
 }
 
 #app {
