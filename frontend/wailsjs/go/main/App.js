@@ -338,6 +338,10 @@ export function SetPrimaryVersion(arg1) {
   return window['go']['main']['App']['SetPrimaryVersion'](arg1);
 }
 
+export function SetTheme(arg1) {
+  return window['go']['main']['App']['SetTheme'](arg1);
+}
+
 export function SetUpdateRemindDisabled(arg1) {
   return window['go']['main']['App']['SetUpdateRemindDisabled'](arg1);
 }

@@ -174,6 +174,8 @@ export function SetMaxConcurrent(arg1:number):Promise<void>;
 
 export function SetPrimaryVersion(arg1:string):Promise<void>;
 
+export function SetTheme(arg1:string):Promise<void>;
+
 export function SetUpdateRemindDisabled(arg1:boolean):Promise<void>;
 
 export function StopGame():Promise<void>;

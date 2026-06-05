@@ -639,6 +639,13 @@ onUnmounted(() => {
 
 .skin-card {
   height: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  transition: box-shadow 0.2s ease;
+}
+
+.skin-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .skin-preview {
@@ -646,23 +653,23 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   height: 120px;
-  background-color: var(--n-color);
-  border-radius: 4px;
-  color: var(--n-placeholder-color);
+  background-color: #f5f5f7;
+  border-radius: 8px;
+  color: #7a7a7a;
 }
 
 .skin-image {
   max-width: 100%;
   max-height: 120px;
   object-fit: contain;
-  image-rendering: pixelated; /* 保持像素风格 */
+  image-rendering: pixelated;
 }
 
 .view-content {
   min-height: 400px;
 }
 
-/* 视图切换动画 */
+/* 视图切换动画 - Apple 风格 */
 .view-fade-enter-active,
 .view-fade-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

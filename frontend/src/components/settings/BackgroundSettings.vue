@@ -51,9 +51,9 @@ defineEmits<{
 <style scoped>
 .background-preview {
   width: 100%;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
   overflow: hidden;
-  background-color: #f5f5f5;
+  background-color: var(--color-surface-elevated, #f5f5f7);
 }
 </style>

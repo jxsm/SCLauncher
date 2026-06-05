@@ -27,6 +27,11 @@ export async function SetLanguage(lang: string): Promise<void> {
   await AppBindings.SetLanguage(lang)
 }
 
+// 设置主题
+export async function SetTheme(theme: string): Promise<void> {
+  await AppBindings.SetTheme(theme)
+}
+
 // 自动检测系统语言（首次启动时调用）
 export async function AutoDetectLanguage(): Promise<void> {
   await AppBindings.AutoDetectLanguage()

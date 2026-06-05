@@ -1,6 +1,9 @@
 <template>
   <div class="settings-view">
     <n-space vertical size="large">
+      <!-- 主题设置 -->
+      <ThemeSettings />
+
       <!-- 语言设置 -->
       <LanguageSettings
         :language="language"
@@ -82,6 +85,7 @@ import { GetConfig, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce,
 import { useVersionStore } from '../stores/version'
 import type { AppConfig } from '../types/config'
 import LanguageSettings from '../components/settings/LanguageSettings.vue'
+import ThemeSettings from '../components/settings/ThemeSettings.vue'
 import PathSettings from '../components/settings/PathSettings.vue'
 import ManifestSettings from '../components/settings/ManifestSettings.vue'
 import SourceSettings from '../components/settings/SourceSettings.vue'
@@ -424,14 +428,14 @@ async function handleCheckUpdate() {
         content: () => {
           return h('div', [
             h('p', { style: 'margin-bottom: 12px;' }, `${t('settings.currentVersion')}: v${updateInfo.currentVersion}`),
-            h('p', { style: 'margin-bottom: 12px; font-weight: bold; color: #18a058;' }, `${t('settings.latestVersion')}: v${updateInfo.latestVersion}`),
+            h('p', { style: 'margin-bottom: 12px; font-weight: bold; color: var(--n-primary-color);' }, `${t('settings.latestVersion')}: v${updateInfo.latestVersion}`),
             h('p', { style: 'margin-bottom: 12px;' }, `${t('settings.releaseDate')}: ${new Date(updateInfo.publishedAt).toLocaleString()}`),
             h(NAlert, {
               type: 'info',
               title: t('settings.updateContent')
             }, {
               default: () => h('pre', {
-                style: 'max-height: 200px; overflow-y: auto; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; font-size: 12px; white-space: pre-wrap;'
+                style: 'max-height: 200px; overflow-y: auto; background: var(--n-code-color); color: var(--n-text-color); padding: 12px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; border: 1px solid var(--n-border-color); font-family: "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;'
               }, updateInfo.body || t('settings.noUpdateContent'))
             })
           ])
@@ -484,13 +488,14 @@ onMounted(async () => {
 .settings-view {
   max-width: 800px;
   margin: 0 auto;
+  padding: 0 24px;
 }
 
 .about-section {
   text-align: center;
   padding: 20px 0;
   opacity: 0.6;
-  transition: opacity 0.3s;
+  transition: opacity 0.3s ease;
 }
 
 .about-section:hover {

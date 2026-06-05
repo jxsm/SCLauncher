@@ -58,7 +58,20 @@ onUnmounted(() => {
   bottom: 40px;
   right: 40px;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+  background: var(--color-primary, #0066cc) !important;
+  border: none !important;
+  transition: all 0.2s ease;
+}
+
+.back-to-top:hover {
+  background: var(--color-primary-hover, #0071e3) !important;
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.25);
+}
+
+.back-to-top:active {
+  transform: scale(0.9);
 }
 
 /* 淡入淡出动画 */

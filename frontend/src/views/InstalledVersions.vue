@@ -313,7 +313,7 @@ async function handleInstallModpack() {
         content: () => {
           return h('div', [
             isPlatformError
-              ? h('p', { style: 'margin-bottom: 12px; font-size: 14px; padding: 16px; background: var(--n-error-color); color: white; border-radius: 4px;' }, '该整合包仅支持 Android 平台，无法在 Windows 版启动器中安装。')
+              ? h('p', { style: 'margin-bottom: 12px; font-size: 14px; padding: 16px; background: var(--n-error-color); color: white; border-radius: 8px;' }, '该整合包仅支持 Android 平台，无法在 Windows 版启动器中安装。')
               : h('div', [
                   h('p', { style: 'margin-bottom: 12px;' }, '解析整合包时发生错误：'),
                   h('div', {
@@ -450,7 +450,7 @@ function handleInstallError(error: string) {
     content: () => {
       return h('div', [
         h('p', { style: 'margin-bottom: 12px; color: #ff4d4f;' }, errorMsg),
-        h('p', { style: 'font-size: 12px; color: #999;' }, '详细错误信息已记录到控制台')
+        h('p', { style: 'font-size: 12px; color: var(--n-text-color-3);' }, '详细错误信息已记录到控制台')
       ])
     },
     positiveText: t('common.close'),
@@ -574,5 +574,6 @@ onMounted(async () => {
 .installed-versions-view {
   max-width: 1000px;
   margin: 0 auto;
+  padding: 0 24px;
 }
 </style>

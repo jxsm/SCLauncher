@@ -797,7 +797,7 @@ watch(isOnlineVersion, async (newValue, oldValue) => {
   min-height: 400px;
 }
 
-/* 视图切换动画 */
+/* 视图切换动画 - Apple 风格 */
 .view-fade-enter-active,
 .view-fade-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

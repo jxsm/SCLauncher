@@ -12,3 +12,6 @@ frontend/dist
 !README_ZH.md
 !docs/**/*.md
 test_build.exe
+
+design
+design/*

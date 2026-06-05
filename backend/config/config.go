@@ -85,7 +85,7 @@ func DefaultConfig() *Config {
 		DownloadsDir:             filepath.Join(".Survivalcraft", "downloads"),
 		MaxConcurrent:            3,
 		CurrentVersion:           "",
-		Theme:                    "dark",
+		Theme:                    "auto",
 		Language:                 "zh-CN",
 		AutoCheckUpdates:         true,
 		BackgroundImage:          "",
@@ -344,6 +344,15 @@ func (c *Config) SetMaxConcurrent(max int) error {
 // SetLanguage 设置语言
 func (c *Config) SetLanguage(lang string) error {
 	c.Language = lang
+	return c.Save()
+}
+
+// SetTheme 设置应用主题
+func (c *Config) SetTheme(theme string) error {
+	if theme != "light" && theme != "dark" && theme != "auto" {
+		return fmt.Errorf("invalid theme: %s, must be 'light', 'dark', or 'auto'", theme)
+	}
+	c.Theme = theme
 	return c.Save()
 }
 

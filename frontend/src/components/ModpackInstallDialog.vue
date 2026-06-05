@@ -191,13 +191,13 @@ function getStageIcon(stageStatus: string) {
 function getStageColor(stageStatus: string) {
   switch (stageStatus) {
     case 'completed':
-      return '#18a058'
+      return '#34c759'
     case 'running':
-      return '#2080f0'
+      return '#0066cc'
     case 'error':
-      return '#d03050'
+      return '#ff3b30'
     default:
-      return '#909399'
+      return '#7a7a7a'
   }
 }
 

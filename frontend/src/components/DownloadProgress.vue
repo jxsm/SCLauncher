@@ -109,7 +109,12 @@ function formatSize(bytes: number): string {
 }
 
 .progress-card {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  border-radius: 18px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  background: var(--color-nav-bg, rgba(255, 255, 255, 0.95));
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 /* 动画效果 */

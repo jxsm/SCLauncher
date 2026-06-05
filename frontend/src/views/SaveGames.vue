@@ -324,8 +324,8 @@ async function handleImportSave() {
             h('strong', { style: 'display: inline-block; width: 100px;' }, t('saveGames.gameMode') + ':'),
             h('span', preview.gameMode ? translateGameMode(preview.gameMode) : t('common.unknown'))
           ]),
-          h('div', { style: 'margin-top: 16px; padding-top: 12px; border-top: 1px solid #e0e0e0;' }, [
-            h('span', { style: 'color: #f0a020;' }, t('saveGames.confirmImportMessage'))
+          h('div', { style: 'margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--n-border-color);' }, [
+            h('span', { style: 'color: #ff9500;' }, t('saveGames.confirmImportMessage'))
           ])
         ])
       },
@@ -366,7 +366,7 @@ async function handleExportSave(save: SaveGame) {
       return h('div', { style: 'padding: 8px 0;' }, [
         h('div', { style: 'margin-bottom: 16px;' }, t('saveGames.selectExportFormatDescription')),
         h('div', { style: 'display: flex; flex-direction: column; gap: 12px;' }, [
-          h('label', { style: 'display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;' }, [
+          h('label', { style: 'display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; transition: all 0.2s;' }, [
             h('input', {
               type: 'radio',
               value: 'scworld',
@@ -375,11 +375,11 @@ async function handleExportSave(save: SaveGame) {
               style: 'margin-top: 2px;'
             }),
             h('div', { style: 'flex: 1;' }, [
-              h('strong', { style: 'display: block; margin-bottom: 4px; color: #2080f0;' }, '.scworld'),
-              h('div', { style: 'font-size: 12px; color: #666;' }, t('saveGames.scworldFormatDescription'))
+              h('strong', { style: 'display: block; margin-bottom: 4px; color: #0066cc;' }, '.scworld'),
+              h('div', { style: 'font-size: 12px; color: #7a7a7a;' }, t('saveGames.scworldFormatDescription'))
             ])
           ]),
-          h('label', { style: 'display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; transition: all 0.2s;' }, [
+          h('label', { style: 'display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; transition: all 0.2s;' }, [
             h('input', {
               type: 'radio',
               value: 'modpack',
@@ -388,8 +388,8 @@ async function handleExportSave(save: SaveGame) {
               style: 'margin-top: 2px;'
             }),
             h('div', { style: 'flex: 1;' }, [
-              h('strong', { style: 'display: block; margin-bottom: 4px; color: #18a058;' }, '整合包 (.scmodpack)'),
-              h('div', { style: 'font-size: 12px; color: #666;' }, t('saveGames.modpackFormatDescription'))
+              h('strong', { style: 'display: block; margin-bottom: 4px; color: #34c759;' }, '整合包 (.scmodpack)'),
+              h('div', { style: 'font-size: 12px; color: #7a7a7a;' }, t('saveGames.modpackFormatDescription'))
             ])
           ])
         ])
@@ -811,7 +811,7 @@ watch(sourceOptions, (newOptions) => {
   min-height: 400px;
 }
 
-/* 视图切换动画 */
+/* 视图切换动画 - Apple 风格 */
 .view-fade-enter-active,
 .view-fade-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

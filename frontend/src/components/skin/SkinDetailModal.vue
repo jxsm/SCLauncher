@@ -113,7 +113,7 @@ const { t } = useI18n()
 .skin-icon-preview {
   text-align: center;
   padding: 16px;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--n-code-color, #f5f5f7);
   border-radius: 8px;
 }
 
@@ -122,7 +122,7 @@ const { t } = useI18n()
   max-height: 300px;
   object-fit: contain;
   image-rendering: pixelated;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .file-preview-icon {
@@ -130,12 +130,12 @@ const { t } = useI18n()
   height: 32px;
   object-fit: cover;
   image-rendering: pixelated;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 .skin-description {
   line-height: 1.6;
-  color: #fff;
+  color: #1d1d1f;
 }
 
 .skin-description :deep(p) {
@@ -144,7 +144,7 @@ const { t } = useI18n()
 
 .skin-description :deep(img) {
   max-width: 100%;
-  border-radius: 4px;
+  border-radius: 8px;
   margin: 8px 0;
 }
 
@@ -159,24 +159,32 @@ const { t } = useI18n()
 }
 
 .skin-description :deep(code) {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--n-code-color, #f5f5f7);
   padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
+  border-radius: 5px;
+  font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
 }
 
 .skin-description :deep(pre) {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--n-code-color, #f5f5f7);
   padding: 12px;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow-x: auto;
   margin: 8px 0;
+  border: 1px solid var(--color-border, #e0e0e0);
+}
+
+.skin-description :deep(pre) code {
+  background-color: transparent;
+  padding: 0;
+  border: none;
 }
 
 .skin-description :deep(blockquote) {
-  border-left: 4px solid rgba(255, 255, 255, 0.3);
+  border-left: 4px solid #0066cc;
   padding-left: 12px;
   margin: 8px 0;
-  color: rgba(255, 255, 255, 0.8);
+  color: #7a7a7a;
 }
 </style>

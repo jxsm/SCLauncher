@@ -311,6 +311,11 @@ func (a *App) SetLanguage(lang string) error {
 	return a.config.SetLanguage(lang)
 }
 
+// SetTheme 设置应用主题
+func (a *App) SetTheme(theme string) error {
+	return a.config.SetTheme(theme)
+}
+
 // GetSystemLanguage 获取系统语言
 func (a *App) GetSystemLanguage() string {
 	// 获取系统语言环境变量

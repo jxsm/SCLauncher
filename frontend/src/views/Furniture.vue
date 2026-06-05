@@ -733,40 +733,7 @@ watch(sourceOptions, (newOptions) => {
   min-height: 400px;
 }
 
-/* 视图切换动画 */
-.view-fade-enter-active,
-.view-fade-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.view-fade-enter-from {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-.view-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-20px);
-}
-
-.view-fade-enter-to,
-.view-fade-leave-from {
-  opacity: 1;
-  transform: translateX(0);
-}
-</style>
-
-<style scoped>
-.furniture-view {
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.view-content {
-  min-height: 400px;
-}
-
-/* 视图切换动画 */
+/* 视图切换动画 - Apple 风格 */
 .view-fade-enter-active,
 .view-fade-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

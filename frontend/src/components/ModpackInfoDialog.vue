@@ -242,6 +242,6 @@ async function handleInstall() {
 
 .mod-version {
   font-size: 12px;
-  color: #666;
+  color: #7a7a7a;
 }
 </style>
