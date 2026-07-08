@@ -58,6 +58,10 @@ export function DeleteVersion(arg1) {
   return window['go']['main']['App']['DeleteVersion'](arg1);
 }
 
+export function DetectGameVersion(arg1) {
+  return window['go']['main']['App']['DetectGameVersion'](arg1);
+}
+
 export function DownloadFurnitureFromURL(arg1, arg2, arg3) {
   return window['go']['main']['App']['DownloadFurnitureFromURL'](arg1, arg2, arg3);
 }

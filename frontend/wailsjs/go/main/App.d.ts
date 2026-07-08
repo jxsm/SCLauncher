@@ -34,6 +34,8 @@ export function DeleteTexture(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteVersion(arg1:string):Promise<void>;
 
+export function DetectGameVersion(arg1:string):Promise<string>;
+
 export function DownloadFurnitureFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DownloadModFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
