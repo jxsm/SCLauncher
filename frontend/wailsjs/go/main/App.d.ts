@@ -16,6 +16,8 @@ export function CancelDownload(arg1:string):Promise<void>;
 
 export function CancelModpackInstall():Promise<void>;
 
+export function CheckDotNetRuntime(arg1:string):Promise<Record<string, any>>;
+
 export function CheckUpdate():Promise<Record<string, any>>;
 
 export function CheckUpdateWithForce(arg1:boolean):Promise<Record<string, any>>;
@@ -110,6 +112,8 @@ export function ImportTexture(arg1:string,arg2:string):Promise<void>;
 
 export function InspectArchive(arg1:string):Promise<string>;
 
+export function InstallDotNetRuntime(arg1:string):Promise<void>;
+
 export function InstallFromArchive(arg1:string,arg2:string):Promise<string>;
 
 export function InstallModpack(arg1:string):Promise<string>;
@@ -165,6 +169,8 @@ export function SelectSaveGameFile():Promise<string>;
 export function SelectSkinFile():Promise<string>;
 
 export function SelectTextureFile():Promise<string>;
+
+export function SetAutoCheckRuntime(arg1:boolean):Promise<void>;
 
 export function SetBackground(arg1:string):Promise<string>;
 

@@ -17,6 +17,7 @@ import (
 	"SCLauncher/backend/appinfo"
 	"SCLauncher/backend/background"
 	"SCLauncher/backend/config"
+	"SCLauncher/backend/dotnet"
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
 	"SCLauncher/backend/modpack"
@@ -66,6 +67,7 @@ type App struct {
 	savegameMgr    *savegame.Manager
 	textureMgr     *texture.Manager
 	backgroundMgr  *background.Manager
+	dotnetMgr          *dotnet.Manager
 	modpackRegistry    *modpack.ParserRegistry
 	modpackInstaller   *modpack.ModpackInstaller
 }
@@ -126,6 +128,7 @@ func (a *App) startup(ctx context.Context) {
 	a.savegameMgr = savegame.NewManager(cfg)
 	a.textureMgr = texture.NewManager(a.paths.GetVersionPath)
 	a.backgroundMgr = background.NewManager(cfg)
+	a.dotnetMgr = dotnet.NewManager()
 	a.modpackRegistry = modpack.NewParserRegistry()
 	a.modpackInstaller = modpack.NewModpackInstaller(cfg, a.versionMgr, a.modMgr)
 
@@ -194,6 +197,7 @@ func (a *App) GetConfig() map[string]interface{} {
 		"theme":                   a.config.Theme,
 		"language":                a.config.Language,
 		"backgroundImage":         a.config.BackgroundImage,
+		"autoCheckRuntime":        a.config.AutoCheckRuntime,
 	}
 }
 
@@ -1376,6 +1380,98 @@ func (a *App) findGameExecutableInFolder(folderPath string) (string, error) {
 // LaunchGame 启动游戏
 func (a *App) LaunchGame(versionID string) error {
 	return a.gameMgr.Launch(versionID)
+}
+
+// ========== .NET 运行时环境检查 API ==========
+
+// CheckDotNetRuntime 检查指定版本游戏所需的 .NET 运行时是否已安装。
+// 返回字段：enabled(是否开启自动检查)、required(是否需要系统运行时)、
+// majorVersion(所需大版本)、installed(本机是否已装)、source、tfm。
+// 若用户在设置中关闭了自动检查，返回 {enabled:false} 由前端直接放行启动。
+func (a *App) CheckDotNetRuntime(versionID string) (map[string]interface{}, error) {
+	result := map[string]interface{}{
+		"enabled":      a.config.AutoCheckRuntime,
+		"required":     false,
+		"installed":    false,
+		"majorVersion": 0,
+	}
+	if !a.config.AutoCheckRuntime {
+		return result, nil
+	}
+
+	gameDir, err := a.gameMgr.WorkDirectory(versionID)
+	if err != nil {
+		return result, fmt.Errorf("无法定位游戏目录: %w", err)
+	}
+
+	status, err := a.dotnetMgr.Status(gameDir)
+	if err != nil {
+		return result, fmt.Errorf("运行时环境检查失败: %w", err)
+	}
+
+	result["required"] = status.Needed
+	result["installed"] = status.Installed
+	result["majorVersion"] = status.MajorVersion
+	result["source"] = status.Source
+	result["tfm"] = status.TFM
+	return result, nil
+}
+
+// InstallDotNetRuntime 为指定版本游戏安装所需的 .NET 运行时。
+// 安装进度通过 runtime:install:progress 事件推送到前端；
+// 另有 runtime:install:start / runtime:install:complete / runtime:install:error。
+func (a *App) InstallDotNetRuntime(versionID string) error {
+	gameDir, err := a.gameMgr.WorkDirectory(versionID)
+	if err != nil {
+		return fmt.Errorf("无法定位游戏目录: %w", err)
+	}
+
+	req, err := dotnet.DetectRequired(gameDir)
+	if err != nil {
+		return fmt.Errorf("探测所需运行时失败: %w", err)
+	}
+	if !req.Needed {
+		return nil // 无需安装
+	}
+
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "runtime:install:start", map[string]interface{}{
+			"versionId":    versionID,
+			"majorVersion": req.MajorVersion,
+		})
+	}
+
+	progress := func(downloaded, total int64) {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "runtime:install:progress", map[string]interface{}{
+				"versionId":  versionID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		}
+	}
+
+	if err := a.dotnetMgr.Install(req.MajorVersion, progress); err != nil {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, "runtime:install:error", map[string]interface{}{
+				"versionId": versionID,
+				"error":     err.Error(),
+			})
+		}
+		return err
+	}
+
+	if a.ctx != nil {
+		runtime.EventsEmit(a.ctx, "runtime:install:complete", map[string]interface{}{
+			"versionId": versionID,
+		})
+	}
+	return nil
+}
+
+// SetAutoCheckRuntime 设置是否在启动游戏前自动检查 .NET 运行时
+func (a *App) SetAutoCheckRuntime(enabled bool) error {
+	return a.config.SetAutoCheckRuntime(enabled)
 }
 
 // StopGame 停止游戏

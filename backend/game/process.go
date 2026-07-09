@@ -295,6 +295,16 @@ func (g *GameManager) getGameWorkDirectory(versionID string, exePath string) str
 	return versionPath
 }
 
+// WorkDirectory 返回指定版本的游戏工作目录（供运行时环境检查等复用）。
+// 逻辑等价于 Launch 流程中 findGameExecutable + getGameWorkDirectory 的组合。
+func (g *GameManager) WorkDirectory(versionID string) (string, error) {
+	exePath, err := g.findGameExecutable(versionID)
+	if err != nil {
+		return "", err
+	}
+	return g.getGameWorkDirectory(versionID, exePath), nil
+}
+
 // monitorProcess 监控进程
 func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout, stderr *bytes.Buffer) {
 	// 等待进程结束

@@ -593,5 +593,17 @@ export default {
     launchFailed: 'فشل بدء التشغيل',
     stopFailed: 'فشل إيقاف اللعبة',
     loadDataFailed: 'فشل تحميل البيانات'
+  },
+  runtime: {
+    title: 'مطلوب وقت تشغيل .NET',
+    installPrompt: 'تتطلب اللعبة .NET {version} Desktop Runtime وهو غير مثبت. التثبيت الآن؟',
+    install: 'تثبيت',
+    installing: 'جارٍ تثبيت وقت تشغيل .NET',
+    installingTip: 'جارٍ تنزيل وقت التشغيل وتثبيته، يرجى الانتظار…',
+    success: 'تم تثبيت وقت التشغيل بنجاح',
+    failed: 'فشل تثبيت وقت التشغيل',
+    userCancelled: 'تم إلغاء التثبيت؛ لم يتم تشغيل اللعبة',
+    autoCheckLabel: 'فحص وقت تشغيل .NET تلقائيًا قبل التشغيل',
+    autoCheckDesc: 'عند التفعيل، يُطلب تثبيت وقت تشغيل .NET Desktop المطلوب قبل التشغيل إذا كان غير مثبت.'
   }
 }

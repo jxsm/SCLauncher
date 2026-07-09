@@ -39,6 +39,9 @@
         @clear="handleClearBackground"
       />
 
+      <!-- .NET 运行时自动检查 -->
+      <RuntimeSettings />
+
       <!-- 关于 -->
       <div class="about-section">
         <n-button text @click="showAboutDialog = true">
@@ -90,6 +93,7 @@ import PathSettings from '../components/settings/PathSettings.vue'
 import ManifestSettings from '../components/settings/ManifestSettings.vue'
 import SourceSettings from '../components/settings/SourceSettings.vue'
 import BackgroundSettings from '../components/settings/BackgroundSettings.vue'
+import RuntimeSettings from '../components/settings/RuntimeSettings.vue'
 import AboutDialog from '../components/settings/AboutDialog.vue'
 import AddSourceDialog from '../components/settings/AddSourceDialog.vue'
 import AddManifestSourceDialog from '../components/settings/AddManifestSourceDialog.vue'

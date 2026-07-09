@@ -592,5 +592,17 @@ export default {
     launchFailed: 'Error al iniciar',
     stopFailed: 'Error al detener el juego',
     loadDataFailed: 'Error al cargar datos'
+  },
+  runtime: {
+    title: 'Se requiere el runtime de .NET',
+    installPrompt: 'El juego requiere .NET {version} Desktop Runtime, que no está instalado. ¿Instalar ahora?',
+    install: 'Instalar',
+    installing: 'Instalando el runtime de .NET',
+    installingTip: 'Descargando e instalando el runtime, espera…',
+    success: 'Runtime instalado correctamente',
+    failed: 'Error al instalar el runtime',
+    userCancelled: 'Instalación cancelada; el juego no se inició',
+    autoCheckLabel: 'Comprobar runtime .NET antes de iniciar',
+    autoCheckDesc: 'Si está activado, solicita instalar el runtime de .NET Desktop necesario antes de iniciar si falta.'
   }
 }

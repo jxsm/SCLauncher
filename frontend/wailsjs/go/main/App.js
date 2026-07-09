@@ -22,6 +22,10 @@ export function CancelModpackInstall() {
   return window['go']['main']['App']['CancelModpackInstall']();
 }
 
+export function CheckDotNetRuntime(arg1) {
+  return window['go']['main']['App']['CheckDotNetRuntime'](arg1);
+}
+
 export function CheckUpdate() {
   return window['go']['main']['App']['CheckUpdate']();
 }
@@ -210,6 +214,10 @@ export function InspectArchive(arg1) {
   return window['go']['main']['App']['InspectArchive'](arg1);
 }
 
+export function InstallDotNetRuntime(arg1) {
+  return window['go']['main']['App']['InstallDotNetRuntime'](arg1);
+}
+
 export function InstallFromArchive(arg1, arg2) {
   return window['go']['main']['App']['InstallFromArchive'](arg1, arg2);
 }
@@ -320,6 +328,10 @@ export function SelectSkinFile() {
 
 export function SelectTextureFile() {
   return window['go']['main']['App']['SelectTextureFile']();
+}
+
+export function SetAutoCheckRuntime(arg1) {
+  return window['go']['main']['App']['SetAutoCheckRuntime'](arg1);
 }
 
 export function SetBackground(arg1) {

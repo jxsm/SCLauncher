@@ -51,6 +51,9 @@ type Config struct {
 	// 自动检查更新
 	AutoCheckUpdates bool `json:"autoCheckUpdates"`
 
+	// 启动游戏前自动检查并补齐 .NET 运行时
+	AutoCheckRuntime bool `json:"autoCheckRuntime"`
+
 	// 背景图片路径（相对路径）
 	BackgroundImage string `json:"backgroundImage"`
 
@@ -88,6 +91,7 @@ func DefaultConfig() *Config {
 		Theme:                    "auto",
 		Language:                 "zh-CN",
 		AutoCheckUpdates:         true,
+		AutoCheckRuntime:         true,
 		BackgroundImage:          "",
 		UpdateRemindDisableUntil: 0,
 		execDir:                  execDir,
@@ -209,6 +213,7 @@ func (c *Config) Save() error {
 		Theme                     string            `json:"theme"`
 		Language                  string            `json:"language"`
 		AutoCheckUpdates          bool              `json:"autoCheckUpdates"`
+		AutoCheckRuntime          bool              `json:"autoCheckRuntime"`
 		BackgroundImage           string            `json:"backgroundImage"`
 		UpdateRemindDisableUntil  int64             `json:"updateRemindDisableUntil"`
 	}{
@@ -223,6 +228,7 @@ func (c *Config) Save() error {
 		Theme:                     c.Theme,
 		Language:                  c.Language,
 		AutoCheckUpdates:          c.AutoCheckUpdates,
+		AutoCheckRuntime:          c.AutoCheckRuntime,
 		BackgroundImage:           c.toRelativePath(c.BackgroundImage),
 		UpdateRemindDisableUntil:  c.UpdateRemindDisableUntil,
 	}
@@ -359,6 +365,12 @@ func (c *Config) SetTheme(theme string) error {
 // SetBackgroundImage 设置背景图片路径
 func (c *Config) SetBackgroundImage(relativePath string) error {
 	c.BackgroundImage = relativePath
+	return c.Save()
+}
+
+// SetAutoCheckRuntime 设置是否在启动游戏前自动检查 .NET 运行时
+func (c *Config) SetAutoCheckRuntime(enabled bool) error {
+	c.AutoCheckRuntime = enabled
 	return c.Save()
 }
 

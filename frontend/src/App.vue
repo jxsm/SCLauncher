@@ -49,6 +49,9 @@
 
             <!-- 下载进度条 -->
             <DownloadProgress />
+
+            <!-- .NET 运行时安装进度弹窗 -->
+            <RuntimeInstallDialog />
           </n-notification-provider>
         </n-dialog-provider>
       </n-message-provider>
@@ -72,6 +75,7 @@ import ResourcesView from "./views/Resources.vue";
 import SettingsView from "./views/Settings.vue";
 import BackToTop from "./components/BackToTop.vue";
 import DownloadProgress from "./components/DownloadProgress.vue";
+import RuntimeInstallDialog from "./components/RuntimeInstallDialog.vue";
 import DragDropHandler from "./components/DragDropHandler.vue";
 
 const { t, locale } = useI18n();

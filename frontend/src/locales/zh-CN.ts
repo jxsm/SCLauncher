@@ -663,5 +663,17 @@ export default {
       skin: '皮肤',
       modpack: '整合包'
     }
+  },
+  runtime: {
+    title: '需要安装 .NET 运行时',
+    installPrompt: '游戏需要 .NET {version} 桌面运行时，当前未安装，是否立即安装？',
+    install: '安装',
+    installing: '正在安装 .NET 运行时',
+    installingTip: '正在下载并安装运行时，请稍候……',
+    success: '运行时安装成功',
+    failed: '运行时安装失败',
+    userCancelled: '已取消运行时安装，游戏未启动',
+    autoCheckLabel: '启动前自动检查 .NET 运行时',
+    autoCheckDesc: '开启后，若缺少游戏所需的 .NET 桌面运行时，将在启动游戏前提示安装。'
   }
 }

@@ -662,5 +662,17 @@ export default {
       skin: 'Skin',
       modpack: 'Modpack'
     }
+  },
+  runtime: {
+    title: '.NET runtime required',
+    installPrompt: 'The game requires the .NET {version} Desktop Runtime, which is not installed. Install it now?',
+    install: 'Install',
+    installing: 'Installing .NET runtime',
+    installingTip: 'Downloading and installing the runtime, please wait…',
+    success: 'Runtime installed successfully',
+    failed: 'Runtime installation failed',
+    userCancelled: 'Runtime installation cancelled; the game was not launched',
+    autoCheckLabel: 'Auto-check .NET runtime before launch',
+    autoCheckDesc: 'When enabled, prompts to install the required .NET Desktop Runtime before launching if it is missing.'
   }
 }

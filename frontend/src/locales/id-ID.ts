@@ -593,5 +593,17 @@ export default {
     launchFailed: 'Gagal meluncurkan',
     stopFailed: 'Gagal menghentikan game',
     loadDataFailed: 'Gagal memuat data'
+  },
+  runtime: {
+    title: 'Runtime .NET diperlukan',
+    installPrompt: 'Game memerlukan .NET {version} Desktop Runtime yang belum terpasang. Pasang sekarang?',
+    install: 'Pasang',
+    installing: 'Memasang runtime .NET',
+    installingTip: 'Mengunduh dan memasang runtime, mohon tunggu…',
+    success: 'Runtime berhasil dipasang',
+    failed: 'Pemasangan runtime gagal',
+    userCancelled: 'Pemasangan dibatalkan; game tidak dijalankan',
+    autoCheckLabel: 'Periksa runtime .NET sebelum menjalankan',
+    autoCheckDesc: 'Saat aktif, akan meminta pemasangan .NET Desktop Runtime yang diperlukan sebelum menjalankan jika belum ada.'
   }
 }

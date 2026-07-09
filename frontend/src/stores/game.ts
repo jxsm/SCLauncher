@@ -2,6 +2,10 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { GameStatus, GameProcessInfo } from '../types/game'
 import * as gameApi from '../api/game'
+import { useRuntimeStore } from './runtime'
+import { dialog as discreteDialog } from '../utils/naive'
+import i18n from '../locales'
+import type { RuntimeStatus } from '../api/runtime'
 
 export const useGameStore = defineStore('game', () => {
   // 状态
@@ -51,6 +55,12 @@ export const useGameStore = defineStore('game', () => {
     loading.value = true
     error.value = null
     try {
+      // 启动前：按需检查并补齐 .NET 运行时
+      const proceed = await ensureDotNetRuntime(versionId)
+      if (!proceed) {
+        return // 用户取消或安装失败
+      }
+
       await gameApi.LaunchGame(versionId)
       status.value = 'running'
       // 获取进程信息
@@ -63,6 +73,65 @@ export const useGameStore = defineStore('game', () => {
       throw e
     } finally {
       loading.value = false
+    }
+  }
+
+  // 启动前运行时环境检查：返回是否可以继续启动游戏。
+  // - 关闭了自动检查 → 直接放行
+  // - 不需要系统运行时 → 直接放行
+  // - 已安装 → 直接放行
+  // - 缺失 → 弹 Vue 确认框；确认则安装（带进度），取消或安装失败则中止
+  async function ensureDotNetRuntime(versionId: string): Promise<boolean> {
+    const runtimeStore = useRuntimeStore()
+    const t = i18n.global.t.bind(i18n.global)
+
+    let st: RuntimeStatus | undefined
+    try {
+      st = await runtimeStore.check(versionId)
+    } catch (e) {
+      // 检查本身失败不阻塞启动（避免运行时检查 bug 挡住游戏）
+      console.error('Runtime check failed, skipping:', e)
+      return true
+    }
+
+    if (!st || !st.enabled || !st.required || st.installed) {
+      return true
+    }
+
+    // 需要安装 → 弹确认框
+    const majorVersion = st.majorVersion
+    const ok = await new Promise<boolean>((resolve) => {
+      let settled = false
+      const done = (v: boolean) => {
+        if (!settled) {
+          settled = true
+          resolve(v)
+        }
+      }
+      discreteDialog.warning({
+        title: t('runtime.title'),
+        content: t('runtime.installPrompt', { version: majorVersion }),
+        positiveText: t('runtime.install'),
+        negativeText: t('common.cancel'),
+        onPositiveClick: () => done(true),
+        onNegativeClick: () => done(false),
+        onMaskClick: () => done(false),
+        onClose: () => done(false)
+      })
+    })
+
+    if (!ok) {
+      error.value = t('runtime.userCancelled')
+      return false
+    }
+
+    try {
+      await runtimeStore.install(versionId)
+      return true
+    } catch (e) {
+      error.value = t('runtime.failed')
+      console.error('Runtime install failed:', e)
+      return false
     }
   }
 
