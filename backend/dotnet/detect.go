@@ -57,17 +57,13 @@ var depsVersionRe = regexp.MustCompile(`v(\d+)\.`)
 func DetectRequired(gameDir string) (RequiredRuntime, error) {
 	res := RequiredRuntime{Source: SourceNone}
 
-	// 1. 优先 runtimeconfig.json
+	// 1. 优先 runtimeconfig.json：只要能解析出 tfm（netX.Y）即视为需要系统运行时。
+	//    与原始需求一致（读 runtimeOptions.tfm）。不再因 frameworks 为空而判定为自包含跳过——
+	//    否则框架依赖型游戏的 runtimeconfig 若未显式列出 frameworks 会被漏检，导致不提示直接启动。
 	if _, data, err := findFileBySuffix(gameDir, ".runtimeconfig.json"); err == nil {
-		tfm, frameworkDep, err := parseRuntimeConfig(data)
+		tfm, _, err := parseRuntimeConfig(data)
 		if err == nil && tfm != "" {
 			if major, ok := tfmToMajor(tfm); ok {
-				if !frameworkDep {
-					// tfm 存在但没有共享框架依赖 → 自包含，无需安装系统运行时
-					res.TFM = tfm
-					res.Source = SourceSelfContained
-					return res, nil
-				}
 				res.Needed = true
 				res.MajorVersion = major
 				res.Source = SourceRuntimeConfig

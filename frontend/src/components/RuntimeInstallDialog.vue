@@ -41,7 +41,9 @@ const runtimeStore = useRuntimeStore()
 const hasTotal = computed(() => runtimeStore.total > 0)
 
 const percent = computed(() => {
-  if (!hasTotal.value) return 100 // 走 winget 时无下载进度，显示满条 + processing 动画
+  // 还没拿到文件大小（连接/建连阶段）时显示 0% + processing 不定式动画，
+  // 不要给 100% —— 否则会先满条再跳回 0%。
+  if (!hasTotal.value) return 0
   return Math.min(100, Math.round((runtimeStore.downloaded / runtimeStore.total) * 100))
 })
 

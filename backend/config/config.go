@@ -160,6 +160,14 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
+	// 兼容旧配置：若缺少 autoCheckRuntime 字段，默认开启（产品要求默认 ON）
+	var rawKeys map[string]json.RawMessage
+	if json.Unmarshal(data, &rawKeys) == nil {
+		if _, ok := rawKeys["autoCheckRuntime"]; !ok {
+			config.AutoCheckRuntime = true
+		}
+	}
+
 	config.configPath = configPath
 	config.execDir = execDir
 

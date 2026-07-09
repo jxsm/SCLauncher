@@ -206,67 +206,73 @@ func ReleasesURL(major int) string
 
 ### 4.4 安装 — `installer.go`
 
-两条路径，**winget 优先，失败回退下载**。
+**默认只走「下载 + `/passive` 运行官方安装包」，不使用 winget。**
 
-#### 4.4.1 winget 安装
+> 选型理由（实现阶段调整）：winget 没有可对接的下载进度（启动器无法显示进度条），
+> 且会弹出 CMD 黑框，用户易产生安全顾虑。下载路径能上报真实进度（`runtime:install:progress`），
+> `/passive` 由安装程序自身的图形进度窗口承接，**无控制台窗口**。
+> `InstallViaWinget` 作为公开方法保留，供未来「高级：用 winget」开关复用，但 `Manager.Install` 默认不调用。
+
+#### 4.4.1 winget 安装（备选，默认不调用）
 
 命令（非交互、自动接受协议）：
 ```
 winget install --id Microsoft.DotNet.DesktopRuntime.<MAJOR> -e --silent --accept-package-agreements --accept-source-agreements
 ```
-例：`.10`、`.9`。
+例：`.10`、`.9`。判定成功：`exit code == 0`。
 
-判定成功：`exit code == 0`。
-winget 不存在 / 不可用（`exec.LookPath("winget")` 失败）或退出码非 0 → 进入下载回退。
+#### 4.4.2 下载 + 运行官方安装程序（默认路径）
 
-#### 4.4.2 下载 + 运行官方安装程序（回退）
-
-- 下载：复用 [backend/version/downloader.go](../backend/version/downloader.go) 的 HTTP 下载 + 进度回调思路，
-  或直接用 `http.Get` + `progressWriter`（参考 [app.go:34](../app.go#L34)）。
-  下载到临时目录，文件名 `windowsdesktop-runtime-<ver>-win-<arch>.exe`。
-- 校验：sha512 与 `releases.json` 里的 `hash` 比对。
+- 下载：`http.Get` + 流式写入临时文件，带进度回调；文件名取自 URL basename
+  （`windowsdesktop-runtime-<ver>-win-x64.exe`）。
+- 校验：sha512 与 `releases.json` 里的 `hash` 比对；hash 为空则跳过校验。
 - 运行：`exec.Command(installerPath, "/passive", "/norestart")` 并 `Wait()`。
-  `/passive`：显示进度条、无需点击、自动结束（符合用户选择）。
-  退出码 0 = 成功；3010 = 成功但需重启（视为成功并提示）。
+  `/passive`：安装程序自身图形进度条、无需点击、自动结束；安装包是 GUI 子系统，**无 CMD 黑框**。
+  退出码 0 = 成功；3010 = 成功但需重启（视为成功）。
 
 **接口（命令执行同样走 CommandRunner 接口）：**
 
 ```go
 type Installer struct {
-    HTTPGet    func(url string) ([]byte, error)     // 实际下载到文件由内部完成
-    Run        CommandRunner
-    Progress   func(downloaded, total int64)
+    HTTPGet    func(url string) (*http.Response, error)   // 默认 http.DefaultClient.Get
+    Runner     CommandRunner
     Logger     func(format string, args ...any)
+    TmpDir     string
 }
 
-// InstallViaWinget 安装指定大版本；winget 不可用或失败时返回错误以触发回退
+// InstallViaWinget 备选路径；Manager.Install 默认不调用
 func (i *Installer) InstallViaWinget(major int) error
 
-// DownloadAndRun 下载安装包并以 /passive 运行
-func (i *Installer) DownloadAndRun(asset InstallerAsset) error
+// DownloadAndRun 下载安装包（带进度 + sha512 校验）并以 /passive 运行
+func (i *Installer) DownloadAndRun(asset InstallerAsset, progress func(downloaded, total int64)) error
 ```
 
 ### 4.5 编排 — `manager.go`
 
 ```go
 type Manager struct {
-    HTTPClient *http.Client
-    Exec       CommandRunner
-    Logger     *log.Logger  // 可选
+    Runner        CommandRunner
+    HTTPClient    *http.Client
+    FetchReleases func(major int) ([]byte, error) // 默认从 builds.dotnet.microsoft.com 抓
+    Logger        func(format string, args ...any)
+    SharedDir     string
 }
 
-// Ensure 确保游戏目录所需运行时已安装；返回 nil 表示可以继续启动游戏
-func (m *Manager) Ensure(gameDir string) error
+// Status 检查游戏目录所需运行时 + 本机是否已装
+func (m *Manager) Status(gameDir string) (Status, error)
+
+// Install 下载官方安装包并以 /passive 运行（progress 上报下载进度）
+func (m *Manager) Install(major int, progress func(downloaded, total int64)) error
 ```
 
-`Ensure` 内部：
+实际编排（`Status` + `Install`，App 层在两者之间负责弹窗确认）：
 
-1. `DetectRequired(gameDir)` → 若 `!Needed`，直接返回 nil。
-2. `ListInstalledDesktopMajors(exec)` → 若包含 `major`，返回 nil。
-3. （由 GameManager 负责）弹窗确认；用户取消 → 返回 `ErrUserCancelled`，启动中止。
-4. `InstallViaWinget(major)` → 成功返回 nil。
-5. 失败 → 抓 `releases.json` → `PickLatestDesktopInstaller` → `DownloadAndRun`。
-6. 全部失败 → 返回聚合错误，启动中止，前端给出友好提示。
+1. `Status(gameDir)` → `DetectRequired`；若 `!Needed`，前端直接放行启动。
+2. `IsInstalled(major)`（`dotnet --list-runtimes` 为主，安装目录扫描为回退）；若已装，放行。
+3. 缺失 → **前端 Vue 弹窗确认**（决策 #1）；取消 → 中止启动。
+4. 确认 → `Install(major, progress)`：抓 `releases.json` → `PickLatestDesktopInstaller` → `DownloadAndRun`。
+   下载进度由 App 层 `EventsEmit("runtime:install:progress", ...)` 推到前端进度弹窗。
+5. 失败 → 返回错误，启动中止，前端给出友好提示。
 
 > 注意：`Ensure` 本身 **不弹窗**（保持 `dotnet` 包纯净、可单测）。
 > 弹窗由 `GameManager` 在调用前后通过 Wails runtime 完成（见 §5）。

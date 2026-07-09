@@ -110,11 +110,11 @@ func TestDetectRequired(t *testing.T) {
 			t.Errorf("unexpected: %+v", r)
 		}
 	})
-	t.Run("self contained", func(t *testing.T) {
+	t.Run("no frameworks still treated as needed", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, dir, "Game.runtimeconfig.json", `{"runtimeOptions":{"tfm":"net10.0"}}`)
 		r, _ := DetectRequired(dir)
-		if r.Needed || r.Source != SourceSelfContained || r.TFM != "net10.0" {
+		if !r.Needed || r.MajorVersion != 10 || r.Source != SourceRuntimeConfig || r.TFM != "net10.0" {
 			t.Errorf("unexpected: %+v", r)
 		}
 	})
@@ -145,11 +145,11 @@ func TestDetectRequired(t *testing.T) {
 			t.Errorf("unexpected: %+v", r)
 		}
 	})
-	t.Run("runtimeconfig no frameworks and valid tfm -> self contained", func(t *testing.T) {
+	t.Run("runtimeconfig no frameworks still needed", func(t *testing.T) {
 		dir := t.TempDir()
 		writeFile(t, dir, "Game.runtimeconfig.json", `{"runtimeOptions":{"tfm":"net6.0"}}`)
 		r, _ := DetectRequired(dir)
-		if r.Needed || r.Source != SourceSelfContained {
+		if !r.Needed || r.MajorVersion != 6 || r.Source != SourceRuntimeConfig {
 			t.Errorf("unexpected: %+v", r)
 		}
 	})

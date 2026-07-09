@@ -106,18 +106,16 @@ func (m *Manager) IsInstalled(major int) bool {
 	return false
 }
 
-// Install 安装指定大版本：先 winget，失败回退到下载官方安装包并以 /passive 运行。
-// progress 用于上报下载进度（仅在走下载回退路径时触发）。
+// Install 安装指定大版本：直接下载微软官方安装包并以 /passive 模式运行。
+//
+// 默认不使用 winget —— 原因：winget 没有可对接的下载进度，且会弹出 CMD 黑框，
+// 体验差且让用户产生安全顾虑。下载路径能上报真实进度（progress 回调），/passive 由
+// 安装程序自身的图形进度窗口承接，无控制台窗口。InstallViaWinget 仍作为公开方法保留备用。
 func (m *Manager) Install(major int, progress func(downloaded, total int64)) error {
 	inst := &Installer{
 		Runner:  m.Runner,
 		HTTPGet: m.httpGet(),
 		Logger:  m.Logger,
-	}
-	if err := inst.InstallViaWinget(major); err == nil {
-		return nil
-	} else if m.Logger != nil {
-		m.Logger("winget 安装失败，回退到下载安装程序: %v", err)
 	}
 
 	fetch := m.FetchReleases

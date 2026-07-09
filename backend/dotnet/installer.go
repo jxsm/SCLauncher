@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // Installer 负责 winget 安装以及「下载安装包 + 运行」两条路径。
@@ -159,6 +160,12 @@ func (realRunner) Run(name string, args ...string) (string, string, int, error) 
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	// Windows：抑制子进程控制台窗口。dotnet / winget 是控制台程序，不加这个会闪一下黑框。
+	// CREATE_NO_WINDOW 只阻止分配控制台，不影响 GUI 子系统程序（如 .NET 安装器的图形进度窗）。
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 	err := cmd.Run()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {

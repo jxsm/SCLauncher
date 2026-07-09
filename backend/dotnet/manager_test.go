@@ -140,59 +140,30 @@ func TestManagerIsInstalled(t *testing.T) {
 }
 
 func TestManagerInstall(t *testing.T) {
-	t.Run("winget success", func(t *testing.T) {
-		var wingetCalled bool
-		r := &fakeRunner{runFn: func(name string, args []string) (string, string, int, error) {
-			if name == "winget" {
-				wingetCalled = true
-			}
-			return "", "", 0, nil
-		}}
-		m := &Manager{
-			Runner: r,
-			SharedDir: t.TempDir(),
-			FetchReleases: func(int) ([]byte, error) {
-				t.Fatal("FetchReleases should not be called on winget success")
-				return nil, nil
-			},
-		}
-		if err := m.Install(10, nil); err != nil {
-			t.Fatal(err)
-		}
-		if !wingetCalled {
-			t.Error("winget not called")
-		}
-	})
-
-	t.Run("winget fail -> download success", func(t *testing.T) {
+	t.Run("download success", func(t *testing.T) {
 		payload := []byte("installer")
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(payload) }))
 		defer srv.Close()
-
 		fixture := fmt.Sprintf(
 			`{"releases":[{"release-version":"10.0.0","windowsdesktop":{"version":"10.0.0","files":[{"name":"x.exe","rid":"win-x64","url":%q,"hash":%q}]}}]}`,
 			srv.URL+"/x.exe", sha512Hex(payload),
 		)
 
+		var progressed bool
 		var installerRan bool
 		r := &fakeRunner{runFn: func(name string, args []string) (string, string, int, error) {
-			if name == "winget" {
-				return "", "", 1, nil // winget 失败 → 触发下载回退
-			}
 			installerRan = true
 			return "", "", 0, nil
 		}}
-
 		prev := currentArch
 		currentArch = func() string { return "amd64" }
 		defer func() { currentArch = prev }()
 
-		var progressed bool
 		m := &Manager{
-			Runner:    r,
-			SharedDir: t.TempDir(),
+			Runner:        r,
+			SharedDir:     t.TempDir(),
 			FetchReleases: func(int) ([]byte, error) { return []byte(fixture), nil },
-			Logger:    func(string, ...any) {},
+			Logger:        func(string, ...any) {},
 		}
 		if err := m.Install(10, func(int64, int64) { progressed = true }); err != nil {
 			t.Fatal(err)
@@ -205,12 +176,33 @@ func TestManagerInstall(t *testing.T) {
 		}
 	})
 
-	t.Run("winget fail + fetch error", func(t *testing.T) {
-		r := &fakeRunner{runFn: func(string, []string) (string, string, int, error) {
-			return "", "", 1, nil // winget 失败
+	t.Run("installer run fails", func(t *testing.T) {
+		payload := []byte("installer")
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(payload) }))
+		defer srv.Close()
+		fixture := fmt.Sprintf(
+			`{"releases":[{"release-version":"10.0.0","windowsdesktop":{"version":"10.0.0","files":[{"name":"x.exe","rid":"win-x64","url":%q,"hash":%q}]}}]}`,
+			srv.URL+"/x.exe", sha512Hex(payload),
+		)
+		r := &fakeRunner{runFn: func(name string, args []string) (string, string, int, error) {
+			return "", "fail", 5, nil // 安装程序退出码非 0/3010
 		}}
+		prev := currentArch
+		currentArch = func() string { return "amd64" }
+		defer func() { currentArch = prev }()
 		m := &Manager{
 			Runner:        r,
+			SharedDir:     t.TempDir(),
+			FetchReleases: func(int) ([]byte, error) { return []byte(fixture), nil },
+		}
+		if err := m.Install(10, nil); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+
+	t.Run("fetch error", func(t *testing.T) {
+		m := &Manager{
+			Runner:        &fakeRunner{},
 			SharedDir:     t.TempDir(),
 			FetchReleases: func(int) ([]byte, error) { return nil, os.ErrNotExist },
 		}
@@ -219,13 +211,13 @@ func TestManagerInstall(t *testing.T) {
 		}
 	})
 
-	t.Run("winget fail + no matching asset", func(t *testing.T) {
+	t.Run("no matching asset", func(t *testing.T) {
 		fixture := `{"releases":[{"release-version":"10.0.0","windowsdesktop":{"version":"10.0.0","files":[{"name":"x.zip","rid":"win-x64","url":"http://x","hash":"z"}]}}]}`
-		r := &fakeRunner{runFn: func(string, []string) (string, string, int, error) {
-			return "", "", 1, nil
-		}}
+		prev := currentArch
+		currentArch = func() string { return "amd64" }
+		defer func() { currentArch = prev }()
 		m := &Manager{
-			Runner:        r,
+			Runner:        &fakeRunner{},
 			SharedDir:     t.TempDir(),
 			FetchReleases: func(int) ([]byte, error) { return []byte(fixture), nil },
 		}

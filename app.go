@@ -1414,6 +1414,11 @@ func (a *App) CheckDotNetRuntime(versionID string) (map[string]interface{}, erro
 	result["majorVersion"] = status.MajorVersion
 	result["source"] = status.Source
 	result["tfm"] = status.TFM
+
+	if a.ctx != nil {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("[.NET检查] version=%s gameDir=%s source=%s needed=%v major=%d installed=%v tfm=%q",
+			versionID, gameDir, status.Source, status.Needed, status.MajorVersion, status.Installed, status.TFM))
+	}
 	return result, nil
 }
 
