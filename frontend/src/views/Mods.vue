@@ -99,6 +99,7 @@
                   :mod="mod"
                   @toggle="handleToggleMod"
                   @delete="handleDeleteMod"
+                  @show-info="handleShowModInfo"
                 />
               </n-list>
               <n-empty
@@ -214,6 +215,13 @@
       :downloading="downloadingMods"
       @download="handleDownloadMod"
     />
+
+    <!-- 已安装模组信息对话框（Feature 2 + 3） -->
+    <ModInfoModal
+      v-model:show="showModInfoModal"
+      :mod="selectedInstalledMod"
+      :host-api-version="hostApiVersion"
+    />
   </div>
 </template>
 
@@ -232,6 +240,10 @@ import type { ModSearchResult, ModSource } from '../types/mod-source'
 import ModListItem from '../components/mod/ModListItem.vue'
 import ModSearchResultItem from '../components/mod/ModSearchResultItem.vue'
 import ModDetailModal from '../components/mod/ModDetailModal.vue'
+import ModInfoModal from '../components/mod/ModInfoModal.vue'
+import { useModDependencyResolver } from '../composables/useModDependencyResolver'
+import { inferApiVersionFromVersionId } from '../utils/modVersion'
+import type { Mod } from '../types/mod'
 
 const { t } = useI18n()
 const modStore = useModStore()
@@ -274,6 +286,16 @@ const isSearchMode = ref(false) // 是否处于搜索模式
 // 模组详情相关
 const showModDetailModal = ref(false)
 const selectedMod = ref<ModSearchResult | null>(null)
+
+// 已安装模组信息弹窗（Feature 2 + 3）
+const showModInfoModal = ref(false)
+const selectedInstalledMod = ref<Mod | null>(null)
+
+// 依赖解析器（Feature 1）
+const { resolveDependenciesForFile } = useModDependencyResolver()
+
+// 主机 API 版本（仅 api 型版本可从 id 推断），用于跨版本兼容提示
+const hostApiVersion = computed(() => inferApiVersionFromVersionId(selectedVersion.value))
 
 // Filter options
 const filterOptions = computed(() => [
@@ -383,6 +405,10 @@ async function handleImportMod() {
     if (filePath) {
       await modStore.importMod(selectedVersion.value, filePath)
       message.success(t('mods.importSuccess'))
+
+      // 解析并安装依赖（Feature 1，本地导入同样触发）
+      const fileName = filePath.split(/[\\/]/).pop() || ''
+      await resolveDependenciesForFile(fileName, selectedVersion.value, isOnlineVersion.value)
     }
   } catch (error) {
     message.error(t('mods.importFailed') + '：' + error)
@@ -571,6 +597,9 @@ async function handleDownloadMod(mod: ModSearchResult, versionIndexOrString: str
 
     // 下载成功后刷新模组列表
     await modStore.loadMods(selectedVersion.value)
+
+    // 解析并安装依赖（Feature 1）
+    await resolveDependenciesForFile(version.fileName, selectedVersion.value, isOnlineVersion.value)
   } catch (error) {
     message.error(t('mods.downloadFailed') + '：' + error)
   } finally {
@@ -613,6 +642,14 @@ function openSourceSettings() {
 function handleShowModDetail(mod: ModSearchResult) {
   selectedMod.value = mod
   showModDetailModal.value = true
+}
+
+/**
+ * 显示已安装模组的 modinfo 信息
+ */
+function handleShowModInfo(mod: Mod) {
+  selectedInstalledMod.value = mod
+  showModInfoModal.value = true
 }
 
 onMounted(async () => {

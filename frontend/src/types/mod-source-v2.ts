@@ -153,6 +153,9 @@ export interface ModSourceV2 {
     version?: string
     tags?: string[]
   }
+
+  // 按包名查询接口（用于依赖解析）。URL 含 {packageName} 与 {versionRange} 占位符
+  packageLookup?: { url: string } | null
 }
 
 // 搜索选项

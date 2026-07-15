@@ -8,6 +8,7 @@ import { ref } from 'vue'
 import type { ModSource, ModSearchResult, SearchOptions, PaginatedResponse } from '../types/mod-source'
 import type { ModSourceV2, ApiEndpointConfig, RequestContext } from '../types/mod-source-v2'
 import { HttpRequest } from '../api/http'
+import { satisfiesVersionRange, isPlainVersion, compareVersionText } from '../utils/modVersion'
 
 class ModSourceManagerClass {
   // 状态 - 使用联合类型，兼容 v1 和 v2 格式
@@ -94,6 +95,10 @@ class ModSourceManagerClass {
             website: 'https://m.suancaixianyu.cn',
             author: 'SuanCaiXianYu',
             tags: ['中文', '社区', '模组']
+          },
+          // 按包名查询接口（用于依赖解析）
+          packageLookup: {
+            url: 'https://m.suancaixianyu.cn/api/upload/mods?packageName={packageName}&versionRange={versionRange}'
           }
         },
         {
@@ -152,6 +157,10 @@ class ModSourceManagerClass {
             website: 'https://m.suancaixianyu.cn',
             author: 'SuanCaiXianYu',
             tags: ['中文', '社区', '联机模组']
+          },
+          // 按包名查询接口（用于依赖解析）
+          packageLookup: {
+            url: 'https://m.suancaixianyu.cn/api/upload/mods?packageName={packageName}&versionRange={versionRange}'
           }
         },
         {
@@ -504,6 +513,80 @@ class ModSourceManagerClass {
   }
 
   /**
+   * 解析单个模组依赖为一个可下载文件：查询各启用模组源的「按包名查询接口」。
+   * 返回满足 versionRange 的最高版本；找不到返回 null。不修改 currentSourceId（不影响下载页 UI）。
+   */
+  async resolveDependency(
+    packageName: string,
+    versionRange: string,
+    preferOnline: boolean
+  ): Promise<{ downloadUrl: string; fileName: string; version: string; sourceId: string } | null> {
+    const pkg = (packageName || '').trim()
+    if (!pkg) return null
+
+    // 候选源：启用的模组类型且配置了 packageLookup，按 preferOnline 优先排序
+    const typeOrder = preferOnline ? ['online-mods', 'mods'] : ['mods', 'online-mods']
+    const candidates = this.getEnabledSources()
+      .filter(s => (s.type === 'mods' || s.type === 'online-mods') && s.packageLookup?.url)
+      .sort((a, b) => {
+        const ai = typeOrder.indexOf(a.type)
+        const bi = typeOrder.indexOf(b.type)
+        return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi)
+      })
+
+    // 服务端能识别的 versionRange：纯版本号或空时原样（空→latest）；
+    // 复杂范围（括号/SemVer）服务端不支持，统一传 latest，由客户端 satisfiesVersionRange 过滤
+    const rangeTrim = (versionRange || '').trim()
+    const serverRange = !rangeTrim || isPlainVersion(rangeTrim) ? (rangeTrim || 'latest') : 'latest'
+    const pkgLower = pkg.toLowerCase()
+
+    for (const source of candidates) {
+      const urlTemplate: string | undefined = source.packageLookup?.url
+      if (!urlTemplate) continue
+      if (!urlTemplate.includes('{packageName}')) {
+        console.warn(`[ModSourceManager] 源 ${source.id} 的 packageLookup.url 缺少 {packageName} 占位符，跳过`)
+        continue
+      }
+      try {
+        const url = urlTemplate
+          .replace('{packageName}', encodeURIComponent(pkg))
+          .replace('{versionRange}', encodeURIComponent(serverRange))
+        const text = await HttpRequest(url, { method: 'GET' })
+        let data: any
+        try {
+          data = JSON.parse(text)
+        } catch {
+          continue // 非 JSON（接口异常/HTML 错误页）→ 跳过该源
+        }
+        const list: any[] = this.getValueByPath(data, '$.data.list') || []
+        if (!Array.isArray(list) || list.length === 0) continue
+
+        const matched = list
+          .map((it: any) => ({
+            packageName: String(it?.packageName ?? ''),
+            version: String(it?.packageVersion ?? ''),
+            downloadUrl: String(it?.url ?? ''),
+            fileName: String(it?.filename ?? ''),
+            sourceId: source.id,
+          }))
+          .filter(c => c.downloadUrl && c.packageName.toLowerCase() === pkgLower)
+          .filter(c => satisfiesVersionRange(c.version, rangeTrim))
+          .sort((a, b) => compareVersionText(b.version, a.version)) // 降序，取最高版本
+
+        if (matched.length > 0) {
+          const best = matched[0]
+          return { downloadUrl: best.downloadUrl, fileName: best.fileName, version: best.version, sourceId: best.sourceId }
+        }
+      } catch (error) {
+        console.warn(`[ModSourceManager] 解析依赖 ${pkg} 时源 ${source.id} 出错:`, error)
+        continue
+      }
+    }
+
+    return null
+  }
+
+  /**
    * 获取模组列表（带分页）
    * 支持旧的 v1 配置格式和新的 v2 配置格式
    */
@@ -819,7 +902,9 @@ class ModSourceManagerClass {
           icon: s.icon || '',
           enabled: s.enabled,
           isDefault: s.isDefault, // 保存默认源标记
-          api: s.api
+          api: s.api,
+          // 保存按包名查询接口配置（依赖解析用）
+          ...(s.packageLookup?.url ? { packageLookup: s.packageLookup } : {})
         }))
 
       console.log('保存自定义下载源:', customSources)

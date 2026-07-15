@@ -48,6 +48,8 @@ export interface ModSource {
   enabled: boolean
   isDefault?: boolean
   api: ModSourceAPI
+  // 按包名查询接口（用于依赖解析）。URL 含 {packageName} 与 {versionRange} 占位符
+  packageLookup?: { url: string } | null
 }
 
 // 下载源API配置

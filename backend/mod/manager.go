@@ -40,13 +40,14 @@ type Manager struct {
 
 // Mod 模组信息
 type Mod struct {
-	ID          string `json:"id"`          // 模组 ID（文件名不含扩展名）
-	Name        string `json:"name"`        // 模组名称（文件名）
-	FileName     string `json:"fileName"`    // 文件名
-	VersionID   string `json:"versionId"`   // 所属版本 ID
-	Enabled     bool   `json:"enabled"`     // 是否启用
-	Size        int64  `json:"size"`        // 文件大小
-	InstallDate string `json:"installDate"` // 安装日期
+	ID          string    `json:"id"`          // 模组 ID（文件名不含扩展名）
+	Name        string    `json:"name"`        // 模组名称（文件名）
+	FileName    string    `json:"fileName"`    // 文件名
+	VersionID   string    `json:"versionId"`   // 所属版本 ID
+	Enabled     bool      `json:"enabled"`     // 是否启用
+	Size        int64     `json:"size"`        // 文件大小
+	InstallDate string    `json:"installDate"` // 安装日期
+	ModInfo     *ModInfo  `json:"modInfo,omitempty"` // 解析自 modinfo.json 的模组信息（解析失败时为空）
 }
 
 // NewManager 创建模组管理器
@@ -138,6 +139,7 @@ func (m *Manager) GetMods(versionID string) ([]Mod, error) {
 			Enabled:     enabled,
 			Size:        info.Size(),
 			InstallDate: info.ModTime().Format("2006-01-02 15:04:05"),
+			ModInfo:     parseModInfoFromModFile(filepath.Join(modsDir, fileName)),
 		})
 	}
 

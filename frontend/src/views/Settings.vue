@@ -216,7 +216,7 @@ async function handleSetDefaultSource(source: ModSource) {
 }
 
 // 添加下载源
-async function handleAddSource(source: { name: string; description: string; apiUrl: string; type: 'mods' | 'savegames' | 'furniture' | 'textures' | 'skins' }) {
+async function handleAddSource(source: { name: string; description: string; apiUrl: string; packageLookupUrl?: string; type: 'mods' | 'savegames' | 'furniture' | 'textures' | 'skins' }) {
   if (!source.name || !source.description || !source.apiUrl) {
     message.warning(t('mods.pleaseFillAllFields'))
     return
@@ -249,7 +249,11 @@ async function handleAddSource(source: { name: string; description: string; apiU
           fileName: '$.fileName',
           fileSize: '$.fileSize'
         } as any
-      }
+      },
+      // 按包名查询接口（仅模组类型源有意义，用于依赖解析）
+      ...(source.type === 'mods' && source.packageLookupUrl?.trim()
+        ? { packageLookup: { url: source.packageLookupUrl.trim() } }
+        : {})
     })
 
     loadModSources()
