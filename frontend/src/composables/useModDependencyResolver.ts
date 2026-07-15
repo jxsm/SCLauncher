@@ -2,6 +2,9 @@
  * 模组依赖解析器
  * 在模组下载或本地导入后调用：解析其 modinfo.json 的依赖，
  * 询问用户是否自动下载缺失依赖，确认后通过各源的「按包名查询接口」递归安装。
+ *
+ * 同时用于存档：存档的 Project.xml/json 记录了 UsedMods（所需模组），
+ * 导入/下载存档后可调用 resolveDependenciesForSave 自动补齐缺失模组。
  */
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog } from 'naive-ui'
@@ -9,6 +12,7 @@ import { useModStore } from '../stores/mod'
 import { ModSourceManager } from '../managers'
 import { satisfiesVersionRange } from '../utils/modVersion'
 import type { Dependency } from '../types/mod'
+import type { SaveRequiredMod } from '../types/savegame'
 
 const MAX_DEPENDENCY_INSTALLS = 16 // 传递依赖安装上限，防止环/爆炸
 
@@ -19,31 +23,14 @@ export function useModDependencyResolver() {
   const modStore = useModStore()
 
   /**
-   * 解析并安装 fileName 对应模组的缺失依赖。
-   * 调用前应已把该模组导入版本目录（导入/下载流程会刷新 modStore.mods）。
+   * 共享安装核心：给定「初始缺失依赖列表」，弹窗确认后递归下载安装。
+   * 调用方负责先把 modStore.mods 刷新到最新（各自前导里 loadMods）。
    */
-  async function resolveDependenciesForFile(
-    fileName: string,
+  async function installMissingDependencies(
+    initialMissing: Dependency[],
     versionId: string,
     preferOnline: boolean
   ): Promise<void> {
-    await modStore.loadMods(versionId)
-
-    const mod = modStore.mods.find(m => m.fileName === fileName)
-    if (!mod?.modInfo) return
-    const deps: Dependency[] = mod.modInfo.dependencies || []
-    if (deps.length === 0) return
-
-    // 某依赖是否已被当前已装模组满足（包名匹配 + 版本范围满足）
-    const isSatisfied = (d: Dependency): boolean => {
-      return modStore.mods.some(m =>
-        !!m.modInfo &&
-        m.modInfo.packageName.toLowerCase() === d.packageName.toLowerCase() &&
-        satisfiesVersionRange(m.modInfo.version, d.versionRange)
-      )
-    }
-
-    const initialMissing = deps.filter(d => !isSatisfied(d))
     if (initialMissing.length === 0) return
 
     // 弹窗询问是否自动下载
@@ -125,6 +112,62 @@ export function useModDependencyResolver() {
     }
   }
 
+  /**
+   * 解析并安装 fileName 对应模组的缺失依赖。
+   * 调用前应已把该模组导入版本目录（导入/下载流程会刷新 modStore.mods）。
+   */
+  async function resolveDependenciesForFile(
+    fileName: string,
+    versionId: string,
+    preferOnline: boolean
+  ): Promise<void> {
+    await modStore.loadMods(versionId)
+
+    const mod = modStore.mods.find(m => m.fileName === fileName)
+    if (!mod?.modInfo) return
+    const deps: Dependency[] = mod.modInfo.dependencies || []
+    if (deps.length === 0) return
+
+    const initialMissing = deps.filter(d => !isSatisfied(d))
+    await installMissingDependencies(initialMissing, versionId, preferOnline)
+  }
+
+  /**
+   * 解析并安装存档所需模组的缺失项。
+   * requiredMods 来自存档的 UsedMods（PackageName + 记录版本）。
+   * 记录版本作为版本约束传入（裸版本 = ">= 该版本"，见 modVersion.ts）。
+   */
+  async function resolveDependenciesForSave(
+    requiredMods: SaveRequiredMod[],
+    versionId: string,
+    preferOnline: boolean
+  ): Promise<void> {
+    if (!requiredMods || requiredMods.length === 0) return
+
+    await modStore.loadMods(versionId)
+
+    // 映射为依赖：过滤空包名；versionRange 用记录版本，displayName 用模组名
+    const deps: Dependency[] = requiredMods
+      .filter(m => m && m.packageName && m.packageName.trim())
+      .map(m => ({
+        packageName: m.packageName,
+        versionRange: (m.version || '').trim(),
+        displayName: m.name || m.packageName
+      }))
+
+    const initialMissing = deps.filter(d => !isSatisfied(d))
+    await installMissingDependencies(initialMissing, versionId, preferOnline)
+  }
+
+  // 某依赖是否已被当前已装模组满足（包名匹配 + 版本范围满足）
+  function isSatisfied(d: Dependency): boolean {
+    return modStore.mods.some(m =>
+      !!m.modInfo &&
+      m.modInfo.packageName.toLowerCase() === d.packageName.toLowerCase() &&
+      satisfiesVersionRange(m.modInfo.version, d.versionRange)
+    )
+  }
+
   // 选择下载目标文件名：若服务端返回的文件名已被一个“不同包名”的已装模组占用，
   // 则合成基于包名的唯一文件名，避免 os.Create 覆盖既有模组文件。
   function pickDestFileName(serverFileName: string, packageName: string): string {
@@ -160,5 +203,5 @@ export function useModDependencyResolver() {
     })
   }
 
-  return { resolveDependenciesForFile }
+  return { resolveDependenciesForFile, resolveDependenciesForSave }
 }

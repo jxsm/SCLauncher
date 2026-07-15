@@ -1,4 +1,4 @@
-import { SaveGame } from '../types/savegame'
+import { SaveGame, SaveRequiredMod } from '../types/savegame'
 import * as AppBindings from '../../wailsjs/go/main/App'
 
 // 获取存档列表
@@ -46,7 +46,17 @@ export async function PreviewSaveGame(sourcePath: string): Promise<SaveGame> {
   return await AppBindings.PreviewSaveGame(sourcePath)
 }
 
-// 下载存档
-export async function DownloadSaveGameFromURL(downloadURL: string, versionId: string, fileName: string): Promise<void> {
-  await AppBindings.DownloadSaveGameFromURL(downloadURL, versionId, fileName)
+// 下载存档，返回落地存档目录名（供进一步解析所需模组）
+export async function DownloadSaveGameFromURL(downloadURL: string, versionId: string, fileName: string): Promise<string> {
+  return await AppBindings.DownloadSaveGameFromURL(downloadURL, versionId, fileName)
+}
+
+// 获取已导入存档所需模组列表（解析 Project.xml/json 的 UsedMods）
+export async function GetSaveRequiredMods(versionId: string, saveId: string): Promise<SaveRequiredMod[]> {
+  return await AppBindings.GetSaveRequiredMods(versionId, saveId)
+}
+
+// 从 .scworld/.scword/.zip 归档预览所需模组（不导入）
+export async function PreviewSaveRequiredMods(sourcePath: string): Promise<SaveRequiredMod[]> {
+  return await AppBindings.PreviewSaveRequiredMods(sourcePath)
 }

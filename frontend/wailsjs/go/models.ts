@@ -201,6 +201,26 @@ export namespace savegame {
 		    return a;
 		}
 	}
+	export class SaveRequiredMod {
+	    packageName: string;
+	    version: string;
+	    name: string;
+	    author: string;
+	    link: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SaveRequiredMod(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.packageName = source["packageName"];
+	        this.version = source["version"];
+	        this.name = source["name"];
+	        this.author = source["author"];
+	        this.link = source["link"];
+	    }
+	}
 
 }
 

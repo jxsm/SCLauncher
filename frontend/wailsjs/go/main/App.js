@@ -158,6 +158,10 @@ export function GetSaveGames(arg1) {
   return window['go']['main']['App']['GetSaveGames'](arg1);
 }
 
+export function GetSaveRequiredMods(arg1, arg2) {
+  return window['go']['main']['App']['GetSaveRequiredMods'](arg1, arg2);
+}
+
 export function GetSkinImage(arg1) {
   return window['go']['main']['App']['GetSkinImage'](arg1);
 }
@@ -272,6 +276,10 @@ export function ParseModpack(arg1) {
 
 export function PreviewSaveGame(arg1) {
   return window['go']['main']['App']['PreviewSaveGame'](arg1);
+}
+
+export function PreviewSaveRequiredMods(arg1) {
+  return window['go']['main']['App']['PreviewSaveRequiredMods'](arg1);
 }
 
 export function RenameFurniture(arg1, arg2, arg3) {

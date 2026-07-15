@@ -42,7 +42,7 @@ export function DownloadFurnitureFromURL(arg1:string,arg2:string,arg3:string):Pr
 
 export function DownloadModFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function DownloadSaveGameFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
+export function DownloadSaveGameFromURL(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function DownloadSkinFromURL(arg1:string,arg2:string):Promise<void>;
 
@@ -83,6 +83,8 @@ export function GetMods(arg1:string):Promise<Array<mod.Mod>>;
 export function GetPrimaryVersion():Promise<Record<string, any>>;
 
 export function GetSaveGames(arg1:string):Promise<Array<savegame.SaveGame>>;
+
+export function GetSaveRequiredMods(arg1:string,arg2:string):Promise<Array<savegame.SaveRequiredMod>>;
 
 export function GetSkinImage(arg1:string):Promise<string>;
 
@@ -141,6 +143,8 @@ export function OpenVersionModsFolder(arg1:string):Promise<void>;
 export function ParseModpack(arg1:string):Promise<Record<string, any>>;
 
 export function PreviewSaveGame(arg1:string):Promise<savegame.SaveGame>;
+
+export function PreviewSaveRequiredMods(arg1:string):Promise<Array<savegame.SaveRequiredMod>>;
 
 export function RenameFurniture(arg1:string,arg2:string,arg3:string):Promise<void>;
 

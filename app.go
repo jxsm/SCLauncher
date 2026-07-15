@@ -2389,11 +2389,12 @@ func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (bool, error) {
 
 // ImportSaveGame 导入存档
 func (a *App) ImportSaveGame(versionID, sourcePath string) error {
-	return a.savegameMgr.ImportSaveGame(versionID, sourcePath)
+	_, err := a.savegameMgr.ImportSaveGame(versionID, sourcePath)
+	return err
 }
 
-// DownloadSaveGameFromURL 从URL下载存档
-func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) error {
+// DownloadSaveGameFromURL 从URL下载存档，返回落地存档目录名（供前端进一步解析所需模组）
+func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) (string, error) {
 	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载存档: %s -> %s", downloadURL, fileName))
 
 	// 生成唯一的下载任务ID
@@ -2428,7 +2429,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 			"downloadId": downloadID,
 			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
 		})
-		return fmt.Errorf("创建临时文件失败: %w", err)
+		return "", fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tempPath := tempFile.Name()
 	defer os.Remove(tempPath) // 确保临时文件被删除
@@ -2446,7 +2447,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 			"downloadId": downloadID,
 			"error":      fmt.Sprintf("下载失败: %v", err),
 		})
-		return fmt.Errorf("下载失败: %w", err)
+		return "", fmt.Errorf("下载失败: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -2456,7 +2457,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 			"downloadId": downloadID,
 			"error":      err.Error(),
 		})
-		return err
+		return "", err
 	}
 
 	// 获取文件总大小
@@ -2483,7 +2484,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 			"downloadId": downloadID,
 			"error":      fmt.Sprintf("保存下载内容失败: %v", err),
 		})
-		return fmt.Errorf("保存下载内容失败: %w", err)
+		return "", fmt.Errorf("保存下载内容失败: %w", err)
 	}
 
 	runtime.LogInfo(a.ctx, fmt.Sprintf("存档下载完成，正在导入: %s", tempPath))
@@ -2496,18 +2497,28 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) e
 		"fileName":   fileName,
 	})
 
-	// 导入存档
-	err = a.savegameMgr.ImportSaveGame(versionID, tempPath)
+	// 导入存档，拿到落地存档目录名
+	saveName, err := a.savegameMgr.ImportSaveGame(versionID, tempPath)
 	if err != nil {
 		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
 			"downloadId": downloadID,
 			"error":      fmt.Sprintf("导入存档失败: %v", err),
 		})
-		return fmt.Errorf("导入存档失败: %w", err)
+		return "", fmt.Errorf("导入存档失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("存档导入成功: %s", fileName))
-	return nil
+	runtime.LogInfo(a.ctx, fmt.Sprintf("存档导入成功: %s -> %s", fileName, saveName))
+	return saveName, nil
+}
+
+// GetSaveRequiredMods 获取已导入存档所需模组列表（解析 Project.xml/json 的 UsedMods）
+func (a *App) GetSaveRequiredMods(versionID, saveID string) ([]savegame.SaveRequiredMod, error) {
+	return a.savegameMgr.GetSaveRequiredMods(versionID, saveID)
+}
+
+// PreviewSaveRequiredMods 从 .scworld/.scword/.zip 归档预览所需模组（不导入）
+func (a *App) PreviewSaveRequiredMods(sourcePath string) ([]savegame.SaveRequiredMod, error) {
+	return a.savegameMgr.PreviewSaveRequiredMods(sourcePath)
 }
 
 // SelectSaveGameFile 选择要导入的存档文件

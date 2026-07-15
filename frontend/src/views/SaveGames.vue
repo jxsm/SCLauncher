@@ -192,7 +192,9 @@ import { useMessage, useDialog, NInput } from 'naive-ui'
 import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon } from '@vicons/ionicons5'
 import { useVersionStore } from '../stores/version'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
-import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ExportSaveGameAsModpack, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL } from '../api/savegame'
+import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ExportSaveGameAsModpack, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL, PreviewSaveRequiredMods, GetSaveRequiredMods } from '../api/savegame'
+import { IsOnlineVersion } from '../api/version'
+import { useModDependencyResolver } from '../composables/useModDependencyResolver'
 import { ModSourceManager } from '../managers'
 import type { SaveGame } from '../types/savegame'
 import type { ModSearchResult } from '../types/mod-source'
@@ -210,13 +212,49 @@ const { t } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
 const dialog = useDialog()
+const { resolveDependenciesForSave } = useModDependencyResolver()
+
+const isOnlineVersion = ref(false) // 当前版本是否是联机版（决定依赖解析优先 NetMods 源）
+
+// 刷新当前版本是否为联机版（缓存，供依赖解析使用）
+async function refreshIsOnlineVersion() {
+  if (!selectedVersionId.value) {
+    isOnlineVersion.value = false
+    return
+  }
+  try {
+    isOnlineVersion.value = await IsOnlineVersion(selectedVersionId.value)
+  } catch {
+    isOnlineVersion.value = false
+  }
+}
+
+// 存档所需模组依赖解析（非阻塞：失败仅 console，不影响导入/下载成功提示）
+async function resolveSaveDependenciesFromArchive(sourcePath: string) {
+  try {
+    const required = await PreviewSaveRequiredMods(sourcePath)
+    await resolveDependenciesForSave(required, selectedVersionId.value, isOnlineVersion.value)
+  } catch (e) {
+    console.error('[SaveGames] 解析存档所需模组失败:', e)
+  }
+}
+
+async function resolveSaveDependenciesFromInstalled(saveId: string) {
+  try {
+    const required = await GetSaveRequiredMods(selectedVersionId.value, saveId)
+    await resolveDependenciesForSave(required, selectedVersionId.value, isOnlineVersion.value)
+  } catch (e) {
+    console.error('[SaveGames] 解析存档所需模组失败:', e)
+  }
+}
 
 const loading = ref(false)
 const selectedVersionId = ref<string>('')
 
-// 同步选中版本到全局 store
+// 同步选中版本到全局 store，并刷新联机版状态
 watch(selectedVersionId, (newVal) => {
   versionStore.selectedVersionId = newVal
+  refreshIsOnlineVersion()
 })
 
 // 存档列表
@@ -343,6 +381,9 @@ async function handleImportSave() {
           await ImportSaveGame(selectedVersionId.value, selectedFile)
           message.success(t('saveGames.importSuccess'))
           await loadSaveGames()
+          // 导入对话框关闭后再解析所需模组（不阻塞 return，避免对话框卡住/子框叠加）
+          // 此时仍持有源文件路径，直接从归档解析
+          resolveSaveDependenciesFromArchive(selectedFile)
           return true
         } catch (error) {
           message.error(t('saveGames.importFailed') + '：' + error)
@@ -644,16 +685,24 @@ async function handleDownloadSave(save: ModSearchResult, versionIndexOrString: s
 
   downloadingSaves.value.add(downloadKey)
 
+  let saveId = ''
   try {
-    await DownloadSaveGameFromURL(version.downloadUrl, selectedVersionId.value, version.fileName)
+    // 返回落地存档目录名，供后续解析所需模组
+    saveId = await DownloadSaveGameFromURL(version.downloadUrl, selectedVersionId.value, version.fileName)
     message.success(t('saveGames.downloadSuccess', { name: save.title }))
 
     // 下载成功后刷新存档列表
     await loadSaveGames()
   } catch (error) {
     message.error(t('saveGames.downloadFailed') + '：' + error)
+    return // 下载失败则不解析依赖
   } finally {
     downloadingSaves.value.delete(downloadKey)
+  }
+
+  // 存档本身已下载完成（下载按钮已恢复），再解析所需模组
+  if (saveId) {
+    await resolveSaveDependenciesFromInstalled(saveId)
   }
 }
 

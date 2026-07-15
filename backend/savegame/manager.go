@@ -668,11 +668,11 @@ func (m *Manager) PreviewSaveGame(sourcePath string) (SaveGame, error) {
 	return saveGame, nil
 }
 
-// ImportSaveGame 导入存档
-func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
+// ImportSaveGame 导入存档，返回落地的存档目录名（即 Worlds 下的世界文件夹名）
+func (m *Manager) ImportSaveGame(versionID, sourcePath string) (string, error) {
 	// 检查文件是否存在
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
-		return fmt.Errorf("source file not found: %s", sourcePath)
+		return "", fmt.Errorf("source file not found: %s", sourcePath)
 	}
 
 	// 检查文件扩展名（支持 .scworld、.scword、.zip）
@@ -680,7 +680,7 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 	if !strings.HasSuffix(lowerPath, ".scworld") &&
 	   !strings.HasSuffix(lowerPath, ".scword") &&
 	   !strings.HasSuffix(lowerPath, ".zip") {
-		return fmt.Errorf("invalid file format, expected .scworld, .scword, or .zip file")
+		return "", fmt.Errorf("invalid file format, expected .scworld, .scword, or .zip file")
 	}
 
 	versionPath := m.paths.GetVersionPath(versionID)
@@ -712,13 +712,13 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 
 	// 如果所有地方都没有 Worlds 文件夹
 	if targetWorldsDir == "" {
-		return fmt.Errorf("因版本差异，存档文件的存放位置不一样，请启动游戏并创建一个世界后再使用导入功能")
+		return "", fmt.Errorf("因版本差异，存档文件的存放位置不一样，请启动游戏并创建一个世界后再使用导入功能")
 	}
 
 	// 打开存档文件（实际上是 zip 文件）
 	zipReader, err := zip.OpenReader(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to open save file: %w", err)
+		return "", fmt.Errorf("failed to open save file: %w", err)
 	}
 	defer zipReader.Close()
 
@@ -780,12 +780,12 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 
 	// 检查文件夹是否已存在
 	if _, err := os.Stat(targetDir); err == nil {
-		return fmt.Errorf("存档已存在: %s", saveName)
+		return "", fmt.Errorf("存档已存在: %s", saveName)
 	}
 
 	// 创建目录
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return fmt.Errorf("failed to create target directory: %w", err)
+		return "", fmt.Errorf("failed to create target directory: %w", err)
 	}
 
 	// 解压文件
@@ -801,34 +801,34 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 		// 如果是目录条目
 		if file.Mode().IsDir() {
 			if err := os.MkdirAll(targetPath, file.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory: %w", err)
+				return "", fmt.Errorf("failed to create directory: %w", err)
 			}
 			continue
 		}
 
 		// 创建文件的父目录
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-			return fmt.Errorf("failed to create parent directory: %w", err)
+			return "", fmt.Errorf("failed to create parent directory: %w", err)
 		}
 
 		// 创建目标文件
 		dstFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 		if err != nil {
-			return fmt.Errorf("failed to create file: %w", err)
+			return "", fmt.Errorf("failed to create file: %w", err)
 		}
 
 		// 打开 zip 中的文件
 		srcFile, err := file.Open()
 		if err != nil {
 			dstFile.Close()
-			return fmt.Errorf("failed to open file in zip: %w", err)
+			return "", fmt.Errorf("failed to open file in zip: %w", err)
 		}
 
 		// 复制文件内容
 		if _, err := io.Copy(dstFile, srcFile); err != nil {
 			srcFile.Close()
 			dstFile.Close()
-			return fmt.Errorf("failed to copy file content: %w", err)
+			return "", fmt.Errorf("failed to copy file content: %w", err)
 		}
 
 		srcFile.Close()
@@ -836,7 +836,7 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) error {
 	}
 
 	fmt.Printf("[SaveGame] 导入成功: %s -> %s\n", sourcePath, targetDir)
-	return nil
+	return saveName, nil
 }
 
 // ExportSaveGameAsModpack 导出存档为整合包（.scmodpack）
@@ -1149,4 +1149,233 @@ func isOnlineVersionCheck(versionPath string) bool {
 	netModsPath := filepath.Join(versionPath, "NetMods")
 	info, err := os.Stat(netModsPath)
 	return err == nil && info.IsDir()
+}
+
+// ========== 存档所需模组解析（UsedMods） ==========
+
+// SaveRequiredMod 存档所需模组（解析自 Project.xml/json 的 UsedMods）
+type SaveRequiredMod struct {
+	PackageName string `json:"packageName"` // 包名，唯一标识（用于依赖解析）
+	Version     string `json:"version"`     // 存档记录的该模组版本（当 versionRange 用，裸版本视为 ">="）
+	Name        string `json:"name"`        // 模组名称（显示用）
+	Author      string `json:"author"`      // 作者
+	Link        string `json:"link"`        // 链接
+}
+
+// scValues 递归结构，用于解析 Project.xml 中任意层级的 <Values>/<Value>。
+// 与 GameInfo 用的扁平 ProjectXML 解耦，互不影响。
+type scValues struct {
+	Name   string     `xml:"Name,attr"`
+	Values []scValues `xml:"Values"`
+	Value  []scValue  `xml:"Value"`
+}
+
+// scValue Project.xml 中的叶子 <Value Name=.. Type=.. Value=.. />
+type scValue struct {
+	Name  string `xml:"Name,attr"`
+	Type  string `xml:"Type,attr"`
+	Value string `xml:"Value,attr"`
+}
+
+// parseRequiredMods 从 Project.xml / Project.json 字节中解析存档所需模组列表（UsedMods）。
+// 纯函数，无 receiver，便于单测。best-effort：任何缺失/异常都返回部分结果或空切片，不报错。
+// 两份字节合并去重（按 PackageName 大小写不敏感，XML 优先）。
+func parseRequiredMods(xmlBytes, jsonBytes []byte) []SaveRequiredMod {
+	out := []SaveRequiredMod{}
+	seen := map[string]bool{}
+
+	// XML: Subsystems -> Values[UsedMods] -> Values[Mods] -> Values[0..N] -> Value
+	if len(xmlBytes) > 0 {
+		var proj struct {
+			Subsystems scValues `xml:"Subsystems"`
+		}
+		if err := xml.Unmarshal(xmlBytes, &proj); err == nil {
+			for _, v := range proj.Subsystems.Values {
+				if v.Name != "UsedMods" {
+					continue
+				}
+				for _, sub := range v.Values {
+					if sub.Name != "Mods" {
+						continue
+					}
+					for _, modEntry := range sub.Values {
+						var mod SaveRequiredMod
+						for _, field := range modEntry.Value {
+							switch field.Name {
+							case "PackageName":
+								mod.PackageName = field.Value
+							case "Version":
+								mod.Version = field.Value
+							case "Name":
+								mod.Name = field.Value
+							case "Author":
+								mod.Author = field.Value
+							case "Link":
+								mod.Link = field.Value
+							}
+						}
+						key := strings.ToLower(strings.TrimSpace(mod.PackageName))
+						if !seen[key] {
+							seen[key] = true
+							out = append(out, mod)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// JSON: Subsystems.UsedMods.Mods，兼容对象 {0:{...}} 与数组 [{...}]；
+	// 字段值兼容 ["string","值"] 数组编码（GameInfo 即此格式）与裸字符串。
+	if len(jsonBytes) > 0 {
+		trimmed := bytes.TrimSpace(jsonBytes)
+		trimmed = bytes.TrimPrefix(trimmed, []byte{0xEF, 0xBB, 0xBF})
+		var root map[string]interface{}
+		if err := json.Unmarshal(trimmed, &root); err == nil {
+			for _, mm := range navigateJSONMods(root) {
+				pkgKey := strings.ToLower(strings.TrimSpace(getJSONString(mm, "PackageName")))
+				if pkgKey == "" || seen[pkgKey] {
+					continue
+				}
+				seen[pkgKey] = true
+				out = append(out, SaveRequiredMod{
+					PackageName: getJSONString(mm, "PackageName"),
+					Version:     getJSONString(mm, "Version"),
+					Name:        getJSONString(mm, "Name"),
+					Author:      getJSONString(mm, "Author"),
+					Link:        getJSONString(mm, "Link"),
+				})
+			}
+		}
+	}
+
+	return out
+}
+
+// navigateJSONMods 从解析后的 Project.json 根对象导航到 Subsystems.UsedMods.Mods，
+// 返回每个模组条目的 map。Mods 可为对象（键为 0/1/2…）或数组。
+func navigateJSONMods(root map[string]interface{}) []map[string]interface{} {
+	subs, ok := root["Subsystems"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	usedMods, ok := subs["UsedMods"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	modsRaw, ok := usedMods["Mods"]
+	if !ok {
+		return nil
+	}
+	var out []map[string]interface{}
+	switch m := modsRaw.(type) {
+	case map[string]interface{}:
+		for _, v := range m {
+			if mm, ok := v.(map[string]interface{}); ok {
+				out = append(out, mm)
+			}
+		}
+	case []interface{}:
+		for _, v := range m {
+			if mm, ok := v.(map[string]interface{}); ok {
+				out = append(out, mm)
+			}
+		}
+	}
+	return out
+}
+
+// getJSONString 从 map 取字符串字段，兼容裸字符串与 ["type","value"] 数组编码（取 [1]）。
+func getJSONString(m map[string]interface{}, key string) string {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	switch val := v.(type) {
+	case string:
+		return val
+	case []interface{}:
+		// ["string","实际值"] 或 ["int", 8] 等编码：取第 2 个元素
+		if len(val) >= 2 {
+			if s, ok := val[1].(string); ok {
+				return s
+			}
+			return fmt.Sprintf("%v", val[1])
+		}
+		return ""
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+// GetSaveRequiredMods 获取已导入存档所需模组列表（解析其 Project.xml/json 的 UsedMods）
+func (m *Manager) GetSaveRequiredMods(versionID, saveID string) ([]SaveRequiredMod, error) {
+	worldPath, err := m.GetSaveGamePath(versionID, saveID)
+	if err != nil {
+		return nil, err
+	}
+
+	var jsonBytes, xmlBytes []byte
+	if data, err := os.ReadFile(filepath.Join(worldPath, "Project.json")); err == nil {
+		jsonBytes = data
+	}
+	if data, err := os.ReadFile(filepath.Join(worldPath, "Project.xml")); err == nil {
+		xmlBytes = data
+	}
+	if jsonBytes == nil && xmlBytes == nil {
+		return []SaveRequiredMod{}, nil
+	}
+
+	return parseRequiredMods(xmlBytes, jsonBytes), nil
+}
+
+// PreviewSaveRequiredMods 从 .scworld/.scword/.zip 归档预览所需模组（不导入）
+func (m *Manager) PreviewSaveRequiredMods(sourcePath string) ([]SaveRequiredMod, error) {
+	// 检查文件是否存在
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("source file not found: %s", sourcePath)
+	}
+
+	// 检查文件扩展名（支持 .scworld、.scword、.zip）
+	lowerPath := strings.ToLower(sourcePath)
+	if !strings.HasSuffix(lowerPath, ".scworld") &&
+		!strings.HasSuffix(lowerPath, ".scword") &&
+		!strings.HasSuffix(lowerPath, ".zip") {
+		return nil, fmt.Errorf("invalid file format, expected .scworld, .scword, or .zip file")
+	}
+
+	// 打开存档文件（实际上是 zip 文件）
+	zipReader, err := zip.OpenReader(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open save file: %w", err)
+	}
+	defer zipReader.Close()
+
+	// 读取 Project.json / Project.xml 字节
+	var jsonBytes, xmlBytes []byte
+	for _, file := range zipReader.File {
+		if file.Name != "Project.json" && file.Name != "Project.xml" {
+			continue
+		}
+		rc, err := file.Open()
+		if err != nil {
+			continue
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			continue
+		}
+		if file.Name == "Project.json" {
+			jsonBytes = data
+		} else {
+			xmlBytes = data
+		}
+	}
+
+	if jsonBytes == nil && xmlBytes == nil {
+		return []SaveRequiredMod{}, nil
+	}
+
+	return parseRequiredMods(xmlBytes, jsonBytes), nil
 }
