@@ -311,6 +311,7 @@ export default {
     noDependencies: 'Tanpa Dependensi',
     dependencies: 'Dependensi',
     apiVersionLow: 'API Lama',
+    incompatible: 'Mungkin tidak kompatibel',
     apiVersionLowFull: 'Mod ini menargetkan versi API di bawah 1.8. Game mungkin menampilkan peringatan "mungkin tidak dapat digunakan" tetapi tetap akan mencoba memuatnya.',
     mayBeIncompatible: 'Versi API mod ini mungkin tidak kompatibel dengan versi game yang dipilih.',
     modInfoParseFailed: 'Tidak dapat membaca info mod (file mungkin bukan arsip .scmod/.zip yang valid).',

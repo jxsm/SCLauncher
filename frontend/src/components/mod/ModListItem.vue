@@ -1,5 +1,5 @@
 <template>
-  <n-list-item>
+  <n-list-item :class="{ 'mod-incompatible': incompatible }">
     <n-thing>
       <template #header>
         <n-space align="center">
@@ -27,6 +27,14 @@
             size="small"
           >
             {{ t('mods.apiVersionLow') }}
+          </n-tag>
+          <!-- 与当前游戏版本可能不兼容 -->
+          <n-tag
+            v-if="crossIncompatible"
+            type="error"
+            size="small"
+          >
+            {{ t('mods.incompatible') }}
           </n-tag>
         </n-space>
       </template>
@@ -73,11 +81,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatSize } from '../../utils/format'
-import { isApiVersionPotentiallyUnusable } from '../../utils/modVersion'
+import { isApiVersionPotentiallyUnusable, isVersionTextIncompatible } from '../../utils/modVersion'
 import type { Mod } from '../../types/mod'
 
 const props = defineProps<{
   mod: Mod
+  hostApiVersion?: string
 }>()
 
 defineEmits<{
@@ -106,4 +115,25 @@ const impactTag = computed<{ type: 'default' | 'success' | 'warning' | 'error'; 
       return null
   }
 })
+
+// 跨版本不兼容：仅当选中版本能推断出主机 API 版本时才判定
+const crossIncompatible = computed(() => {
+  const api = props.mod.modInfo?.apiVersion
+  return !!(props.hostApiVersion && api && isVersionTextIncompatible(props.hostApiVersion, api))
+})
+
+// 是否需要特殊高亮（旧版 API 或 跨版本不兼容）
+const incompatible = computed(() => {
+  if (!props.mod.modInfo) return false
+  return isApiVersionPotentiallyUnusable(props.mod.modInfo.apiVersion) || crossIncompatible.value
+})
 </script>
+
+<style scoped>
+/* 不兼容模组特殊高亮：暖色背景 + 左侧强调条（不挤占布局） */
+.mod-incompatible {
+  background-color: rgba(232, 108, 26, 0.10);
+  box-shadow: inset 4px 0 0 0 #e06c1a;
+}
+
+</style>

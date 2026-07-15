@@ -97,6 +97,7 @@
                   v-for="mod in filteredMods"
                   :key="mod.id"
                   :mod="mod"
+                  :host-api-version="hostApiVersion"
                   @toggle="handleToggleMod"
                   @delete="handleDeleteMod"
                   @show-info="handleShowModInfo"
@@ -715,9 +716,17 @@ onMounted(async () => {
   }
 
   // 监听拖拽导入事件，刷新列表
-  EventsOn('dragdrop:imported', async () => {
+  EventsOn('dragdrop:imported', async (payload?: { resourceType?: string; versionId?: string; filePath?: string }) => {
     if (selectedVersion.value) {
       await modStore.loadMods(selectedVersion.value)
+    }
+    // 拖拽导入模组同样进行依赖检查（Feature 1）
+    if (payload?.resourceType === 'mod' && payload.filePath) {
+      const fileName = payload.filePath.split(/[\\/]/).pop() || ''
+      const verId = payload.versionId || selectedVersion.value
+      if (verId) {
+        await resolveDependenciesForFile(fileName, verId, isOnlineVersion.value)
+      }
     }
   })
 })

@@ -356,7 +356,7 @@ async function importToCurrentVersion(resourceType: ResourceType, filePath: stri
   try {
     await importByType(resourceType, versionId, filePath)
     message.success(t('dragDrop.importSuccess', { file: fileName }))
-    EventsEmit('dragdrop:imported', { resourceType, versionId })
+    EventsEmit('dragdrop:imported', { resourceType, versionId, filePath })
   } catch (error) {
     message.error(t('dragDrop.importFailed') + '：' + error)
   }
@@ -393,7 +393,7 @@ async function handleVersionSelect(versionId: string) {
       await importByType(resourceType, versionId, pendingFilePath.value)
       console.log('[DragDrop] ✅ importByType success')
       message.success(t('dragDrop.importSuccess', { file: fileName }))
-      EventsEmit('dragdrop:imported', { resourceType, versionId })
+      EventsEmit('dragdrop:imported', { resourceType, versionId, filePath: pendingFilePath.value })
     } catch (error) {
       console.error('[DragDrop] ❌ importByType failed:', error)
       message.error(t('dragDrop.importFailed') + '：' + error)

@@ -311,6 +311,7 @@ export default {
     noDependencies: 'Sem dependências',
     dependencies: 'Dependências',
     apiVersionLow: 'API Legada',
+    incompatible: 'Possivelmente incompatível',
     apiVersionLowFull: 'A versão da API deste mod é inferior a 1.8. O jogo pode exibir um aviso de "pode ser inutilizável", mas ainda tentará carregá-lo.',
     mayBeIncompatible: 'A versão da API deste mod pode ser incompatível com a versão do jogo selecionada.',
     modInfoParseFailed: 'Não foi possível ler as informações do mod (o arquivo pode não ser um arquivo .scmod/.zip válido).',

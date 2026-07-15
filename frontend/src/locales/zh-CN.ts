@@ -350,6 +350,7 @@ export default {
     noDependencies: '无依赖',
     dependencies: '依赖',
     apiVersionLow: '旧版 API',
+    incompatible: '可能不兼容',
     apiVersionLowFull: '此模组的 API 版本低于 1.8，游戏内可能提示“可能无法使用”，但仍会尝试加载。',
     mayBeIncompatible: '此模组的 API 版本与当前游戏版本可能不兼容。',
     modInfoParseFailed: '无法读取此模组的信息（可能不是有效的 .scmod/.zip 文件）',

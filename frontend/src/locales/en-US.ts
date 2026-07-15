@@ -349,6 +349,7 @@ export default {
     noDependencies: 'No dependencies',
     dependencies: 'Dependencies',
     apiVersionLow: 'Legacy API',
+    incompatible: 'Incompatible',
     apiVersionLowFull: 'This mod targets an API version below 1.8. The game may show a "may be unusable" warning but will still try to load it.',
     mayBeIncompatible: 'This mod\'s API version may be incompatible with the selected game version.',
     modInfoParseFailed: 'Could not read mod info (file may not be a valid .scmod/.zip archive).',

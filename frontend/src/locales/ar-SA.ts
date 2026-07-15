@@ -311,6 +311,7 @@ export default {
     noDependencies: 'لا توجد تبعيات',
     dependencies: 'التبعيات',
     apiVersionLow: 'إصدار API قديم',
+    incompatible: 'قد يكون غير متوافق',
     apiVersionLowFull: 'إصدار API لهذا التعديل أقل من 1.8. قد تظهر اللعبة تحذيرًا "قد يكون غير قابل للاستخدام" ولكنها ستظل تحاول تحميله.',
     mayBeIncompatible: 'قد يكون إصدار API لهذا التعديل غير متوافق مع إصدار اللعبة المحدد.',
     modInfoParseFailed: 'تعذرت قراءة معلومات التعديل (قد لا يكون الملف أرشيف .scmod/.zip صالحًا).',

@@ -11,6 +11,21 @@ import (
 // writeZip 写一个临时 zip 文件，包含给定的 文件名->内容 映射，返回路径
 func writeZip(t *testing.T, files map[string]string) string {
 	t.Helper()
+	tmp, err := os.CreateTemp("", "modinfo-test-*.zip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tmp.Write(makeZipBytes(t, files)); err != nil {
+		t.Fatal(err)
+	}
+	tmp.Close()
+	t.Cleanup(func() { os.Remove(tmp.Name()) })
+	return tmp.Name()
+}
+
+// makeZipBytes 在内存中构造一个 zip，返回其字节
+func makeZipBytes(t *testing.T, files map[string]string) []byte {
+	t.Helper()
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 	for name, content := range files {
@@ -25,17 +40,46 @@ func writeZip(t *testing.T, files map[string]string) string {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
+	return buf.Bytes()
+}
 
-	tmp, err := os.CreateTemp("", "modinfo-test-*.zip")
+// writeTempFile 把字节写入临时文件，返回路径
+func writeTempFile(t *testing.T, data []byte, suffix string) string {
+	t.Helper()
+	tmp, err := os.CreateTemp("", "modinfo-test-*"+suffix)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tmp.Write(buf.Bytes()); err != nil {
+	if _, err := tmp.Write(data); err != nil {
 		t.Fatal(err)
 	}
 	tmp.Close()
 	t.Cleanup(func() { os.Remove(tmp.Name()) })
 	return tmp.Name()
+}
+
+// strengthenHeadingCode2 镜像 StrengtheningMod 的 HeadingCode2 分支：
+// 原字节按“偶数下标半段 + 奇数下标半段”拼接，前置 HeadingCode2。
+func strengthenHeadingCode2(plain []byte) []byte {
+	out := make([]byte, 0, len(plain)+len(headingCode2))
+	out = append(out, headingCode2...)
+	for i := 0; i < len(plain); i += 2 { // 偶数下标
+		out = append(out, plain[i])
+	}
+	for i := 1; i < len(plain); i += 2 { // 奇数下标
+		out = append(out, plain[i])
+	}
+	return out
+}
+
+// strengthenHeadingCode 镜像 StrengtheningMod 的 HeadingCode 分支：整体反转后前置 HeadingCode。
+func strengthenHeadingCode(plain []byte) []byte {
+	out := make([]byte, 0, len(plain)+len(headingCode))
+	out = append(out, headingCode...)
+	for i := len(plain) - 1; i >= 0; i-- {
+		out = append(out, plain[i])
+	}
+	return out
 }
 
 func TestParseModInfo_ObjectMapDeps(t *testing.T) {
@@ -167,6 +211,62 @@ func TestParseModInfo_StringEncodedScalars(t *testing.T) {
 	}
 	if !info.NonPersistentMod {
 		t.Errorf("expected NonPersistentMod true, got %v", info.NonPersistentMod)
+	}
+}
+
+// 回归：“加固”模组（ZIP 前置了一段头部数据）应能被正确解析
+func TestParseModInfo_HardenedPrefixedScmod(t *testing.T) {
+	plain := makeZipBytes(t, map[string]string{
+		"modinfo.json": `{"Name":"加固示例","Version":"2.0","ApiVersion":"1.9.1","PackageName":"hardened.pkg","Dependencies":{"dep":"1.0"}}`,
+		"mod.dll":      "binary",
+	})
+	prefix := make([]byte, 256)
+	for i := range prefix {
+		prefix[i] = byte(i)
+	}
+	path := writeTempFile(t, append(prefix, plain...), ".scmod")
+	info := parseModInfoFromModFile(path)
+	if info == nil {
+		t.Fatal("expected hardened mod to parse, got nil")
+	}
+	if info.Name != "加固示例" || info.PackageName != "hardened.pkg" || info.ApiVersion != "1.9.1" {
+		t.Errorf("unexpected hardened mod info: %+v", info)
+	}
+	if len(info.Dependencies) != 1 || info.Dependencies[0].PackageName != "dep" {
+		t.Errorf("unexpected deps: %+v", info.Dependencies)
+	}
+}
+
+// 回归：HeadingCode2 加固（偶/奇下标重排）往返应能还原并解析
+func TestParseModInfo_HeadingCode2Strengthened(t *testing.T) {
+	plain := makeZipBytes(t, map[string]string{
+		"modinfo.json": `{"Name":"HC2模组","Version":"1.2","ApiVersion":"1.9","PackageName":"hc2.pkg","Dependencies":{"base":"1.0"}}`,
+	})
+	path := writeTempFile(t, strengthenHeadingCode2(plain), ".scmod")
+	info := parseModInfoFromModFile(path)
+	if info == nil {
+		t.Fatal("expected HC2-strengthened mod to parse, got nil")
+	}
+	if info.Name != "HC2模组" || info.PackageName != "hc2.pkg" || info.ApiVersion != "1.9" {
+		t.Errorf("unexpected: %+v", info)
+	}
+	if len(info.Dependencies) != 1 || info.Dependencies[0].PackageName != "base" || info.Dependencies[0].VersionRange != "1.0" {
+		t.Errorf("unexpected deps: %+v", info.Dependencies)
+	}
+}
+
+// 回归：HeadingCode 加固（整体反转）往返应能还原并解析；并验证奇数字节长度也正确
+func TestParseModInfo_HeadingCodeStrengthened(t *testing.T) {
+	plain := makeZipBytes(t, map[string]string{
+		"modinfo.json": `{"Name":"HC模组","Version":"0.9","ApiVersion":"1.8","PackageName":"hc.pkg"}`,
+	})
+	path := writeTempFile(t, strengthenHeadingCode(plain), ".scmod")
+	info := parseModInfoFromModFile(path)
+	if info == nil {
+		t.Fatal("expected HC-strengthened mod to parse, got nil")
+	}
+	if info.Name != "HC模组" || info.PackageName != "hc.pkg" || info.ApiVersion != "1.8" {
+		t.Errorf("unexpected: %+v", info)
 	}
 }
 

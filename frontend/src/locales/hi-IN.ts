@@ -311,6 +311,7 @@ export default {
     noDependencies: 'कोई निर्भरता नहीं',
     dependencies: 'निर्भरताएं',
     apiVersionLow: 'पुराना API',
+    incompatible: 'संभवतः असंगत',
     apiVersionLowFull: 'इस मॉड का API संस्करण 1.8 से कम है। गेम में "उपयोग नहीं किया जा सकता" चेतावनी दिख सकती है लेकिन इसे लोड करने का प्रयास किया जाएगा।',
     mayBeIncompatible: 'इस मॉड का API संस्करण चयनित गेम संस्करण के साथ असंगत हो सकता है।',
     modInfoParseFailed: 'इस मॉड की जानकारी पढ़ी नहीं जा सकी (फ़ाइल मान्य .scmod/.zip अभिलेख नहीं हो सकती)',

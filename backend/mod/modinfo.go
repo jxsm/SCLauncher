@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -39,6 +40,8 @@ const maxModInfoSize = 1 << 20 // 1 MiB
 
 // parseModInfoFromModFile 从 .scmod/.zip 文件中解析 modinfo.json。
 // 全程 best-effort：任何错误（非 zip、无 modinfo.json、JSON 非法）都返回 nil，永不 panic。
+// 兼容“加固”模组：先按 ZIP 本地文件头签名剥离前置数据（对应 scbbs-plus-mod 的
+// NormalizeScmodArchiveData / FindScmodZipStart），再作为标准 zip 解析。
 func parseModInfoFromModFile(fullPath string) (info *ModInfo) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -46,11 +49,20 @@ func parseModInfoFromModFile(fullPath string) (info *ModInfo) {
 		}
 	}()
 
-	reader, err := zip.OpenReader(fullPath)
+	raw, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil
 	}
-	defer reader.Close()
+
+	zipData, ok := normalizeScmodArchiveData(raw)
+	if !ok {
+		return nil
+	}
+
+	reader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		return nil
+	}
 
 	// 找到最浅（优先根目录）的 modinfo.json，大小写不敏感
 	var best *zip.File
@@ -87,6 +99,68 @@ func parseModInfoFromModFile(fullPath string) (info *ModInfo) {
 	}
 
 	return parseModInfoJSON(data)
+}
+
+// normalizeScmodArchiveData 镜像 scbbs-plus-mod 的 NormalizeScmodArchiveData：
+// 先对“加固”模组做去混淆（decipherScmod，对应 ModsManager.GetDecipherStream），
+// 再定位首个 ZIP 本地文件头签名（PK\x03\x04）剥离残余前置数据。
+// 找不到签名返回 (_, false)。
+func normalizeScmodArchiveData(data []byte) ([]byte, bool) {
+	if len(data) < 4 {
+		return nil, false
+	}
+	decoded := decipherScmod(data)
+	idx := findScmodZipStart(decoded)
+	if idx < 0 {
+		return nil, false
+	}
+	return decoded[idx:], true
+}
+
+// findScmodZipStart 返回首个 ZIP 本地文件头签名 PK\x03\x04 的偏移，找不到返回 -1。
+func findScmodZipStart(data []byte) int {
+	return bytes.Index(data, []byte{0x50, 0x4B, 0x03, 0x04})
+}
+
+// “加固”头标记（与游戏源码 Survivalcraft/ModsManager/ModsManager.cs 的
+// HeadingCode / HeadingCode2 一致，UTF-8 字节）。
+var (
+	headingCode  = []byte("有头有脸天才少年,耍猴表演敢为人先")
+	headingCode2 = []byte("修改他人mod请获得原作者授权，否则小心出名！")
+)
+
+// decipherScmod 镜像 ModsManager.GetDecipherStream：若文件以某个“加固”头开头，
+// 撤销对应的字节重排；否则原样返回。
+//   - HeadingCode2 前缀：剩余字节被拆成“偶数下标半段 + 奇数下标半段”拼接，需重新交错还原。
+//   - HeadingCode  前缀：剩余字节被整体反转，需再反转回来。
+func decipherScmod(data []byte) []byte {
+	if bytes.HasPrefix(data, headingCode2) {
+		payload := data[len(headingCode2):]
+		n := len(payload)
+		l := (n + 1) / 2 // 偶数下标半段的长度（ceil）
+		out := make([]byte, n)
+		k, t := 0, 0
+		for i := 0; i < n; i++ {
+			if i%2 == 0 {
+				out[i] = payload[k] // 还原偶数下标
+				k++
+			} else {
+				out[i] = payload[l+t] // 还原奇数下标
+				t++
+			}
+		}
+		return out
+	}
+	if bytes.HasPrefix(data, headingCode) {
+		payload := data[len(headingCode):]
+		n := len(payload)
+		out := make([]byte, n)
+		for i := 0; i < n; i++ {
+			out[i] = payload[n-1-i] // 反转
+		}
+		return out
+	}
+	return data
 }
 
 // parseModInfoJSON lenient 地解析 modinfo.json 字节
