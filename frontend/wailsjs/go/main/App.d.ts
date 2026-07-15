@@ -98,6 +98,8 @@ export function GetVersionsByType(arg1:string):Promise<Array<version.Version>>;
 
 export function HasBackground():Promise<boolean>;
 
+export function HttpRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<string>;
+
 export function ImportFurniture(arg1:string,arg2:string):Promise<void>;
 
 export function ImportGameVersion(arg1:string):Promise<string>;

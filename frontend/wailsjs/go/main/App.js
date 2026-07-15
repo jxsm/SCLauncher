@@ -186,6 +186,10 @@ export function HasBackground() {
   return window['go']['main']['App']['HasBackground']();
 }
 
+export function HttpRequest(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['HttpRequest'](arg1, arg2, arg3, arg4);
+}
+
 export function ImportFurniture(arg1, arg2) {
   return window['go']['main']['App']['ImportFurniture'](arg1, arg2);
 }

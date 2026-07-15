@@ -56,7 +56,8 @@ export default {
     downloading: 'Baixando...',
     downloadComplete: 'Download Concluído',
     downloadFailed: 'Download Falhou',
-    views: 'Visualizações'
+    views: 'Visualizações',
+    unitCount: ''
   },
   nav: {
     home: 'Início',
@@ -142,7 +143,8 @@ export default {
     changeManifestSourceFailed: 'Falha ao alterar fonte do manifesto',
     enterVersionName: 'Digite o nome da versão',
     enterVersionNameDesc: 'Por favor, digite um nome para esta versão (para distinguir diferentes configurações)',
-    nameAlreadyExists: 'Este nome já existe, por favor use outro nome'
+    nameAlreadyExists: 'Este nome já existe, por favor use outro nome',
+    version: 'Versão'
   },
   installed: {
     title: 'Versões Instaladas',

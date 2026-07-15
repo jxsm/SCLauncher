@@ -7,6 +7,7 @@
 import { ref } from 'vue'
 import type { ModSource, ModSearchResult, SearchOptions, PaginatedResponse } from '../types/mod-source'
 import type { ModSourceV2, ApiEndpointConfig, RequestContext } from '../types/mod-source-v2'
+import { HttpRequest } from '../api/http'
 
 class ModSourceManagerClass {
   // 状态 - 使用联合类型，兼容 v1 和 v2 格式
@@ -546,17 +547,13 @@ class ModSourceManagerClass {
       params.append('page', String(page))
       params.append('limit', String(limit))
 
-      // 发起请求
+      // 通过后端代理发起请求（绕过浏览器 CORS 限制）
       const url = `${api.baseUrl}${api.searchPath}?${params.toString()}`
-      const response = await fetch(url, {
+      const text = await HttpRequest(url, {
         headers: api.headers || {}
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = JSON.parse(text)
 
       // 解析响应数据
       const mods = this.parseResponseData(data, api.responseMapping, currentSource.id)
@@ -629,17 +626,13 @@ class ModSourceManagerClass {
         params.append('title', query.trim())
       }
 
-      // 发起请求
+      // 通过后端代理发起请求（绕过浏览器 CORS 限制）
       const url = `${api.baseUrl}${api.searchPath}?${params.toString()}`
-      const response = await fetch(url, {
+      const text = await HttpRequest(url, {
         headers: api.headers || {}
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
+      const data = JSON.parse(text)
 
       // 解析响应数据
       const mods = this.parseResponseData(data, api.responseMapping, currentSource.id)
@@ -1009,18 +1002,14 @@ class ModSourceManagerClass {
     const body = this.buildRequestBody(endpointConfig, context)
     const headers = this.getRequestHeaders(endpointConfig)
 
-    // 发起请求
-    const response = await fetch(url, {
+    // 通过后端代理发起请求（绕过浏览器 CORS 限制）
+    const text = await HttpRequest(url, {
       method: endpointConfig.method,
       headers,
-      body: endpointConfig.method !== 'GET' ? body : undefined
+      body: endpointConfig.method !== 'GET' && body ? String(body) : ''
     })
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json()
+    const data = JSON.parse(text)
 
     // 解析响应数据
     const mods = this.parseResponseData(data, api.responseMapping, source.id)

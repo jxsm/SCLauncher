@@ -48,14 +48,14 @@
         </n-button>
 
         <!-- 两个小按钮 -->
-        <n-space class="secondary-actions">
+        <div class="secondary-actions">
           <n-button class="secondary-btn" @click="$router.push('/installed')">
             {{ t('versions.selectVersion') }}
           </n-button>
           <n-button class="secondary-btn" @click="handleManageResources">
             {{ t('nav.mods') }}
           </n-button>
-        </n-space>
+        </div>
       </div>
     </div>
 

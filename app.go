@@ -1846,6 +1846,58 @@ func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error 
 	return nil
 }
 
+// HttpRequest 通过后端代理发起 HTTP 请求
+// 用于绕过 WebView 浏览器的 CORS 限制，使前端能访问不支持 CORS 的第三方下载源 API
+// method: HTTP 方法（GET/POST 等，空字符串默认 GET）；headers: 自定义请求头；body: 请求体（GET 传空）
+// 返回响应体字符串；非 2xx 状态码或网络错误时返回 error
+func (a *App) HttpRequest(url, method string, headers map[string]string, body string) (string, error) {
+	method = strings.ToUpper(method)
+	if method == "" {
+		method = "GET"
+	}
+
+	var bodyReader io.Reader
+	if body != "" {
+		bodyReader = strings.NewReader(body)
+	}
+
+	req, err := http.NewRequest(method, url, bodyReader)
+	if err != nil {
+		return "", fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	// 设置默认 User-Agent，避免被部分服务器当作空 UA 拒绝
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", "SCLauncher/2.0")
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if a.ctx != nil {
+		runtime.LogInfo(a.ctx, fmt.Sprintf("HTTP 代理请求: %s %s -> %d", method, url, resp.StatusCode))
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("HTTP 请求失败，状态码: %d", resp.StatusCode)
+	}
+
+	return string(respBody), nil
+}
+
 // GetModSources 获取模组下载源配置
 func (a *App) GetModSources() ([]map[string]interface{}, error) {
 	// 获取应用数据目录（.Survivalcraft）

@@ -59,7 +59,8 @@ export default {
     available: '可用',
     later: '稍后提醒',
     unknown: '未知',
-    views: '浏览'
+    views: '浏览',
+    unitCount: '个'
   },
   nav: {
     home: '首页',
@@ -145,7 +146,8 @@ export default {
     changeManifestSourceFailed: '切换清单源失败',
     enterVersionName: '输入版本名称',
     enterVersionNameDesc: '请输入这个版本的名称（用于区分不同配置）',
-    nameAlreadyExists: '该名称已存在，请使用其他名称'
+    nameAlreadyExists: '该名称已存在，请使用其他名称',
+    version: '版本'
   },
   installed: {
     title: '已安装版本',

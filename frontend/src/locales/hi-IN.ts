@@ -56,7 +56,8 @@ export default {
     downloading: 'डाउनलोड हो रहा है...',
     downloadComplete: 'डाउनलोड पूर्ण',
     downloadFailed: 'डाउनलोड विफल',
-    views: 'दृश्य'
+    views: 'दृश्य',
+    unitCount: ''
   },
   nav: {
     home: 'होम',
@@ -142,7 +143,8 @@ export default {
     changeManifestSourceFailed: 'मैनिफेस्ट स्रोत बदलने में विफल',
     enterVersionName: 'संस्करण नाम दर्ज करें',
     enterVersionNameDesc: 'कृपया इस संस्करण के लिए एक नाम दर्ज करें (विभिन्न कॉन्फ़िगरेशन को अलग करने के लिए)',
-    nameAlreadyExists: 'यह नाम पहले से मौजूद है, कृपया कोई और नाम उपयोग करें'
+    nameAlreadyExists: 'यह नाम पहले से मौजूद है, कृपया कोई और नाम उपयोग करें',
+    version: 'संस्करण'
   },
   installed: {
     title: 'स्थापित संस्करण',

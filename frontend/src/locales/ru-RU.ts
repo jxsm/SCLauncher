@@ -56,7 +56,8 @@ export default {
     downloading: 'Загрузка...',
     downloadComplete: 'Загрузка завершена',
     downloadFailed: 'Загрузка не удалась',
-    views: 'Просмотры'
+    views: 'Просмотры',
+    unitCount: ''
   },
   nav: {
     home: 'Главная',
@@ -142,7 +143,8 @@ export default {
     changeManifestSourceFailed: 'Не удалось изменить источник манифеста',
     enterVersionName: 'Введите название версии',
     enterVersionNameDesc: 'Пожалуйста, введите название для этой версии (для различения разных конфигураций)',
-    nameAlreadyExists: 'Это название уже существует, пожалуйста, используйте другое название'
+    nameAlreadyExists: 'Это название уже существует, пожалуйста, используйте другое название',
+    version: 'Версия'
   },
   installed: {
     title: 'Установленные версии',

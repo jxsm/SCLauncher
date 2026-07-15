@@ -1,5 +1,6 @@
 // 皮肤在线下载API
 import type { SkinApiResponse, SkinApiItem } from '../types/skin-api'
+import { HttpRequest } from './http'
 
 const API_BASE_URL = 'https://m.suancaixianyu.cn/api/post/list'
 
@@ -8,8 +9,9 @@ const API_BASE_URL = 'https://m.suancaixianyu.cn/api/post/list'
  */
 export async function getSkinList(page: number = 1, limit: number = 10): Promise<SkinApiResponse> {
   const url = `${API_BASE_URL}?type=2&orderType=3&fileTypes=4&page=${page}&limit=${limit}`
-  const response = await fetch(url)
-  const data = await response.json()
+  // 通过后端代理发起请求（绕过浏览器 CORS 限制）
+  const text = await HttpRequest(url)
+  const data = JSON.parse(text)
   return data
 }
 
@@ -18,8 +20,9 @@ export async function getSkinList(page: number = 1, limit: number = 10): Promise
  */
 export async function searchSkins(title: string, page: number = 1, limit: number = 10): Promise<SkinApiResponse> {
   const url = `${API_BASE_URL}?type=2&orderType=3&fileTypes=4&title=${encodeURIComponent(title)}&page=${page}&limit=${limit}`
-  const response = await fetch(url)
-  const data = await response.json()
+  // 通过后端代理发起请求（绕过浏览器 CORS 限制）
+  const text = await HttpRequest(url)
+  const data = JSON.parse(text)
   return data
 }
 

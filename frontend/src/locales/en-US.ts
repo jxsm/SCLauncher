@@ -59,7 +59,8 @@ export default {
     available: 'Available',
     later: 'Remind Me Later',
     unknown: 'Unknown',
-    views: 'views'
+    views: 'views',
+    unitCount: ''
   },
   nav: {
     home: 'Home',
@@ -145,7 +146,8 @@ export default {
     changeManifestSourceFailed: 'Failed to change manifest source',
     enterVersionName: 'Enter Version Name',
     enterVersionNameDesc: 'Please enter a name for this version (to distinguish different configurations)',
-    nameAlreadyExists: 'This name already exists, please use another name'
+    nameAlreadyExists: 'This name already exists, please use another name',
+    version: 'Version'
   },
   installed: {
     title: 'Installed Versions',

@@ -56,7 +56,8 @@ export default {
     downloading: 'جاري التحميل...',
     downloadComplete: 'اكتمل التحميل',
     downloadFailed: 'فشل التحميل',
-    views: 'المشاهدات'
+    views: 'المشاهدات',
+    unitCount: ''
   },
   nav: {
     home: 'الرئيسية',
@@ -142,7 +143,8 @@ export default {
     changeManifestSourceFailed: 'فشل تغيير مصدر القائمة',
     enterVersionName: 'أدخل اسم الإصدار',
     enterVersionNameDesc: 'الرجاء إدخل اسم لهذا الإصدار (لتمييز التكوينات المختلفة)',
-    nameAlreadyExists: 'هذا الاسم موجود بالفعل، الرجاء استخدام اسم آخر'
+    nameAlreadyExists: 'هذا الاسم موجود بالفعل، الرجاء استخدام اسم آخر',
+    version: 'الإصدار'
   },
   installed: {
     title: 'الإصدارات المثبتة',

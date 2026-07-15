@@ -56,7 +56,8 @@ export default {
     downloading: 'Mengunduh...',
     downloadComplete: 'Unduhan Selesai',
     downloadFailed: 'Unduhan Gagal',
-    views: 'Tampilan'
+    views: 'Tampilan',
+    unitCount: ''
   },
   nav: {
     home: 'Beranda',
@@ -142,7 +143,8 @@ export default {
     changeManifestSourceFailed: 'Gagal mengubah sumber manifest',
     enterVersionName: 'Masukkan Nama Versi',
     enterVersionNameDesc: 'Silakan masukkan nama untuk versi ini (untuk membedakan konfigurasi yang berbeda)',
-    nameAlreadyExists: 'Nama ini sudah ada, silakan gunakan nama lain'
+    nameAlreadyExists: 'Nama ini sudah ada, silakan gunakan nama lain',
+    version: 'Versi'
   },
   installed: {
     title: 'Versi Terinstal',
