@@ -56,6 +56,7 @@ export default {
     downloading: 'Baixando...',
     downloadComplete: 'Download Concluído',
     downloadFailed: 'Download Falhou',
+    downloadTasks: '{count} tarefas de download',
     views: 'Visualizações',
     unitCount: ''
   },

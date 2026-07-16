@@ -27,6 +27,7 @@ export default {
     downloading: '下载中...',
     downloadComplete: '下载完成',
     downloadFailed: '下载失败',
+    downloadTasks: '{count} 个下载任务',
     upload: '上传',
     install: '安装',
     uninstall: '卸载',

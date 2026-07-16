@@ -18,6 +18,9 @@ export const useDownloadStore = defineStore('download', () => {
   // 存储所有下载任务的进度
   const downloads = ref<Map<string, DownloadProgress>>(new Map())
 
+  // 记录每个任务的自动清除定时器，便于在重新下载同一资源时取消旧定时器，避免误删重新开始的任务
+  const clearTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
   // 获取所有下载任务
   const allDownloads = computed(() => Array.from(downloads.value.values()))
 
@@ -29,11 +32,15 @@ export const useDownloadStore = defineStore('download', () => {
   // 根据ID获取下载任务
   const getDownload = (downloadId: string) => downloads.value.get(downloadId)
 
-  // 延迟清除下载任务
+  // 延迟清除下载任务（若同一任务已有待执行的清除定时器，先取消，避免误删重新开始的任务）
   function delayClear(downloadId: string, delay: number = 2000) {
-    setTimeout(() => {
+    const existing = clearTimers.get(downloadId)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
       downloads.value.delete(downloadId)
+      clearTimers.delete(downloadId)
     }, delay)
+    clearTimers.set(downloadId, timer)
   }
 
   // 初始化事件监听
@@ -45,6 +52,12 @@ export const useDownloadStore = defineStore('download', () => {
       versionId?: string
       fileName: string
     }) => {
+      // 若该资源之前已完成/出错并排队了自动清除，先取消，避免把重新开始的任务误删
+      const pending = clearTimers.get(data.downloadId)
+      if (pending) {
+        clearTimeout(pending)
+        clearTimers.delete(data.downloadId)
+      }
       const progress: DownloadProgress = {
         downloadId: data.downloadId,
         type: data.type as DownloadProgress['type'],

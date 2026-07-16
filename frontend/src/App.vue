@@ -526,6 +526,7 @@ watch(resolvedTheme, (theme) => {
     '--color-scroll-thumb-hover': 'rgba(255, 255, 255, 0.15)',
     '--color-overlay': 'rgba(0, 0, 0, 0.5)',
     '--color-nav-bg': '#2B2D31',
+    '--hover-color': 'rgba(255, 255, 255, 0.08)',
   } : {
     '--color-bg': '#FFFFFF',
     '--color-surface': '#F2F3F5',
@@ -543,6 +544,7 @@ watch(resolvedTheme, (theme) => {
     '--color-scroll-thumb-hover': 'rgba(0, 0, 0, 0.35)',
     '--color-overlay': 'rgba(255, 255, 255, 0.5)',
     '--color-nav-bg': '#FFFFFF',
+    '--hover-color': 'rgba(0, 0, 0, 0.08)',
   };
 
   for (const [key, value] of Object.entries(vars)) {

@@ -56,6 +56,7 @@ export default {
     downloading: 'Mengunduh...',
     downloadComplete: 'Unduhan Selesai',
     downloadFailed: 'Unduhan Gagal',
+    downloadTasks: '{count} tugas unduhan',
     views: 'Tampilan',
     unitCount: ''
   },

@@ -56,6 +56,7 @@ export default {
     downloading: 'डाउनलोड हो रहा है...',
     downloadComplete: 'डाउनलोड पूर्ण',
     downloadFailed: 'डाउनलोड विफल',
+    downloadTasks: '{count} डाउनलोड कार्य',
     views: 'दृश्य',
     unitCount: ''
   },

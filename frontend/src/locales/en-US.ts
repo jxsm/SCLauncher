@@ -27,6 +27,7 @@ export default {
     downloading: 'Downloading...',
     downloadComplete: 'Download Complete',
     downloadFailed: 'Download Failed',
+    downloadTasks: '{count} download tasks',
     upload: 'Upload',
     install: 'Install',
     uninstall: 'Uninstall',

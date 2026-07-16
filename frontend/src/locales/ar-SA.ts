@@ -56,6 +56,7 @@ export default {
     downloading: 'جاري التحميل...',
     downloadComplete: 'اكتمل التحميل',
     downloadFailed: 'فشل التحميل',
+    downloadTasks: '{count} مهام تنزيل',
     views: 'المشاهدات',
     unitCount: ''
   },

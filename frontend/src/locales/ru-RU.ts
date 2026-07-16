@@ -56,6 +56,7 @@ export default {
     downloading: 'Загрузка...',
     downloadComplete: 'Загрузка завершена',
     downloadFailed: 'Загрузка не удалась',
+    downloadTasks: '{count} задач загрузки',
     views: 'Просмотры',
     unitCount: ''
   },
