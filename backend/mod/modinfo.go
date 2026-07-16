@@ -93,6 +93,10 @@ func parseModInfoFromModFile(fullPath string) (info *ModInfo) {
 	if err != nil {
 		return nil
 	}
+	// 移除 UTF-8 BOM（部分编辑器/打包工具会写入）。Go 的 json.Unmarshal 不容忍 BOM，
+	// 不剥离会导致整个 modinfo 解析失败 -> 已装模组 modInfo 为 nil -> 存档依赖解析时
+	// 该模组被当成“未安装”而重复下载。与 backend/savegame/manager.go 处理 Project.json 的做法一致。
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil

@@ -230,19 +230,21 @@ async function refreshIsOnlineVersion() {
 }
 
 // 存档所需模组依赖解析（非阻塞：失败仅 console，不影响导入/下载成功提示）
-async function resolveSaveDependenciesFromArchive(sourcePath: string) {
+// versionId / preferOnline 由调用方在「触发时刻」锁定传入，避免解析期间用户切换版本下拉框
+// 导致用错误版本的已装模组列表判断、把已装模组当成缺失而重复下载。
+async function resolveSaveDependenciesFromArchive(sourcePath: string, versionId: string, preferOnline: boolean) {
   try {
     const required = await PreviewSaveRequiredMods(sourcePath)
-    await resolveDependenciesForSave(required, selectedVersionId.value, isOnlineVersion.value)
+    await resolveDependenciesForSave(required, versionId, preferOnline)
   } catch (e) {
     console.error('[SaveGames] 解析存档所需模组失败:', e)
   }
 }
 
-async function resolveSaveDependenciesFromInstalled(saveId: string) {
+async function resolveSaveDependenciesFromInstalled(saveId: string, versionId: string, preferOnline: boolean) {
   try {
-    const required = await GetSaveRequiredMods(selectedVersionId.value, saveId)
-    await resolveDependenciesForSave(required, selectedVersionId.value, isOnlineVersion.value)
+    const required = await GetSaveRequiredMods(versionId, saveId)
+    await resolveDependenciesForSave(required, versionId, preferOnline)
   } catch (e) {
     console.error('[SaveGames] 解析存档所需模组失败:', e)
   }
@@ -376,14 +378,19 @@ async function handleImportSave() {
       positiveText: t('common.confirm'),
       negativeText: t('common.cancel'),
       onPositiveClick: async () => {
+        // 在任何 await 之前锁定目标版本：依赖解析是异步的（导入流程为 fire-and-forget），
+        // 若期间用户切换版本下拉框，re-read selectedVersionId 会读到新版本，从而用错误版本的
+        // 已装模组列表去判断，把本已安装的模组当成缺失而重复下载。
+        const targetVersionId = selectedVersionId.value
+        const targetIsOnline = isOnlineVersion.value
         try {
           // 执行导入
-          await ImportSaveGame(selectedVersionId.value, selectedFile)
+          await ImportSaveGame(targetVersionId, selectedFile)
           message.success(t('saveGames.importSuccess'))
           await loadSaveGames()
           // 导入对话框关闭后再解析所需模组（不阻塞 return，避免对话框卡住/子框叠加）
           // 此时仍持有源文件路径，直接从归档解析
-          resolveSaveDependenciesFromArchive(selectedFile)
+          resolveSaveDependenciesFromArchive(selectedFile, targetVersionId, targetIsOnline)
           return true
         } catch (error) {
           message.error(t('saveGames.importFailed') + '：' + error)
@@ -683,12 +690,16 @@ async function handleDownloadSave(save: ModSearchResult, versionIndexOrString: s
   const version = save.versions[versionIndex]
   const downloadKey = `${save.id}-${versionIndex}`
 
+  // 在任何 await 之前锁定目标版本（见 handleImportSave 同款理由）。
+  const targetVersionId = selectedVersionId.value
+  const targetIsOnline = isOnlineVersion.value
+
   downloadingSaves.value.add(downloadKey)
 
   let saveId = ''
   try {
     // 返回落地存档目录名，供后续解析所需模组
-    saveId = await DownloadSaveGameFromURL(version.downloadUrl, selectedVersionId.value, version.fileName)
+    saveId = await DownloadSaveGameFromURL(version.downloadUrl, targetVersionId, version.fileName)
     message.success(t('saveGames.downloadSuccess', { name: save.title }))
 
     // 下载成功后刷新存档列表
@@ -702,7 +713,7 @@ async function handleDownloadSave(save: ModSearchResult, versionIndexOrString: s
 
   // 存档本身已下载完成（下载按钮已恢复），再解析所需模组
   if (saveId) {
-    await resolveSaveDependenciesFromInstalled(saveId)
+    await resolveSaveDependenciesFromInstalled(saveId, targetVersionId, targetIsOnline)
   }
 }
 

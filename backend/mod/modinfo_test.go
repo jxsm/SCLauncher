@@ -112,6 +112,22 @@ func TestParseModInfo_ObjectMapDeps(t *testing.T) {
 	}
 }
 
+// 回归：modinfo.json 带 UTF-8 BOM 时也必须能解析（否则已装模组 modInfo=nil，
+// 存档依赖解析时该模组会被当成未安装而重复下载）。Go 的 json.Unmarshal 不容忍 BOM，
+// 故 parseModInfoFromModFile 需在解析前剥离 BOM（与 savegame 包处理 Project.json 一致）。
+func TestParseModInfo_BOMPrefixed(t *testing.T) {
+	path := writeZip(t, map[string]string{
+		"modinfo.json": "\xef\xbb\xbf" + `{"Name":"示例","PackageName":"xfdz.BOM","Version":"1.0"}`,
+	})
+	info := parseModInfoFromModFile(path)
+	if info == nil {
+		t.Fatal("expected non-nil ModInfo for BOM-prefixed modinfo.json; BOM must be stripped before json.Unmarshal")
+	}
+	if info.Name != "示例" || info.PackageName != "xfdz.BOM" || info.Version != "1.0" {
+		t.Errorf("unexpected fields for BOM-prefixed modinfo: %+v", info)
+	}
+}
+
 func TestParseModInfo_StringArrayDeps(t *testing.T) {
 	path := writeZip(t, map[string]string{
 		"modinfo.json": `{
