@@ -6,8 +6,9 @@
  * 同时用于存档：存档的 Project.xml/json 记录了 UsedMods（所需模组），
  * 导入/下载存档后可调用 resolveDependenciesForSave 自动补齐缺失模组。
  */
+import { h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, useDialog } from 'naive-ui'
+import { useMessage, useDialog, NTag } from 'naive-ui'
 import { useModStore } from '../stores/mod'
 import { ModSourceManager } from '../managers'
 import { satisfiesVersionRange } from '../utils/modVersion'
@@ -15,6 +16,86 @@ import type { Dependency } from '../types/mod'
 import type { SaveRequiredMod } from '../types/savegame'
 
 const MAX_DEPENDENCY_INSTALLS = 16 // 传递依赖安装上限，防止环/爆炸
+
+/**
+ * 将缺失依赖渲染为带样式的列表（替代旧的「圆点 + 换行」纯文本，更直观）。
+ * 每行：左侧模组名（主）+ 包名（次，灰字小号）；右侧版本范围用 NTag 标签。
+ * 颜色用 naive 的 CSS 变量，自动适配明暗主题。
+ */
+function renderDependencyList(missing: Dependency[]) {
+  return h(
+    'div',
+    {
+      style: {
+        marginTop: '12px',
+        maxHeight: '300px',
+        overflowY: 'auto',
+        padding: '4px',
+        borderRadius: '8px',
+        border: '1px solid var(--n-border-color, rgba(128,128,128,0.2))'
+      }
+    },
+    missing.map((dep, idx) =>
+      h(
+        'div',
+        {
+          key: `${dep.packageName}-${idx}`,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            padding: '8px 10px',
+            borderRadius: '6px',
+            backgroundColor: idx % 2 === 1 ? 'var(--n-color-hover, rgba(128,128,128,0.06))' : 'transparent'
+          }
+        },
+        [
+          h(
+            'div',
+            { style: { display: 'flex', flexDirection: 'column', minWidth: '0', flex: '1' } },
+            [
+              h(
+                'span',
+                {
+                  style: {
+                    fontWeight: '500',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }
+                },
+                dep.displayName || dep.packageName
+              ),
+              dep.displayName && dep.displayName !== dep.packageName
+                ? h(
+                    'span',
+                    {
+                      style: {
+                        fontSize: '12px',
+                        opacity: '0.55',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }
+                    },
+                    dep.packageName
+                  )
+                : null
+            ]
+          ),
+          dep.versionRange
+            ? h(
+                NTag,
+                { size: 'small', type: 'info', bordered: false, round: true },
+                { default: () => dep.versionRange }
+              )
+            : null
+        ]
+      )
+    )
+  )
+}
 
 export function useModDependencyResolver() {
   const { t } = useI18n()
@@ -243,12 +324,12 @@ export function useModDependencyResolver() {
       const settle = (val: boolean) => {
         if (!done) { done = true; resolve(val) }
       }
-      const list = missing
-        .map(d => `• ${d.displayName || d.packageName}${d.versionRange ? ' (' + d.versionRange + ')' : ''}`)
-        .join('\n')
       dialog.warning({
         title: t('mods.dependencyDialogTitle'),
-        content: `${t('mods.dependencyDialogPrompt')}\n\n${list}`,
+        content: () => h('div', [
+          h('div', { style: 'opacity: 0.75;' }, t('mods.dependencyDialogPrompt')),
+          renderDependencyList(missing)
+        ]),
         positiveText: t('mods.dependencyAutoDownload'),
         negativeText: t('common.cancel'),
         onPositiveClick: () => settle(true),
