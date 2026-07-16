@@ -113,7 +113,7 @@ const { t } = useI18n()
 .skin-icon-preview {
   text-align: center;
   padding: 16px;
-  background-color: var(--n-code-color, #f5f5f7);
+  background-color: rgba(128, 128, 140, 0.13);
   border-radius: 8px;
 }
 
@@ -135,7 +135,7 @@ const { t } = useI18n()
 
 .skin-description {
   line-height: 1.6;
-  color: #1d1d1f;
+  color: var(--color-text-primary, #1d1d1f);
 }
 
 .skin-description :deep(p) {
@@ -159,7 +159,7 @@ const { t } = useI18n()
 }
 
 .skin-description :deep(code) {
-  background-color: var(--n-code-color, #f5f5f7);
+  background-color: rgba(128, 128, 140, 0.13);
   padding: 2px 6px;
   border-radius: 5px;
   font-family: 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -167,7 +167,7 @@ const { t } = useI18n()
 }
 
 .skin-description :deep(pre) {
-  background-color: var(--n-code-color, #f5f5f7);
+  background-color: rgba(128, 128, 140, 0.13);
   padding: 12px;
   border-radius: 8px;
   overflow-x: auto;
@@ -185,6 +185,6 @@ const { t } = useI18n()
   border-left: 4px solid #0066cc;
   padding-left: 12px;
   margin: 8px 0;
-  color: #7a7a7a;
+  color: var(--color-text-tertiary, #7a7a7a);
 }
 </style>

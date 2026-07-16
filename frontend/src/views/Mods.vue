@@ -142,6 +142,23 @@
                       <n-icon><CloudDownloadIcon /></n-icon>
                     </template>
                   </n-select>
+
+                  <!-- 版本类型手动切换（仅当无法自动识别联机/单机时显示，如用户导入的版本） -->
+                  <n-tooltip v-if="!versionTypeRecognized && selectedVersion">
+                    <template #trigger>
+                      <n-select
+                        :value="isOnlineVersion ? 'online' : 'offline'"
+                        :options="manualTypeOptions"
+                        style="width: 200px"
+                        @update:value="handleManualTypeChange"
+                      >
+                        <template #prefix>
+                          <n-icon><SwapIcon /></n-icon>
+                        </template>
+                      </n-select>
+                    </template>
+                    {{ t('mods.versionTypeManualHint') }}
+                  </n-tooltip>
                 </n-space>
                 <n-button text @click="openSourceSettings">
                   <template #icon>
@@ -233,7 +250,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useModStore } from '../stores/mod'
 import { useVersionStore } from '../stores/version'
 import { useMessage } from 'naive-ui'
-import { Add as AddIcon, Search as SearchIcon, FolderOpen as FolderIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon } from '@vicons/ionicons5'
+import { Add as AddIcon, Search as SearchIcon, FolderOpen as FolderIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, SwapHorizontal as SwapIcon } from '@vicons/ionicons5'
 import { OpenVersionModsFolder } from '../api/version'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { ModSourceManager } from '../managers'
@@ -276,6 +293,7 @@ const selectedSourceId = ref<string>('')
 
 // 版本类型检测
 const isOnlineVersion = ref(false) // 当前版本是否是联机版
+const versionTypeRecognized = ref(true) // 当前版本的联机/单机类型是否可自动识别（true=可识别，自动切换；false=无法识别，显示手动切换下拉）
 const isInitialized = ref(false) // 是否已完成初始化
 
 // 分页状态
@@ -348,20 +366,53 @@ const sourceOptions = computed(() => {
     }))
 })
 
+// 手动版本类型切换选项（联机版/普通插件版），仅在版本类型无法自动识别时显示
+const manualTypeOptions = computed(() => [
+  { label: t('mods.onlineVersionType'), value: 'online' },
+  { label: t('mods.offlineVersionType'), value: 'offline' }
+])
+
+// 可自动识别为“单机版”的版本类型（net→联机版；api/original→单机版；其余视为无法识别）
+const RECOGNIZED_OFFLINE_TYPES = new Set(['api', 'original'])
+
 // 检测版本是否是联机版
 async function checkVersionType() {
   if (!selectedVersion.value) {
     isOnlineVersion.value = false
+    versionTypeRecognized.value = true
     return
   }
 
-  try {
-    const { IsOnlineVersion } = await import('../api/version')
-    isOnlineVersion.value = await IsOnlineVersion(selectedVersion.value)
-  } catch (error) {
-    console.error('检测版本类型失败:', error)
+  // 优先用版本的 versionType 做权威判定（仅 net/api/original 能直接看出联机还是单机）
+  const selectedVer = versionStore.installedVersions.find(v => v.id === selectedVersion.value)
+  const vType = selectedVer?.versionType
+
+  if (vType === 'net') {
+    // 联机版
+    versionTypeRecognized.value = true
+    isOnlineVersion.value = true
+  } else if (vType && RECOGNIZED_OFFLINE_TYPES.has(vType)) {
+    // 单机/原版
+    versionTypeRecognized.value = true
     isOnlineVersion.value = false
+  } else {
+    // unknown / modpack / modified / 空：无法从类型判断联机还是单机，显示手动切换下拉
+    // 初始默认值沿用 NetMods 文件夹启发式（与旧行为一致，避免回归）
+    versionTypeRecognized.value = false
+    try {
+      const { IsOnlineVersion } = await import('../api/version')
+      isOnlineVersion.value = await IsOnlineVersion(selectedVersion.value)
+    } catch (error) {
+      console.error('检测版本类型失败:', error)
+      isOnlineVersion.value = false
+    }
   }
+}
+
+// 手动切换版本类型（联机版/普通插件版），仅用于无法自动识别的版本
+function handleManualTypeChange(val: string) {
+  isOnlineVersion.value = val === 'online'
+  // 现有的 watch(isOnlineVersion) 会自动切换下载源并重载模组列表
 }
 
 async function handleVersionChange() {
