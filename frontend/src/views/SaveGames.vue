@@ -208,7 +208,7 @@ const props = defineProps<{
   versionIdFromRoute?: string
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
 const dialog = useDialog()
@@ -755,7 +755,9 @@ function openSourceSettings() {
 
 // 翻译游戏模式
 function translateGameMode(mode: string): string {
-  return t(`saveGames.gameModes.${mode}`)
+  const key = `saveGames.gameModes.${mode}`
+  // 未匹配到翻译时直接显示原始模式名（不翻译）
+  return te(key) ? t(key) : mode
 }
 
 onMounted(async () => {

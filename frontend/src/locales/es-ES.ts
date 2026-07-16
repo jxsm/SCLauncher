@@ -469,7 +469,8 @@ export default {
       Creative: 'Creativo',
       Challenging: 'Desafiante',
       Harmless: 'Inofensivo',
-      Cruel: 'Cruel'
+      Cruel: 'Cruel',
+      Adventure: 'Aventura'
     }
   },
   textures: {

@@ -515,7 +515,8 @@ export default {
       Creative: 'Creative',
       Challenging: 'Challenging',
       Harmless: 'Harmless',
-      Cruel: 'Cruel'
+      Cruel: 'Cruel',
+      Adventure: 'Adventure'
     }
   },
   textures: {

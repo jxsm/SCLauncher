@@ -92,7 +92,7 @@ defineEmits<{
   delete: [saveGame: SaveGame]
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 function formatDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
@@ -100,6 +100,8 @@ function formatDate(date: string | Date): string {
 }
 
 function translateGameMode(mode: string): string {
-  return t(`saveGames.gameModes.${mode}`)
+  const key = `saveGames.gameModes.${mode}`
+  // 未匹配到翻译时直接显示原始模式名（不翻译）
+  return te(key) ? t(key) : mode
 }
 </script>

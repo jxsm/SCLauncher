@@ -433,7 +433,8 @@ export default {
       Creative: '创造模式',
       Challenging: '挑战模式',
       Harmless: '无害模式',
-      Cruel: '残酷模式'
+      Cruel: '残酷模式',
+      Adventure: '冒险模式'
     }
   },
   skins: {
