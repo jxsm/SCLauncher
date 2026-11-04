@@ -1025,7 +1025,6 @@ class ModSourceManagerClass {
 
       // 如果配置了分页参数且 URL 中没有对应的占位符，则添加到查询字符串
       if (endpointConfig.pagination) {
-        const params = new URLSearchParams()
         const pagination = endpointConfig.pagination
 
         if (pagination.paramLocation === 'url') {
@@ -1039,6 +1038,15 @@ class ModSourceManagerClass {
           }
           if (context.query && pagination.searchParam && !urlObj.searchParams.has(pagination.searchParam)) {
             urlObj.searchParams.set(pagination.searchParam, context.query)
+          }
+          // 额外筛选参数（如游戏版本 gameVersionIds）：URL 模板没有对应占位符时
+          // 追加为查询参数（与 v1 路径把 filters 合并进查询参数的语义一致）
+          if (context.filters) {
+            Object.entries(context.filters).forEach(([key, value]) => {
+              if (!urlObj.searchParams.has(key)) {
+                urlObj.searchParams.set(key, String(value))
+              }
+            })
           }
           url = urlObj.toString()
         }
