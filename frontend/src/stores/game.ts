@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { GameStatus, GameProcessInfo } from '../types/game'
 import * as gameApi from '../api/game'
 import { useRuntimeStore } from './runtime'
-import { dialog as discreteDialog } from '../utils/naive'
+import { dialog as discreteDialog, message as discreteMessage } from '../utils/naive'
 import i18n from '../locales'
 import type { RuntimeStatus } from '../api/runtime'
 
@@ -12,6 +12,7 @@ export const useGameStore = defineStore('game', () => {
   const status = ref<GameStatus>('stopped')
   const processInfo = ref<GameProcessInfo | null>(null)
   const loading = ref(false)
+  const launchingVersionId = ref<string | null>(null) // 正在启动的版本（dotnet 观察期内供界面展示加载状态）
   const error = ref<string | null>(null)
 
   // 状态检查定时器
@@ -51,14 +52,23 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // 操作
-  async function launchGame(versionId: string) {
+  // 返回是否真正执行了启动：重复点击或用户取消运行时安装时返回 false，
+  // 调用方据此决定是否显示"启动成功"提示（启动本身可能要等数秒 dotnet 观察期）。
+  async function launchGame(versionId: string): Promise<boolean> {
+    // 已有启动流程进行中（含 dotnet 观察期），忽略重复点击并提示
+    if (loading.value) {
+      discreteMessage.warning(i18n.global.t('installed.alreadyLaunching'))
+      return false
+    }
+
     loading.value = true
+    launchingVersionId.value = versionId
     error.value = null
     try {
       // 启动前：按需检查并补齐 .NET 运行时
       const proceed = await ensureDotNetRuntime(versionId)
       if (!proceed) {
-        return // 用户取消或安装失败
+        return false // 用户取消或安装失败
       }
 
       await gameApi.LaunchGame(versionId)
@@ -67,12 +77,14 @@ export const useGameStore = defineStore('game', () => {
       await updateProcessInfo()
       // 启动状态检查
       startStatusCheck()
+      return true
     } catch (e) {
       error.value = e as string
       console.error('Failed to launch game:', e)
       throw e
     } finally {
       loading.value = false
+      launchingVersionId.value = null
     }
   }
 
@@ -176,6 +188,7 @@ export const useGameStore = defineStore('game', () => {
     status,
     processInfo,
     loading,
+    launchingVersionId,
     error,
     isRunning,
     isStopped,

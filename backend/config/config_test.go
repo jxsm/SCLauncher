@@ -97,3 +97,105 @@ func TestSetAutoCheckRuntimePersists(t *testing.T) {
 		t.Error("expected persisted autoCheckRuntime:false")
 	}
 }
+
+// TestPickFastestLine 最快线路选择：镜像更快时选镜像；全部失败时保持不确定。
+func TestPickFastestLine(t *testing.T) {
+	cases := []struct {
+		name    string
+		results []ManifestSpeedResult
+		wantURL string
+		wantOK  bool
+	}{
+		{
+			name: "mirror faster",
+			results: []ManifestSpeedResult{
+				{Line: ManifestLineMain, URL: DefaultManifestURLMain, LatencyMs: 1000, OK: true},
+				{Line: ManifestLineMirror, URL: DefaultManifestURLMirror, LatencyMs: 300, OK: true},
+			},
+			wantURL: DefaultManifestURLMirror,
+			wantOK:  true,
+		},
+		{
+			name: "main faster",
+			results: []ManifestSpeedResult{
+				{Line: ManifestLineMain, URL: DefaultManifestURLMain, LatencyMs: 200, OK: true},
+				{Line: ManifestLineMirror, URL: DefaultManifestURLMirror, LatencyMs: 900, OK: true},
+			},
+			wantURL: DefaultManifestURLMain,
+			wantOK:  true,
+		},
+		{
+			name: "mirror failed uses main",
+			results: []ManifestSpeedResult{
+				{Line: ManifestLineMain, URL: DefaultManifestURLMain, LatencyMs: 1000, OK: true},
+				{Line: ManifestLineMirror, URL: DefaultManifestURLMirror, LatencyMs: -1, OK: false},
+			},
+			wantURL: DefaultManifestURLMain,
+			wantOK:  true,
+		},
+		{
+			name: "all failed",
+			results: []ManifestSpeedResult{
+				{Line: ManifestLineMain, URL: DefaultManifestURLMain, LatencyMs: -1, OK: false},
+				{Line: ManifestLineMirror, URL: DefaultManifestURLMirror, LatencyMs: -1, OK: false},
+			},
+			wantOK: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			best, ok := PickFastestLine(tc.results)
+			if ok != tc.wantOK {
+				t.Fatalf("expected ok=%v, got %v", tc.wantOK, ok)
+			}
+			if ok && best.URL != tc.wantURL {
+				t.Errorf("expected %s, got %s", tc.wantURL, best.URL)
+			}
+		})
+	}
+}
+
+// TestLoadOldConfigDefaultsManifestURL 旧配置（无 defaultManifestUrl 字段）应回退为主线地址。
+func TestLoadOldConfigDefaultsManifestURL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	writeConfig(t, path, map[string]any{"manifestUrl": "x"})
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DefaultManifestURL != DefaultManifestURLMain {
+		t.Errorf("expected DefaultManifestURL=%s, got %s", DefaultManifestURLMain, c.DefaultManifestURL)
+	}
+}
+
+// TestDefaultManifestSpeedTestPersists 测速结果应写入磁盘并可被 Load 读回。
+func TestDefaultManifestSpeedTestPersists(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	writeConfig(t, path, nil)
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 模拟测速：直接构造结果并走应用逻辑（不发起网络请求）
+	c.DefaultManifestURL = DefaultManifestURLMirror
+	c.DefaultManifestMainLatencyMs = 1200
+	c.DefaultManifestMirrorLatencyMs = 350
+	c.DefaultManifestLastTest = 1700000000
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	c2, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c2.DefaultManifestURL != DefaultManifestURLMirror {
+		t.Errorf("expected persisted DefaultManifestURL=%s, got %s", DefaultManifestURLMirror, c2.DefaultManifestURL)
+	}
+	if c2.DefaultManifestMirrorLatencyMs != 350 || c2.DefaultManifestLastTest != 1700000000 {
+		t.Error("expected latency/lastTest values to persist")
+	}
+}

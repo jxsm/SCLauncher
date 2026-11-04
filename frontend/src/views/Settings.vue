@@ -17,9 +17,12 @@
       <ManifestSettings
         :sources="manifestSources"
         :current-source-id="currentManifestSourceId"
+        :speed-info="defaultManifestInfo"
+        :testing="speedTesting"
         @add-source="showAddManifestSourceDialog = true"
         @set-current="handleSetCurrentManifestSource"
         @delete="handleDeleteManifestSource"
+        @retest="handleRetestDefaultManifest"
       />
 
       <!-- 下载源设置 -->
@@ -84,9 +87,9 @@ import { ManifestSourceManager } from '../managers/ManifestSourceManager'
 import type { ModSource } from '../types/mod-source'
 import type { ManifestSource } from '../types/manifest-source'
 import { InformationCircleOutline as InformationIcon } from '@vicons/ionicons5'
-import { GetConfig, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground } from '../api/config'
+import { GetConfig, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground, TestDefaultManifestSpeed } from '../api/config'
 import { useVersionStore } from '../stores/version'
-import type { AppConfig } from '../types/config'
+import type { AppConfig, DefaultManifestInfo, ManifestSpeedTestResponse } from '../types/config'
 import LanguageSettings from '../components/settings/LanguageSettings.vue'
 import ThemeSettings from '../components/settings/ThemeSettings.vue'
 import PathSettings from '../components/settings/PathSettings.vue'
@@ -125,6 +128,10 @@ const manifestSources = ref<ManifestSource[]>([])
 const currentManifestSourceId = ref('')
 const showAddManifestSourceDialog = ref(false)
 
+// 默认清单源线路测速相关
+const defaultManifestInfo = ref<DefaultManifestInfo | null>(null)
+const speedTesting = ref(false)
+
 // 加载模组下载源列表
 async function loadModSources() {
   // 重新加载源列表以获取最新状态
@@ -146,6 +153,52 @@ async function loadManifestSources() {
   if (config.value?.manifestSources) {
     manifestSources.value = config.value.manifestSources
     currentManifestSourceId.value = config.value.currentManifestSourceId || 'default'
+    // 同步管理器内存列表，避免其使用过期的源列表
+    await ManifestSourceManager.loadSources(config.value.manifestSources)
+  }
+  defaultManifestInfo.value = config.value?.defaultManifest || null
+}
+
+// 重新测速默认清单线路（哪个快用哪个）
+async function handleRetestDefaultManifest() {
+  if (speedTesting.value) return
+  speedTesting.value = true
+  try {
+    const res = await TestDefaultManifestSpeed() as ManifestSpeedTestResponse
+
+    // 更新测速信息展示
+    const mainResult = res.results?.find(r => r.line === 'main')
+    const mirrorResult = res.results?.find(r => r.line === 'mirror')
+    const prevInfo = defaultManifestInfo.value
+    defaultManifestInfo.value = {
+      mainUrl: prevInfo?.mainUrl || mainResult?.url || '',
+      mirrorUrl: prevInfo?.mirrorUrl || mirrorResult?.url || '',
+      selectedUrl: res.selectedUrl,
+      mainLatencyMs: mainResult?.latencyMs ?? -1,
+      mirrorLatencyMs: mirrorResult?.latencyMs ?? -1,
+      lastTest: res.lastTest
+    }
+
+    // 同步默认源条目显示的 URL
+    const defaultSource = manifestSources.value.find(s => s.id === 'default')
+    if (defaultSource) {
+      defaultSource.url = res.selectedUrl
+    }
+
+    // 当前使用的是默认源时，清除清单缓存以便下次用新线路获取
+    if (currentManifestSourceId.value === 'default') {
+      versionStore.clearManifestCache()
+    }
+
+    if (res.results?.some(r => r.ok)) {
+      message.success(t('settings.manifestSpeedTestDone'))
+    } else {
+      message.warning(t('settings.manifestSpeedTestAllFailed'))
+    }
+  } catch (error) {
+    message.error(t('settings.operationFailed') + '：' + error)
+  } finally {
+    speedTesting.value = false
   }
 }
 
@@ -287,7 +340,7 @@ function handleDeleteManifestSource(source: ManifestSource) {
     content: t('settings.deleteManifestSourceConfirm', { name: source.name }),
     positiveText: t('common.confirm'),
     negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
+      onPositiveClick: async () => {
       try {
         await ManifestSourceManager.removeSource(source.id)
 
@@ -295,8 +348,9 @@ function handleDeleteManifestSource(source: ManifestSource) {
         config.value = await GetConfig()
         await loadManifestSources()
 
-        // 如果删除的是当前选中的源，更新 manifestUrl
+        // 删除的是当前选中的源时，后端会自动切回默认源，这里同步显示状态
         if (currentManifestSourceId.value === source.id) {
+          currentManifestSourceId.value = config.value?.currentManifestSourceId || 'default'
           const currentSource = manifestSources.value.find(s => s.id === currentManifestSourceId.value)
           if (currentSource) {
             manifestUrl.value = currentSource.url

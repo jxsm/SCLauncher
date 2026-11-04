@@ -38,11 +38,11 @@ type Dependency struct {
 // maxModInfoSize 限制读取的 modinfo.json 大小，避免异常大文件耗尽内存
 const maxModInfoSize = 1 << 20 // 1 MiB
 
-// parseModInfoFromModFile 从 .scmod/.zip 文件中解析 modinfo.json。
+// ParseModInfoFromModFile 从 .scmod/.zip 文件中解析 modinfo.json。
 // 全程 best-effort：任何错误（非 zip、无 modinfo.json、JSON 非法）都返回 nil，永不 panic。
 // 兼容“加固”模组：先按 ZIP 本地文件头签名剥离前置数据（对应 scbbs-plus-mod 的
 // NormalizeScmodArchiveData / FindScmodZipStart），再作为标准 zip 解析。
-func parseModInfoFromModFile(fullPath string) (info *ModInfo) {
+func ParseModInfoFromModFile(fullPath string) (info *ModInfo) {
 	defer func() {
 		if r := recover(); r != nil {
 			info = nil

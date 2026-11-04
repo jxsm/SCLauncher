@@ -41,13 +41,14 @@
             <n-button
               type="success"
               size="medium"
+              :loading="launching"
               :disabled="isGameRunning"
               @click="$emit('launch', version)"
             >
               <template #icon>
                 <n-icon><PlayIcon /></n-icon>
               </template>
-              {{ t('installed.launchGame') }}
+              {{ launching ? t('installed.waitingGameStart') : t('installed.launchGame') }}
             </n-button>
             <n-button
               size="medium"
@@ -117,6 +118,7 @@ const props = defineProps<{
   version: Version
   isPathMissing: boolean
   isGameRunning: boolean
+  launching?: boolean
 }>()
 
 const emit = defineEmits<{

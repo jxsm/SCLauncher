@@ -16,6 +16,7 @@ import (
 
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/mod"
+	"SCLauncher/backend/scbbsapi"
 	"SCLauncher/backend/utils"
 	"SCLauncher/backend/version"
 )
@@ -613,7 +614,7 @@ func (m *ModpackInstaller) downloadMods(manifest *Manifest, targetVersionID stri
 	completedCount := 0
 
 	// 创建SCBBS API客户端
-	scbbsClient := NewSCBBSApiClient()
+	scbbsClient := scbbsapi.NewSCBBSApiClient()
 
 	for i, modInfo := range manifest.Mods {
 		// 检查是否已取消
@@ -683,7 +684,7 @@ func (m *ModpackInstaller) downloadMods(manifest *Manifest, targetVersionID stri
 }
 
 // downloadMod 下载单个模组
-func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, globalModPath string, scbbsClient *SCBBSApiClient) error {
+func (m *ModpackInstaller) downloadMod(modInfo ModInfo, targetVersionID string, globalModPath string, scbbsClient *scbbsapi.SCBBSApiClient) error {
 	// 确定模组的安装路径
 	modPath := modInfo.ModPath
 	if modPath == "" {
@@ -874,9 +875,11 @@ func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) er
 
 	// 第一遍扫描：收集所有需要复制的文件
 	for _, file := range zipReader.File {
+		// 解码条目名（修复中文压缩工具用 GBK 存文件名导致的乱码）
+		decodedName := utils.DecodeArchiveEntryName(file.Name)
 		// zip 文件中的路径可能使用正斜杠或反斜杠，统一转换为正斜杠进行比较
-		filePath := filepath.ToSlash(file.Name)
-		fmt.Printf("  - %s (目录: %v)\n", file.Name, file.FileInfo().IsDir())
+		filePath := filepath.ToSlash(decodedName)
+		fmt.Printf("  - %s (目录: %v)\n", decodedName, file.FileInfo().IsDir())
 
 		// 检查文件是否在 overrides 目录中
 		if strings.HasPrefix(filePath, overridesPrefix) {
@@ -905,7 +908,7 @@ func (m *ModpackInstaller) copyOverrides(manifest *Manifest, gamePath string) er
 		}
 
 		// 需要统一使用正斜杠进行比较，因为 overridesPrefix 是正斜杠格式
-		filePath := filepath.ToSlash(file.Name)
+		filePath := filepath.ToSlash(utils.DecodeArchiveEntryName(file.Name))
 		relPath := strings.TrimPrefix(filePath, overridesPrefix)
 
 		// 安全验证：验证目标路径（防止路径遍历攻击）
@@ -1007,13 +1010,15 @@ func (m *ModpackInstaller) extractGameFromModpack(manifest *Manifest, versionPat
 	// 查找游戏文件
 	var gameFile *zip.File
 	for _, file := range zipReader.File {
+		// 解码条目名（修复中文压缩工具用 GBK 存文件名导致的乱码）
+		decodedName := utils.DecodeArchiveEntryName(file.Name)
 		// zip 文件中的路径总是使用正斜杠
-		if file.Name == gameFilePathInModpack || filepath.ToSlash(file.Name) == gameFilePathInModpack {
+		if decodedName == gameFilePathInModpack || filepath.ToSlash(decodedName) == gameFilePathInModpack {
 			gameFile = file
 			break
 		}
 		// 也尝试匹配文件名（忽略路径）
-		if filepath.Base(file.Name) == filepath.Base(gameFilePathInModpack) {
+		if filepath.Base(decodedName) == filepath.Base(gameFilePathInModpack) {
 			if gameFile == nil {
 				gameFile = file // 使用第一个匹配的文件
 			}
@@ -1024,7 +1029,7 @@ func (m *ModpackInstaller) extractGameFromModpack(manifest *Manifest, versionPat
 		// 列出压缩包中的所有文件用于调试
 		fmt.Printf("=== 整合包中的文件列表 ===\n")
 		for _, file := range zipReader.File {
-			fmt.Printf("  - %s\n", file.Name)
+			fmt.Printf("  - %s\n", utils.DecodeArchiveEntryName(file.Name))
 		}
 		fmt.Printf("=== 文件列表结束 ===\n")
 		return "", fmt.Errorf("整合包中未找到游戏文件: %s", gameFilePathInModpack)

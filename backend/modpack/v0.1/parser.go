@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"SCLauncher/backend/utils"
 )
 
 // min 返回两个整数中的较小值
@@ -274,12 +276,15 @@ func (p *V01Parser) extractZip(zipPath, destDir string) error {
 
 	// 解压每个文件
 	for _, file := range reader.File {
+		// 解码条目名（修复中文压缩工具用 GBK 存文件名导致的乱码）
+		entryName := utils.DecodeArchiveEntryName(file.Name)
+
 		// 构建目标路径
-		path := filepath.Join(destDir, file.Name)
+		path := filepath.Join(destDir, entryName)
 
 		// 检查是否是 Zip Slip 漏洞
 		if !strings.HasPrefix(path, filepath.Clean(destDir)+string(os.PathSeparator)) {
-			return fmt.Errorf("非法的文件路径: %s", file.Name)
+			return fmt.Errorf("非法的文件路径: %s", entryName)
 		}
 
 		if file.FileInfo().IsDir() {

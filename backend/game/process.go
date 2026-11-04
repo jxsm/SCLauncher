@@ -71,6 +71,14 @@ func (g *GameManager) SetContext(ctx context.Context) {
 }
 
 // Launch 启动游戏
+//
+// 启动策略：
+//  1. 游戏目录下存在 Survivalcraft.dll（2.4+ 的 .NET 结构）时，优先使用
+//     "dotnet Survivalcraft.dll" 启动：可直接捕获 .NET 运行日志，且能规避
+//     直接启动 exe 偶发的 2148734214 错误。
+//  2. 没有 dll，或 dotnet 方式启动失败（找不到 dotnet、进程在观察期内异常退出）时，
+//     回退为直接启动 Survivalcraft.exe。
+//  3. 两种方式都无法启动时，返回包含各自失败原因的错误。
 func (g *GameManager) Launch(versionID string) error {
 	g.processMu.Lock()
 	defer g.processMu.Unlock()
@@ -122,7 +130,41 @@ func (g *GameManager) Launch(versionID string) error {
 		g.gameLogOffset = 0
 	}
 
-	// 创建进程
+	// 优先尝试 dotnet Survivalcraft.dll
+	var dotnetErr error  // dotnet 尝试的失败原因
+	var dotnetLog string // dotnet 尝试捕获到的输出（回退 exe 后崩溃时用于诊断）
+	if dllPath := g.findGameDll(versionID, exePath); dllPath != "" {
+		buf := &syncBuffer{}
+		cmd, waitCh, err := g.startViaDotnet(dllPath, workDir, buf)
+		if err != nil {
+			dotnetErr = err
+		} else {
+			select {
+			case waitErr := <-waitCh:
+				if waitErr == nil {
+					// 启动后立即正常退出（极短会话），按正常启动处理
+					return g.finishLaunch(versionID, cmd, waitCh, buf, "", "dotnet Survivalcraft.dll")
+				}
+				exitCode := -1
+				if exitErr, ok := waitErr.(*exec.ExitError); ok {
+					exitCode = exitErr.ExitCode()
+				}
+				dotnetErr = fmt.Errorf("进程启动后立即退出（退出码 %d）", exitCode)
+				dotnetLog = buf.String()
+			case <-time.After(launchGracePeriod):
+				// 运行超过观察期，dotnet 方式启动成功
+				return g.finishLaunch(versionID, cmd, waitCh, buf, "", "dotnet Survivalcraft.dll")
+			}
+		}
+		if g.ctx != nil {
+			runtime.LogWarning(g.ctx, fmt.Sprintf("dotnet 启动 Survivalcraft.dll 失败(%v)，回退 Survivalcraft.exe", dotnetErr))
+			if dotnetLog != "" {
+				runtime.LogWarning(g.ctx, fmt.Sprintf("dotnet 输出: %s", truncateLog(dotnetLog, 1000)))
+			}
+		}
+	}
+
+	// 直接启动 Survivalcraft.exe（无 dll 或 dotnet 方式失败时）
 	cmd := exec.Command(exePath)
 	cmd.Dir = workDir
 
@@ -132,17 +174,41 @@ func (g *GameManager) Launch(versionID string) error {
 	// Windows: 不设置 CREATE_NO_WINDOW，让游戏可以正常显示窗口
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    false, // ⭐ 不隐藏窗口
-		CreationFlags: 0,      // ⭐ 不使用 CREATE_NO_WINDOW
+		CreationFlags: 0,     // ⭐ 不使用 CREATE_NO_WINDOW
 	}
 
 	// 启动进程
 	if err := cmd.Start(); err != nil {
+		// 两种方式都启动失败：错误信息中带上各自的原因
+		if dotnetErr != nil {
+			return fmt.Errorf("通过 dotnet 启动 Survivalcraft.dll 失败(%v)，通过 Survivalcraft.exe 启动也失败: %w", dotnetErr, err)
+		}
 		return fmt.Errorf("failed to start game: %w", err)
 	}
 
+	waitCh := make(chan error, 1)
+	go func() {
+		waitCh <- cmd.Wait()
+	}()
+
+	return g.finishLaunch(versionID, cmd, waitCh, nil, dotnetLog, "Survivalcraft.exe")
+}
+
+// launchGracePeriod dotnet 启动的观察期：进程在观察期内异常退出视为启动失败，
+// 回退到 Survivalcraft.exe。
+const launchGracePeriod = 3 * time.Second
+
+// createNoWindow 对应 Windows 的 CREATE_NO_WINDOW 标志（0x08000000）。
+// dotnet.exe 是控制台程序，输出已通过管道捕获，无需再弹出控制台窗口。
+const createNoWindow = 0x08000000
+
+// finishLaunch 启动成功后的收尾：保存进程信息、记录数据库并启动监控协程。
+// stdout 仅在 dotnet 启动方式下非空（直接捕获的 .NET 输出）；
+// fallbackLog 非 nil 表示曾尝试 dotnet 启动失败后回退 exe，崩溃时日志会附带该次输出辅助定位。
+func (g *GameManager) finishLaunch(versionID string, cmd *exec.Cmd, waitCh <-chan error, stdout *syncBuffer, fallbackLog, method string) error {
 	// 记录日志
 	if g.ctx != nil {
-		runtime.LogInfo(g.ctx, fmt.Sprintf("游戏进程启动成功: PID=%d, 可执行文件=%s", cmd.Process.Pid, exePath))
+		runtime.LogInfo(g.ctx, fmt.Sprintf("游戏进程启动成功: PID=%d, 启动方式=%s", cmd.Process.Pid, method))
 		runtime.LogInfo(g.ctx, fmt.Sprintf("工作目录: %s", g.paths.GetVersionPath(versionID)))
 	}
 
@@ -163,10 +229,117 @@ func (g *GameManager) Launch(versionID string) error {
 		fmt.Printf("Warning: failed to record process: %v\n", err)
 	}
 
-	// 启动监控协程（不传递输出缓冲区）
-	go g.monitorProcess(versionID, processRecord.ID, nil, nil)
+	// 启动监控协程（stdout 仅 dotnet 启动方式下传递）
+	go g.monitorProcess(versionID, processRecord.ID, stdout, waitCh, fallbackLog)
 
 	return nil
+}
+
+// startViaDotnet 使用 "dotnet Survivalcraft.dll" 方式启动游戏，并捕获 stdout/stderr。
+// 返回已启动的进程，以及等待其退出的 channel（观察期判断与后续监控复用）。
+func (g *GameManager) startViaDotnet(dllPath, workDir string, buf *syncBuffer) (*exec.Cmd, <-chan error, error) {
+	dotnetPath, err := resolveDotnet()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cmd := exec.Command(dotnetPath, dllPath)
+	cmd.Dir = workDir
+	// 捕获 .NET 运行时输出，崩溃时可直接展示
+	cmd.Stdout = buf
+	cmd.Stderr = buf
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: createNoWindow,
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, nil, fmt.Errorf("进程创建失败: %w", err)
+	}
+
+	waitCh := make(chan error, 1)
+	go func() {
+		waitCh <- cmd.Wait()
+	}()
+	return cmd, waitCh, nil
+}
+
+// resolveDotnet 定位 dotnet 可执行文件。
+// 优先 PATH 中的 dotnet，其次默认安装目录 %ProgramFiles%\dotnet\dotnet.exe
+// （与 dotnet 包的运行时检测策略一致）。PATH 中解析到 .bat/.cmd 脚本时
+// 无法直接作为子进程启动，视为不可用。
+func resolveDotnet() (string, error) {
+	if p, err := exec.LookPath("dotnet"); err == nil {
+		if ext := strings.ToLower(filepath.Ext(p)); ext != ".bat" && ext != ".cmd" {
+			return p, nil
+		}
+	}
+	base := os.Getenv("ProgramFiles")
+	if base == "" {
+		base = `C:\Program Files`
+	}
+	fallback := filepath.Join(base, "dotnet", "dotnet.exe")
+	if _, err := os.Stat(fallback); err == nil {
+		return fallback, nil
+	}
+	return "", fmt.Errorf("未找到 dotnet 运行时命令")
+}
+
+// findGameDll 查找游戏目录下的 Survivalcraft.dll（2.4+ 为 .NET 结构，可用 dotnet 直接启动）。
+// 返回空字符串表示不存在。
+func (g *GameManager) findGameDll(versionID, exePath string) string {
+	// 优先取 exe 同目录（正常安装与导入版本均适用）
+	sibling := filepath.Join(filepath.Dir(exePath), "Survivalcraft.dll")
+	if _, err := os.Stat(sibling); err == nil {
+		return sibling
+	}
+
+	// 回退：在版本目录中查找
+	versionPath := g.paths.GetVersionPath(versionID)
+	var dllPath string
+	_ = filepath.Walk(versionPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if dllPath == "" && strings.EqualFold(info.Name(), "Survivalcraft.dll") {
+			dllPath = path
+		}
+		return nil
+	})
+	return dllPath
+}
+
+// syncBuffer 线程安全的日志缓冲区。
+// exec 会为 stdout/stderr 各起一个拷贝协程并发写入，需要加锁。
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Len()
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// truncateLog 截断日志，超出时保留末尾（错误信息通常在末尾）。
+func truncateLog(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return "..." + s[len(s)-max:]
 }
 
 // Stop 停止游戏
@@ -306,9 +479,11 @@ func (g *GameManager) WorkDirectory(versionID string) (string, error) {
 }
 
 // monitorProcess 监控进程
-func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout, stderr *bytes.Buffer) {
-	// 等待进程结束
-	err := g.process.Wait()
+// stdout 在 dotnet 启动方式下非空，为直接捕获的 .NET 输出；
+// fallbackLog 非 nil 表示 dotnet 启动失败后回退 exe，崩溃日志会附带该次输出辅助定位。
+func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout *syncBuffer, waitCh <-chan error, fallbackLog string) {
+	// 等待进程结束（Wait 已在启动流程中开始，此处接收其结果）
+	err := <-waitCh
 
 	endTime := time.Now()
 	exitCode := 0
@@ -359,7 +534,7 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout, 
 			versionName = version.Name
 		}
 
-		// 获取崩溃日志：优先用 stdout，为空则读 Game.log
+		// 获取崩溃日志：优先用 dotnet 捕获的输出，为空则读 Game.log
 		logContent := ""
 		if stdout != nil && stdout.Len() > 0 {
 			logContent = stdout.String()
@@ -368,6 +543,14 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout, 
 		}
 		if logContent == "" {
 			logContent = "游戏崩溃退出（日志未捕获）"
+		}
+
+		// 若曾用 dotnet 启动失败后回退 exe，附带该次输出辅助定位
+		// （exe 直接崩溃往往只有一个退出码，如 2148734214，dotnet 的输出才有具体原因）
+		if fallbackLog != "" {
+			logContent = "===== dotnet Survivalcraft.dll 启动失败，已回退 Survivalcraft.exe =====\n" +
+				"【dotnet 输出】\n" + fallbackLog + "\n\n" +
+				"【Survivalcraft.exe 运行日志】\n" + logContent
 		}
 
 		runtime.EventsEmit(g.ctx, "game:crashed", map[string]interface{}{

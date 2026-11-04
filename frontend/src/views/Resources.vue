@@ -26,6 +26,10 @@
       <n-tab-pane name="skins" :tab="t('nav.skins')">
         <SkinsView :version-id-from-route="versionIdFromRoute" />
       </n-tab-pane>
+
+      <n-tab-pane name="modpacks" :tab="t('nav.modpacks')">
+        <ModpacksView />
+      </n-tab-pane>
     </n-tabs>
   </div>
 </template>
@@ -35,6 +39,7 @@ import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useVersionStore } from "../stores/version";
+import ModpacksView from "./Modpacks.vue";
 import ModsView from "./Mods.vue";
 import SaveGamesView from "./SaveGames.vue";
 import SkinsView from "./Skins.vue";
@@ -53,6 +58,13 @@ watch(activeResourceTab, (val) => {
 
 // 从路由获取版本ID
 const versionIdFromRoute = computed(() => route.query.versionId as string | undefined);
+
+// 支持通过 ?tab= 直接定位子标签（如 /resources?tab=modpacks 进入整合包下载）
+const TAB_NAMES = ["modpacks", "mods", "furniture", "textures", "savegames", "skins"];
+const tabFromRoute = route.query.tab as string | undefined;
+if (tabFromRoute && TAB_NAMES.includes(tabFromRoute)) {
+  activeResourceTab.value = tabFromRoute;
+}
 </script>
 
 <style scoped>

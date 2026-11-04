@@ -4,7 +4,7 @@ import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 
 export interface DownloadProgress {
   downloadId: string
-  type: 'mod' | 'skin' | 'texture' | 'furniture' | 'savegame'
+  type: 'mod' | 'skin' | 'texture' | 'furniture' | 'savegame' | 'modpack'
   versionId?: string
   fileName: string
   downloaded: number

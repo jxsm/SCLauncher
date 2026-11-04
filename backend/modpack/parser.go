@@ -9,6 +9,7 @@ import (
 	"archive/zip"
 
 	v0_1 "SCLauncher/backend/modpack/v0.1"
+	"SCLauncher/backend/utils"
 )
 
 // min 返回两个整数中的较小值
@@ -281,11 +282,12 @@ func extractZip(zipPath, destDir string) error {
 		}
 
 		// 只解压清单文件
-		if file.Name != "manifest.json" && file.Name != "manifest.jsonc" {
+		entryName := utils.DecodeArchiveEntryName(file.Name)
+		if entryName != "manifest.json" && entryName != "manifest.jsonc" {
 			continue
 		}
 
-		path := filepath.Join(destDir, file.Name)
+		path := filepath.Join(destDir, entryName)
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			return err
 		}

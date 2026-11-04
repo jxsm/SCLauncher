@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// 默认清单源的两条线路（启动时自动测速，哪个快用哪个）
+const (
+	DefaultManifestURLMain   = "https://sc.btos.top/api/manifest.json"
+	DefaultManifestURLMirror = "https://dl.sc.btos.top/pc-manifest.json"
+)
+
 // ManifestSource 清单源配置
 type ManifestSource struct {
 	ID     string `json:"id"`     // 唯一标识
@@ -20,6 +26,18 @@ type ManifestSource struct {
 type Config struct {
 	// 清单文件 URL（保留用于向后兼容）
 	ManifestURL string `json:"manifestUrl"`
+
+	// 默认清单源自动测速：当前选中的线路地址（两条线路中最快的那个）
+	DefaultManifestURL string `json:"defaultManifestUrl"`
+
+	// 主线线路最近一次测速延迟（毫秒，-1 表示失败，0 表示未测过）
+	DefaultManifestMainLatencyMs int64 `json:"defaultManifestMainLatencyMs"`
+
+	// 镜像线路最近一次测速延迟（毫秒，-1 表示失败，0 表示未测过）
+	DefaultManifestMirrorLatencyMs int64 `json:"defaultManifestMirrorLatencyMs"`
+
+	// 上次自动测速时间（Unix 时间戳，0 表示未测过）
+	DefaultManifestLastTest int64 `json:"defaultManifestLastTest"`
 
 	// 清单源列表
 	ManifestSources []ManifestSource `json:"manifestSources"`
@@ -75,12 +93,13 @@ func DefaultConfig() *Config {
 	defaultSource := ManifestSource{
 		ID:         "default",
 		Name:       "BTOS",
-		URL:        "https://sc.btos.top/api/manifest.json",
+		URL:        DefaultManifestURLMain,
 		IsDefault:  true,
 	}
 
 	return &Config{
-		ManifestURL:              "https://sc.btos.top/api/manifest.json",
+		ManifestURL:              DefaultManifestURLMain,
+		DefaultManifestURL:       DefaultManifestURLMain,
 		ManifestSources:          []ManifestSource{defaultSource},
 		CurrentManifestSourceID:  "default",
 		VersionsDir:              filepath.Join(".Survivalcraft", "versions"),
@@ -168,6 +187,11 @@ func Load(configPath string) (*Config, error) {
 		}
 	}
 
+	// 兼容旧配置：未记录过测速结果时，默认线路视为主线（随后台自动测速更新）
+	if config.DefaultManifestURL == "" {
+		config.DefaultManifestURL = DefaultManifestURLMain
+	}
+
 	config.configPath = configPath
 	config.execDir = execDir
 
@@ -211,6 +235,10 @@ func (c *Config) Save() error {
 	// 创建临时配置对象用于序列化（只保存相对路径）
 	tempConfig := struct {
 		ManifestURL               string            `json:"manifestUrl"`
+		DefaultManifestURL        string            `json:"defaultManifestUrl"`
+		DefaultManifestMainLatencyMs   int64        `json:"defaultManifestMainLatencyMs"`
+		DefaultManifestMirrorLatencyMs int64        `json:"defaultManifestMirrorLatencyMs"`
+		DefaultManifestLastTest        int64        `json:"defaultManifestLastTest"`
 		ManifestSources           []ManifestSource `json:"manifestSources"`
 		CurrentManifestSourceID   string            `json:"currentManifestSourceId"`
 		VersionsDir               string            `json:"versionsDir"`
@@ -226,6 +254,10 @@ func (c *Config) Save() error {
 		UpdateRemindDisableUntil  int64             `json:"updateRemindDisableUntil"`
 	}{
 		ManifestURL:               c.ManifestURL,
+		DefaultManifestURL:        c.DefaultManifestURL,
+		DefaultManifestMainLatencyMs:   c.DefaultManifestMainLatencyMs,
+		DefaultManifestMirrorLatencyMs: c.DefaultManifestMirrorLatencyMs,
+		DefaultManifestLastTest:        c.DefaultManifestLastTest,
 		ManifestSources:           c.ManifestSources,
 		CurrentManifestSourceID:   c.CurrentManifestSourceID,
 		VersionsDir:               c.toRelativePath(c.VersionsDir),
@@ -445,10 +477,10 @@ func (c *Config) RemoveManifestSource(id string) error {
 
 	c.ManifestSources = newSources
 
-	// 如果删除的是当前选中的源，切换到默认源
+	// 如果删除的是当前选中的源，切换到默认源（使用测速选出的线路）
 	if c.CurrentManifestSourceID == id {
 		c.CurrentManifestSourceID = "default"
-		c.ManifestURL = "https://sc.btos.top/api/manifest.json"
+		c.ManifestURL = c.DefaultManifestURL
 	}
 
 	return c.Save()

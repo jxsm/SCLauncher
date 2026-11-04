@@ -394,6 +394,65 @@ class ModSourceManagerClass {
             author: 'SuanCaiXianYu',
             tags: ['中文', '社区', '材质']
           }
+        },
+        {
+          id: 'suancaixianyu-modpacks',
+          type: 'modpacks',
+          name: '生存战争中文社区',
+          description: '生存战争中文社区整合包仓库',
+          icon: '',
+          enabled: true,
+          isDefault: true,
+          api: {
+            baseUrl: 'https://m.suancaixianyu.cn',
+            endpoint: {
+              method: 'GET',
+              // fileTypes=10 为整合包（对齐手机版 ModpacksDownloadPage / ScbbsPlus IntegrationPackFileType）
+              url: '/api/post/list?type=2&orderType=1&fileTypes=10&page={page}&limit={limit}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            search: {
+              method: 'GET',
+              url: '/api/post/list?type=2&orderType=1&fileTypes=10&title={query}&page={page}&limit={limit}',
+              headers: {},
+              pagination: {
+                pageParam: 'page',
+                limitParam: 'limit',
+                searchParam: 'title',
+                paramLocation: 'url'
+              }
+            },
+            responseMapping: {
+              results: '$.data.list',
+              id: '$.id',
+              title: '$.title',
+              description: '$.content',
+              author: '$.creator.nickname',
+              authorAvatar: '$.creator.headImg',
+              views: '$.views',
+              likes: '$.likeCount',
+              cover: '$.cover',
+              versions: '$.postVersions',
+              version: '$.version',
+              downloadUrl: '$.files[0].url',
+              fileName: '$.files[0].filename',
+              fileSize: '$.files[0].size',
+              icon: '$.files[0].icon',
+              total: '$.data.total',
+              totalPages: '$.data.totalPages'
+            }
+          },
+          metadata: {
+            website: 'https://m.suancaixianyu.cn',
+            author: 'SuanCaiXianYu',
+            tags: ['中文', '社区', '整合包']
+          }
         }
       ]
 
@@ -770,7 +829,8 @@ class ModSourceManagerClass {
             downloadUrl: String(this.getValueByPath(v, mapping.downloadUrl) || ''),
             fileName: String(this.getValueByPath(v, mapping.fileName) || ''),
             fileSize: String(this.getValueByPath(v, mapping.fileSize) || ''),
-            icon: this.getValueByPath(v, mapping.icon)
+            icon: this.getValueByPath(v, mapping.icon),
+            gameVersionIds: (this.getValueByPath(v, 'gameVersionIds') || []).map((id: any) => Number(id))
           })).filter((v: any) => v.downloadUrl) // 过滤掉没有下载链接的版本
         }
       }).filter((mod: ModSearchResult) => mod.id && mod.title) // 过滤掉无效数据

@@ -132,7 +132,28 @@ export async function InstallModpackWithProgress(modpackPath: string, baseVersio
   return await AppBindings.InstallModpackWithProgress(modpackPath, baseVersionID || "")
 }
 
+// 安装 scbbs（ScbbsPlus）格式整合包到指定已安装版本
+export async function InstallScbbsModpack(modpackPath: string, targetVersionID: string): Promise<string> {
+  return await AppBindings.InstallScbbsModpack(modpackPath, targetVersionID)
+}
+
+// 应答安装过程中的文件冲突弹窗
+// action: overwrite / skip / overwriteAll / skipAll / cancel
+export async function ResolveModpackConflict(conflictID: string, action: string): Promise<void> {
+  await AppBindings.ResolveModpackConflict(conflictID, action)
+}
+
 // 取消整合包安装
 export async function CancelModpackInstall(): Promise<void> {
   await AppBindings.CancelModpackInstall()
+}
+
+// 从社区下载整合包到临时目录（不安装，返回临时文件路径，进度走 resource-download:* 事件）
+export async function DownloadModpackFromUrl(downloadURL: string, fileName: string): Promise<string> {
+  return await AppBindings.DownloadModpackFromURL(downloadURL, fileName)
+}
+
+// 删除整合包下载临时文件（仅允许删除系统临时目录内 scmodpack- 前缀文件）
+export async function DeleteModpackTempFile(path: string): Promise<void> {
+  await AppBindings.DeleteModpackTempFile(path)
 }

@@ -33,6 +33,13 @@
     @completed="handleModpackCompleted"
     @error="handleModpackError"
   />
+
+  <!-- 整合包目标版本选择（已安装版本 + 下载新版本） -->
+  <ModpackVersionSelectDialog
+    v-model:show="showModpackVersionSelect"
+    :modpack-name="parsedModpackInfo?.name || ''"
+    @confirm="handleModpackVersionConfirm"
+  />
 </template>
 
 <script setup lang="ts">
@@ -48,10 +55,11 @@ import { ImportFurniture } from '../api/furniture'
 import { ImportSaveGame } from '../api/savegame'
 import { ImportSkin } from '../api/skin'
 import { InspectArchive } from '../api/config'
-import { ParseModpack, InstallModpackWithProgress, InstallFromArchive } from '../api/version'
+import { ParseModpack, InstallModpackWithProgress, InstallScbbsModpack, InstallFromArchive } from '../api/version'
 import VersionSelectDialog from './VersionSelectDialog.vue'
 import ModpackInfoDialog from './ModpackInfoDialog.vue'
 import ModpackInstallDialog from './ModpackInstallDialog.vue'
+import ModpackVersionSelectDialog from './ModpackVersionSelectDialog.vue'
 import { useVersionStore } from '../stores/version'
 
 const { t } = useI18n()
@@ -88,6 +96,7 @@ const EXTENSION_MAP: Record<string, ResourceType> = {
   '.scword': 'savegame',
   '.scskin': 'skin',
   '.scmodpack': 'modpack',
+  '.json': 'modpack', // scbbs（ScbbsPlus）整合包的纯 JSON 清单
 }
 
 // 资源管理页面路由名称到资源类型的映射
@@ -148,7 +157,7 @@ const dragHint = computed(() => {
       'furniture': '.scfpack',
       'savegame': '.scworld, .scword, .zip',
       'skin': '.scskin',
-      'modpack': '.scmodpack, .zip',
+      'modpack': '.scmodpack, .zip, .json',
       '': '',
     }
     return t('dragDrop.supportedFormats', { formats: extensions[currentResourceType.value] })
@@ -247,9 +256,9 @@ async function handleFileDrop(paths: string[]) {
   // 判断资源类型
   let resourceType = EXTENSION_MAP[ext]
 
-  // .scmodpack 是整合包
-  if (ext === '.scmodpack') {
-    console.log('[DragDrop] → .scmodpack, starting modpack install')
+  // .scmodpack 是整合包；.json 可能是 scbbs（ScbbsPlus）整合包的 JSON 清单
+  if (ext === '.scmodpack' || ext === '.json') {
+    console.log('[DragDrop] → modpack file, starting modpack install')
     await startModpackInstall(filePath)
     return
   }
@@ -440,6 +449,16 @@ async function startModpackInstall(filePath: string) {
 // 用户确认安装整合包
 async function handleModpackInstall() {
   if (!parsedModpackInfo.value) return
+
+  // scbbs（ScbbsPlus）格式不带游戏本体，必须安装到已安装版本；手动模式同样需要选版本
+  const isScbbs = parsedModpackInfo.value?.format === 'scbbs'
+  const isManualMode = isScbbs || parsedModpackInfo.value.survivalcraft?.version?.manual === true
+
+  if (isManualMode) {
+    await showModpackVersionSelection()
+    return
+  }
+
   showModpackDialog.value = false
   showInstallDialog.value = true
   try {
@@ -448,6 +467,30 @@ async function handleModpackInstall() {
     console.error('[DragDrop] Modpack install failed:', error)
     // 不关闭弹窗，让 ModpackInstallDialog 显示错误状态
   }
+}
+
+// 版本选择对话框（已安装版本 + 下载新版本，scbbs / 手动模式共用）
+const showModpackVersionSelect = ref(false)
+
+function handleModpackVersionConfirm(selectedVersionID: string) {
+  if (!parsedModpackInfo.value) return
+  showModpackDialog.value = false
+  showInstallDialog.value = true
+  ;(async () => {
+    try {
+      if (parsedModpackInfo.value?.format === 'scbbs') {
+        await InstallScbbsModpack(parsedModpackInfo.value.filePath, selectedVersionID)
+      } else {
+        await InstallModpackWithProgress(parsedModpackInfo.value.filePath, selectedVersionID)
+      }
+    } catch (error) {
+      console.error('[DragDrop] Modpack install failed:', error)
+    }
+  })()
+}
+
+async function showModpackVersionSelection() {
+  showModpackVersionSelect.value = true
 }
 
 // 整合包安装完成

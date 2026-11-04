@@ -3,7 +3,7 @@
  */
 
 // 下载源类型
-export type SourceType = 'mods' | 'online-mods' | 'savegames' | 'furniture' | 'textures' | 'skins'
+export type SourceType = 'mods' | 'online-mods' | 'savegames' | 'furniture' | 'textures' | 'skins' | 'modpacks'
 
 // 模组搜索结果
 export interface ModSearchResult {
@@ -27,6 +27,7 @@ export interface ModVersion {
   fileName: string
   fileSize: string
   icon?: string
+  gameVersionIds?: number[] // 社区帖子声明的适配游戏版本 ID（/api/version/list 映射，仅 scbbs 社区源有）
 }
 
 // 模组详情

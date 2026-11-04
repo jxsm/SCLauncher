@@ -13,6 +13,7 @@ import (
 	"time"
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/mod"
+	"SCLauncher/backend/modpack/scbbs"
 )
 
 // Manager 存档管理器
@@ -840,6 +841,9 @@ func (m *Manager) ImportSaveGame(versionID, sourcePath string) (string, error) {
 }
 
 // ExportSaveGameAsModpack 导出存档为整合包（.scmodpack）
+// ExportSaveGameAsModpack 导出存档为 scbbs（ScbbsPlus）格式整合包。
+// 包含存档世界与该版本所有已启用的模组；产物为 ZIP 载体（根 packinfo.json +
+// worlds/<存档名>.scworld + mods/*.scmod），可被本启动器、手机版与 ScbbsPlus 安装。
 func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) error {
 	// 获取存档路径
 	worldPath, err := m.GetSaveGamePath(versionID, saveID)
@@ -847,9 +851,9 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 		return err
 	}
 
-	// 确保使用.scmodpack后缀
-	if !strings.HasSuffix(strings.ToLower(savePath), ".scmodpack") {
-		savePath = savePath + ".scmodpack"
+	// scbbs ZIP 载体惯例为 .zip 后缀
+	if !strings.HasSuffix(strings.ToLower(savePath), ".zip") {
+		savePath = savePath + ".zip"
 	}
 
 	// 获取存档信息
@@ -869,286 +873,46 @@ func (m *Manager) ExportSaveGameAsModpack(versionID, saveID, savePath string) er
 		saveName = saveID
 	}
 
-	// 创建临时目录
-	tempDir, err := os.MkdirTemp("", "sc-modpack-export-*")
-	if err != nil {
-		return fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// 获取版本路径（用于计算相对路径）
-	versionPath := m.paths.GetVersionPath(versionID)
-
-	// 检查是否是导入版本
-	originalPath, _ := getImportedVersionOriginalPath(versionPath)
-
-	// 确定存档相对于游戏根目录的路径
-	// 存档可能在不同位置：Worlds/, doc/Worlds/, 或原始路径的相应位置
-	var relativeWorldPath string
-	if originalPath != "" {
-		// 导入版本，检查原始路径
-		if strings.HasPrefix(worldPath, filepath.Join(originalPath, "Worlds")) {
-			relativeWorldPath = "Worlds"
-		} else if strings.HasPrefix(worldPath, filepath.Join(originalPath, "doc", "Worlds")) {
-			relativeWorldPath = filepath.Join("doc", "Worlds")
-		} else {
-			// 默认使用 Worlds
-			relativeWorldPath = "Worlds"
-		}
-	} else {
-		// 非导入版本
-		if strings.HasPrefix(worldPath, m.paths.GetGameDocWorldsDir(versionID)) {
-			relativeWorldPath = filepath.Join("doc", "Worlds")
-		} else {
-			relativeWorldPath = "Worlds"
-		}
-	}
-
-	// 创建overrides目录（将存档放入其中，保留原始路径结构）
-	overridesDir := filepath.Join(tempDir, "overrides", relativeWorldPath, saveID)
-	if err := os.MkdirAll(overridesDir, 0755); err != nil {
-		return fmt.Errorf("failed to create overrides dir: %w", err)
-	}
-
-	// 复制存档文件到overrides目录
-	err = filepath.Walk(worldPath, func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(worldPath, filePath)
-		if err != nil {
-			return err
-		}
-
-		targetPath := filepath.Join(overridesDir, relPath)
-
-		if info.IsDir() {
-			return os.MkdirAll(targetPath, info.Mode())
-		}
-
-		// 复制文件
-		return copyFileForModpack(filePath, targetPath)
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to copy save files: %w", err)
-	}
-
-	// 获取已启用的模组列表
+	// 收集已启用的模组（模组目录由 mod.Manager.GetModPath 统一处理联机版/导入版本）
 	modMgr := mod.NewManager(m.config)
-	mods, err := modMgr.GetMods(versionID)
+	modsDir := modMgr.GetModPath(versionID)
+	allMods, err := modMgr.GetMods(versionID)
 	if err != nil {
 		return fmt.Errorf("failed to get mods: %w", err)
 	}
 
-	// 筛选已启用的模组
-	var enabledMods []mod.Mod
-	for _, modItem := range mods {
-		if modItem.Enabled {
-			enabledMods = append(enabledMods, modItem)
-		}
-	}
-
-	// 创建模组目录并复制模组文件
-	if len(enabledMods) > 0 {
-		modsDir := filepath.Join(tempDir, "overrides")
-
-		// 检查版本是否是联机版
-		versionPath := m.paths.GetVersionPath(versionID)
-		isOnlineVersion := isOnlineVersionCheck(versionPath)
-
-		// 检查是否是导入版本
-		originalPath, _ := getImportedVersionOriginalPath(versionPath)
-		isImportedOnline := false
-		if originalPath != "" {
-			isImportedOnline = isOnlineVersionCheck(originalPath)
+	exportMods := make([]scbbs.ExportMod, 0, len(allMods))
+	for _, modItem := range allMods {
+		if !modItem.Enabled {
+			continue
 		}
 
-		// 确定模组目录
-		var modBaseDir string
-		if isOnlineVersion || isImportedOnline {
-			modBaseDir = filepath.Join(m.paths.GetVersionPath(versionID), "NetMods")
-			// 如果是导入版本，尝试原始路径
-			if originalPath != "" && isImportedOnline {
-				if _, err := os.Stat(filepath.Join(originalPath, "NetMods")); err == nil {
-					modBaseDir = filepath.Join(originalPath, "NetMods")
-				}
-			}
-		} else {
-			modBaseDir = filepath.Join(m.paths.GetVersionPath(versionID), "Mods")
-			// 如果是导入版本，尝试原始路径
-			if originalPath != "" && !isImportedOnline {
-				if _, err := os.Stat(filepath.Join(originalPath, "Mods")); err == nil {
-					modBaseDir = filepath.Join(originalPath, "Mods")
-				}
-			}
+		sourceModPath := filepath.Join(modsDir, modItem.FileName)
+		if _, err := os.Stat(sourceModPath); err != nil {
+			fmt.Printf("[SaveGame] 警告: 模组文件不存在: %s\n", sourceModPath)
+			continue
 		}
 
-		for _, modItem := range enabledMods {
-			// 获取模组文件的实际路径
-			sourceModPath := filepath.Join(modBaseDir, modItem.FileName)
-
-			// 检查文件是否存在
-			if _, err := os.Stat(sourceModPath); err != nil {
-				fmt.Printf("[SaveGame] 警告: 模组文件不存在: %s\n", sourceModPath)
-				continue
-			}
-
-			// 确定模组的安装路径（联机版是NetMods，普通版是Mods）
-			var targetModDir string
-			if isOnlineVersion || isImportedOnline {
-				targetModDir = filepath.Join(modsDir, "NetMods")
-			} else {
-				targetModDir = filepath.Join(modsDir, "Mods")
-			}
-
-			// 创建模组目录
-			if err := os.MkdirAll(targetModDir, 0755); err != nil {
-				return fmt.Errorf("failed to create mod dir: %w", err)
-			}
-
-			// 复制模组文件
-			targetModPath := filepath.Join(targetModDir, modItem.Name) // 使用modItem.Name（不带.disable后缀）
-			if err := copyFileForModpack(sourceModPath, targetModPath); err != nil {
-				fmt.Printf("[SaveGame] 警告: 复制模组文件失败: %s, 错误: %v\n", sourceModPath, err)
-				continue
-			}
-
-			fmt.Printf("[SaveGame] 已添加模组到整合包: %s\n", modItem.Name)
+		exportMod := scbbs.ExportMod{
+			SourcePath: sourceModPath,
+			FileName:   modItem.Name, // 不带 .disable 后缀的文件名
 		}
-	}
-
-	// 构建mods列表用于manifest（完整包格式，mods已包含在overrides中，所以设为空数组）
-	modsList := []interface{}{}
-
-	// 创建manifest.jsonc
-	manifest := map[string]interface{}{
-		"manifestType":    "SurvivalcraftModpack",
-		"manifestVersion": 0.1,
-		"name":            saveName,
-		"version":         "1.0.0",
-		"author":          "SCLauncher",
-		"description":     fmt.Sprintf("存档整合包: %s", saveName),
-		"overrides":       "overrides",
-		"survivalcraft": map[string]interface{}{
-			"version": map[string]interface{}{
-				"manual": true,
-			},
-		},
-		"mods": modsList,
-	}
-
-	manifestData, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal manifest: %w", err)
-	}
-
-	manifestPath := filepath.Join(tempDir, "manifest.jsonc")
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
-		return fmt.Errorf("failed to write manifest: %w", err)
-	}
-
-	// 创建zip文件
-	tempZipPath := savePath + ".tmp.zip"
-	zipFile, err := os.Create(tempZipPath)
-	if err != nil {
-		return fmt.Errorf("failed to create zip file: %w", err)
-	}
-	defer zipFile.Close()
-
-	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
-
-	// 添加manifest.jsonc
-	if err := addFileToZip(zipWriter, manifestPath, "manifest.jsonc"); err != nil {
-		os.Remove(tempZipPath)
-		return err
-	}
-
-	// 添加overrides目录
-	err = filepath.Walk(filepath.Join(tempDir, "overrides"), func(filePath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+		if modItem.ModInfo != nil {
+			// 带上 modinfo 校验字段，安装端可防调包校验
+			exportMod.PackageName = modItem.ModInfo.PackageName
+			exportMod.Version = modItem.ModInfo.Version
 		}
-
-		relPath, err := filepath.Rel(filepath.Join(tempDir, "overrides"), filePath)
-		if err != nil {
-			return err
-		}
-
-		zipPath := filepath.Join("overrides", relPath)
-
-		if info.IsDir() {
-			_, err = zipWriter.Create(zipPath + "/")
-			return err
-		}
-
-		return addFileToZip(zipWriter, filePath, zipPath)
-	})
-
-	if err != nil {
-		os.Remove(tempZipPath)
-		return fmt.Errorf("failed to create modpack zip: %w", err)
+		exportMods = append(exportMods, exportMod)
+		fmt.Printf("[SaveGame] 已添加模组到整合包: %s\n", modItem.Name)
 	}
 
-	zipWriter.Close()
-	zipFile.Close()
-
-	// 重命名为.scmodpack文件
-	if err := os.Rename(tempZipPath, savePath); err != nil {
-		os.Remove(tempZipPath)
-		return fmt.Errorf("failed to rename to .scmodpack: %w", err)
+	description := fmt.Sprintf("存档整合包: %s", saveName)
+	if err := scbbs.ExportSaveGamePack(worldPath, saveName, description, exportMods, savePath); err != nil {
+		return fmt.Errorf("failed to export scbbs modpack: %w", err)
 	}
 
-	fmt.Printf("[SaveGame] 导出整合包成功: %s (包含 %d 个模组)\n", savePath, len(enabledMods))
+	fmt.Printf("[SaveGame] 导出 scbbs 整合包成功: %s (包含 %d 个模组)\n", savePath, len(exportMods))
 	return nil
-}
-
-// copyFileForModpack 复制文件（用于整合包导出）
-func copyFileForModpack(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(dst, data, 0644)
-}
-
-// addFileToZip 添加文件到zip
-func addFileToZip(zipWriter *zip.Writer, filePath, zipPath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-
-	header, err := zip.FileInfoHeader(info)
-	if err != nil {
-		return err
-	}
-
-	header.Name = zipPath
-	header.Method = zip.Deflate
-
-	writer, err := zipWriter.CreateHeader(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(writer, file)
-	return err
-}
-
-// isOnlineVersionCheck 检查版本是否是联机版（通过检查NetMods文件夹是否存在）
-func isOnlineVersionCheck(versionPath string) bool {
-	netModsPath := filepath.Join(versionPath, "NetMods")
-	info, err := os.Stat(netModsPath)
-	return err == nil && info.IsDir()
 }
 
 // ========== 存档所需模组解析（UsedMods） ==========

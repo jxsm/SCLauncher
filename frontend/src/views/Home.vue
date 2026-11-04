@@ -29,7 +29,7 @@
           @click="handleLaunch"
         >
           <div class="launch-btn-content">
-            <span class="launch-btn-text">{{ t('home.launchGame') }}</span>
+            <span class="launch-btn-text">{{ launching ? t('installed.waitingGameStart') : t('home.launchGame') }}</span>
             <span class="launch-btn-subtitle">Star Technology</span>
           </div>
         </n-button>
@@ -110,8 +110,10 @@ async function handleLaunch() {
 
   launching.value = true
   try {
-    await gameStore.launchGame(primaryVersion.value.id)
-    message.success(`${t('home.launchSuccess') || '游戏启动成功'}: "${primaryVersion.value.name}"`)
+    const launched = await gameStore.launchGame(primaryVersion.value.id)
+    if (launched) {
+      message.success(`${t('home.launchSuccess') || '游戏启动成功'}: "${primaryVersion.value.name}"`)
+    }
   } catch (error) {
     message.error(t('errors.launchFailed') + '：' + error)
   } finally {

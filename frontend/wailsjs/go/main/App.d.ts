@@ -28,6 +28,8 @@ export function DeleteFurniture(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteMod(arg1:string,arg2:string):Promise<void>;
 
+export function DeleteModpackTempFile(arg1:string):Promise<void>;
+
 export function DeleteSaveGame(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteSkin(arg1:string):Promise<void>;
@@ -41,6 +43,8 @@ export function DetectGameVersion(arg1:string):Promise<string>;
 export function DownloadFurnitureFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DownloadModFromURL(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function DownloadModpackFromURL(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadSaveGameFromURL(arg1:string,arg2:string,arg3:string):Promise<string>;
 
@@ -124,6 +128,8 @@ export function InstallModpack(arg1:string):Promise<string>;
 
 export function InstallModpackWithProgress(arg1:string,arg2:string):Promise<string>;
 
+export function InstallScbbsModpack(arg1:string,arg2:string):Promise<string>;
+
 export function InstallVersion(arg1:string):Promise<void>;
 
 export function IsOnlineVersion(arg1:string):Promise<boolean>;
@@ -153,6 +159,8 @@ export function RenameSaveGame(arg1:string,arg2:string,arg3:string):Promise<void
 export function RenameTexture(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
+
+export function ResolveModpackConflict(arg1:string,arg2:string):Promise<void>;
 
 export function SaveManifestSources(arg1:Array<Record<string, any>>):Promise<void>;
 
@@ -197,6 +205,8 @@ export function SetUpdateRemindDisabled(arg1:boolean):Promise<void>;
 export function StopGame():Promise<void>;
 
 export function SyncSkinsToGame(arg1:string):Promise<void>;
+
+export function TestDefaultManifestSpeed():Promise<Record<string, any>>;
 
 export function ToggleMod(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 

@@ -118,13 +118,9 @@ export class ManifestSourceManager {
 
   /**
    * 设置当前选中的清单源
+   * 直接调用后端（后端会校验源是否存在），避免本地列表未同步导致误报"清单源不存在"
    */
   static async setCurrentSource(id: string): Promise<void> {
-    const source = this.sources.find(s => s.id === id)
-    if (!source) {
-      throw new Error('清单源不存在')
-    }
-
     const { SetCurrentManifestSource } = await import('../api/config')
     await SetCurrentManifestSource(id)
   }

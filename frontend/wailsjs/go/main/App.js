@@ -46,6 +46,10 @@ export function DeleteMod(arg1, arg2) {
   return window['go']['main']['App']['DeleteMod'](arg1, arg2);
 }
 
+export function DeleteModpackTempFile(arg1) {
+  return window['go']['main']['App']['DeleteModpackTempFile'](arg1);
+}
+
 export function DeleteSaveGame(arg1, arg2) {
   return window['go']['main']['App']['DeleteSaveGame'](arg1, arg2);
 }
@@ -72,6 +76,10 @@ export function DownloadFurnitureFromURL(arg1, arg2, arg3) {
 
 export function DownloadModFromURL(arg1, arg2, arg3) {
   return window['go']['main']['App']['DownloadModFromURL'](arg1, arg2, arg3);
+}
+
+export function DownloadModpackFromURL(arg1, arg2) {
+  return window['go']['main']['App']['DownloadModpackFromURL'](arg1, arg2);
 }
 
 export function DownloadSaveGameFromURL(arg1, arg2, arg3) {
@@ -238,6 +246,10 @@ export function InstallModpackWithProgress(arg1, arg2) {
   return window['go']['main']['App']['InstallModpackWithProgress'](arg1, arg2);
 }
 
+export function InstallScbbsModpack(arg1, arg2) {
+  return window['go']['main']['App']['InstallScbbsModpack'](arg1, arg2);
+}
+
 export function InstallVersion(arg1) {
   return window['go']['main']['App']['InstallVersion'](arg1);
 }
@@ -296,6 +308,10 @@ export function RenameTexture(arg1, arg2, arg3) {
 
 export function RenameVersion(arg1, arg2) {
   return window['go']['main']['App']['RenameVersion'](arg1, arg2);
+}
+
+export function ResolveModpackConflict(arg1, arg2) {
+  return window['go']['main']['App']['ResolveModpackConflict'](arg1, arg2);
 }
 
 export function SaveManifestSources(arg1) {
@@ -384,6 +400,10 @@ export function StopGame() {
 
 export function SyncSkinsToGame(arg1) {
   return window['go']['main']['App']['SyncSkinsToGame'](arg1);
+}
+
+export function TestDefaultManifestSpeed() {
+  return window['go']['main']['App']['TestDefaultManifestSpeed']();
 }
 
 export function ToggleMod(arg1, arg2, arg3) {

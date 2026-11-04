@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/mholt/archiver/v4"
+
+	"SCLauncher/backend/utils"
 )
 
 // Installer 版本安装器
@@ -94,8 +96,14 @@ func (i *Installer) Install(archivePath, destPath string, progress func(current,
 			return err
 		}
 
-		// 构建目标路径
-		destFilePath := filepath.Join(destPath, f.NameInArchive)
+		// 解码条目名（修复中文压缩工具用 GBK 存文件名导致的乱码）
+		entryName := utils.DecodeArchiveEntryName(f.NameInArchive)
+
+		// 验证目标路径，防止路径穿越攻击（zip slip）
+		destFilePath, err := utils.ValidateZipEntry(destPath, entryName)
+		if err != nil {
+			return fmt.Errorf("压缩包中存在不安全的路径 %q: %w", entryName, err)
+		}
 
 		// 创建目录
 		if info.IsDir() {

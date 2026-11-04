@@ -442,7 +442,7 @@ async function handleExportSave(save: SaveGame) {
               style: 'margin-top: 2px;'
             }),
             h('div', { style: 'flex: 1;' }, [
-              h('strong', { style: 'display: block; margin-bottom: 4px; color: #34c759;' }, '整合包 (.scmodpack)'),
+              h('strong', { style: 'display: block; margin-bottom: 4px; color: #34c759;' }, t('saveGames.modpackFormatTitle')),
               h('div', { style: 'font-size: 12px; color: #7a7a7a;' }, t('saveGames.modpackFormatDescription'))
             ])
           ])

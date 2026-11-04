@@ -3,16 +3,21 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	stdruntime "runtime"
+	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"SCLauncher/backend/appinfo"
 	"SCLauncher/backend/background"
@@ -21,6 +26,7 @@ import (
 	"SCLauncher/backend/game"
 	"SCLauncher/backend/mod"
 	"SCLauncher/backend/modpack"
+	"SCLauncher/backend/modpack/scbbs"
 	"SCLauncher/backend/savegame"
 	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
@@ -70,6 +76,12 @@ type App struct {
 	dotnetMgr          *dotnet.Manager
 	modpackRegistry    *modpack.ParserRegistry
 	modpackInstaller   *modpack.ModpackInstaller
+	scbbsInstaller     *scbbs.Installer // scbbs（ScbbsPlus）格式整合包安装器
+
+	// scbbs 安装的冲突询问协议：安装器阻塞等待前端弹窗的应答
+	conflictMu       sync.Mutex
+	pendingConflicts map[string]chan string // 冲突ID → 应答通道
+	conflictCancel   chan struct{}          // 取消安装时解锁所有等待中的冲突询问
 }
 
 // NewApp 创建应用实例
@@ -131,6 +143,7 @@ func (a *App) startup(ctx context.Context) {
 	a.dotnetMgr = dotnet.NewManager()
 	a.modpackRegistry = modpack.NewParserRegistry()
 	a.modpackInstaller = modpack.NewModpackInstaller(cfg, a.versionMgr, a.modMgr)
+	a.scbbsInstaller = scbbs.NewInstaller(cfg, a.modMgr)
 
 	// 自动设置主要版本（如果没有的话）
 	if err := a.versionMgr.AutoSetPrimaryVersion(); err != nil {
@@ -145,7 +158,26 @@ func (a *App) startup(ctx context.Context) {
 	// 自动检测 GameVersion 为 unknown 的版本
 	go a.detectUnknownVersions()
 
+	// 默认清单源自动测速：比较主线/镜像线路，哪个快用哪个（后台执行，不阻塞启动）
+	go a.autoSpeedTestDefaultManifest()
+
 	runtime.LogInfo(a.ctx, "SCLauncher 初始化完成！")
+}
+
+// autoSpeedTestDefaultManifest 后台执行默认清单线路测速
+func (a *App) autoSpeedTestDefaultManifest() {
+	results, err := a.config.ApplyDefaultManifestSpeedTest()
+	if err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("默认清单线路测速结果保存失败: %v", err))
+	}
+	for _, r := range results {
+		if r.OK {
+			runtime.LogInfo(a.ctx, fmt.Sprintf("清单线路测速 %s(%s): %dms", r.Line, r.URL, r.LatencyMs))
+		} else {
+			runtime.LogWarning(a.ctx, fmt.Sprintf("清单线路测速 %s(%s) 失败: %s", r.Line, r.URL, r.Error))
+		}
+	}
+	runtime.LogInfo(a.ctx, fmt.Sprintf("默认清单线路已选定: %s", a.config.DefaultManifestURL))
 }
 
 // shutdown 应用关闭时调用
@@ -188,6 +220,14 @@ func (a *App) GetConfig() map[string]interface{} {
 	return map[string]interface{}{
 		"manifestUrl":             a.config.ManifestURL,
 		"manifestSources":         manifestSources,
+		"defaultManifest": map[string]interface{}{
+			"mainUrl":         config.DefaultManifestURLMain,
+			"mirrorUrl":       config.DefaultManifestURLMirror,
+			"selectedUrl":     a.config.DefaultManifestURL,
+			"mainLatencyMs":   a.config.DefaultManifestMainLatencyMs,
+			"mirrorLatencyMs": a.config.DefaultManifestMirrorLatencyMs,
+			"lastTest":        a.config.DefaultManifestLastTest,
+		},
 		"currentManifestSourceId": a.config.CurrentManifestSourceID,
 		"versionsDir":             a.config.GetRelativePathForDisplay(a.config.GetVersionsDir()),
 		"dataDir":                 a.config.GetRelativePathForDisplay(a.config.GetDataDir()),
@@ -248,12 +288,12 @@ func (a *App) SaveManifestSources(sources []map[string]interface{}) error {
 			}
 		}
 
-		// 如果当前配置中没有默认源，创建一个新的
+		// 如果当前配置中没有默认源，创建一个新的（使用测速选出的线路）
 		if !found {
 			defaultSource = config.ManifestSource{
 				ID:        "default",
 				Name:      "BTOS",
-				URL:       "https://sc.btos.top/api/manifest.json",
+				URL:       a.config.DefaultManifestURL,
 				IsDefault: true,
 			}
 		}
@@ -307,6 +347,33 @@ func (a *App) SaveManifestSources(sources []map[string]interface{}) error {
 // SetCurrentManifestSource 设置当前选中的清单源
 func (a *App) SetCurrentManifestSource(id string) error {
 	return a.config.SetCurrentManifestSource(id)
+}
+
+// TestDefaultManifestSpeed 手动触发默认清单线路测速（设置页"重新测速"按钮调用）
+// 返回各线路结果与当前选中的线路地址
+func (a *App) TestDefaultManifestSpeed() map[string]interface{} {
+	results, err := a.config.ApplyDefaultManifestSpeedTest()
+	if err != nil {
+		runtime.LogWarning(a.ctx, fmt.Sprintf("默认清单线路测速结果保存失败: %v", err))
+	}
+
+	// 转为前端友好的格式
+	resultMaps := make([]map[string]interface{}, 0, len(results))
+	for _, r := range results {
+		resultMaps = append(resultMaps, map[string]interface{}{
+			"line":      r.Line,
+			"url":       r.URL,
+			"latencyMs": r.LatencyMs,
+			"ok":        r.OK,
+			"error":     r.Error,
+		})
+	}
+
+	return map[string]interface{}{
+		"results":     resultMaps,
+		"selectedUrl": a.config.DefaultManifestURL,
+		"lastTest":    a.config.DefaultManifestLastTest,
+	}
 }
 
 // SetMaxConcurrent 设置最大并发下载数
@@ -889,7 +956,7 @@ func (a *App) SelectModpackFile() (string, error) {
 		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "整合包文件",
-				Pattern:     "*.scmodpack;*.zip",
+				Pattern:     "*.scmodpack;*.zip;*.json",
 			},
 			{
 				DisplayName: "所有文件",
@@ -942,7 +1009,12 @@ func (a *App) InspectArchive(archivePath string) (string, error) {
 		}
 
 		// 检查是否为整合包
+		// v0.1 格式：manifest.jsonc / manifest.json；scbbs 格式：根目录 packinfo.json
 		if lower == "manifest.jsonc" || lower == "manifest.json" {
+			archiveType = "modpack"
+			return errFound
+		}
+		if strings.EqualFold(strings.TrimPrefix(lower, "./"), "packinfo.json") {
 			archiveType = "modpack"
 			return errFound
 		}
@@ -1134,7 +1206,16 @@ func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("文件不存在: %s", modpackPath)
 	}
 
-	// 使用解析器解析整合包
+	// 先尝试 scbbs（ScbbsPlus）格式：ZIP 根 packinfo.json 或纯 JSON 清单。
+	// 不是该格式（ErrNotScbbsPack）再走 v0.1 scmodpack 流程（对齐手机版的分发方式）
+	if result, err := scbbs.Parse(modpackPath); err == nil {
+		return a.buildScbbsParseInfo(result), nil
+	} else if !errors.Is(err, scbbs.ErrNotScbbsPack) {
+		// 是 scbbs 格式但清单内容无效，直接报错
+		return nil, err
+	}
+
+	// 使用解析器解析整合包（v0.1）
 	manifest, err := a.modpackRegistry.ParseModpack(modpackPath)
 	if err != nil {
 		return nil, err
@@ -1157,6 +1238,66 @@ func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
 		"overrides":       manifest.Overrides,
 		"hasExternalLinks": manifest.HasExternalLinks,
 	}, nil
+}
+
+// buildScbbsParseInfo 把 scbbs 解析结果转换为前端展示用的 map
+func (a *App) buildScbbsParseInfo(result *scbbs.ParseResult) map[string]interface{} {
+	manifest := result.Manifest
+
+	carrier := "json"
+	if result.IsZipCarrier {
+		carrier = "zip"
+	}
+
+	items := make([]map[string]interface{}, 0, len(manifest.Items))
+	for _, item := range manifest.Items {
+		source := "unknown"
+		switch {
+		case item.HasHTTPURL():
+			source = "network"
+		case strings.TrimSpace(item.URL) != "":
+			source = "embedded"
+		case strings.TrimSpace(item.FileID) != "":
+			source = "community"
+		}
+		items = append(items, map[string]interface{}{
+			"displayName":     item.DisplayName(),
+			"type":            string(item.ResolveType()),
+			"source":          source,
+			"targetDirectory": item.TargetDirectory,
+			"fileName":        item.FileName,
+			"url":             item.URL,
+			"fileId":          item.FileID,
+			"packageName":     item.PackageName,
+			"version":         item.Version,
+			"isEnabled":       item.IsEnabled,
+		})
+	}
+
+	// 包内图标转 data URL 供前端直接展示
+	iconData := ""
+	if len(result.EmbeddedIconBytes) > 0 {
+		mime := "image/" + result.EmbeddedIconExt
+		if result.EmbeddedIconExt == "webp" {
+			mime = "image/webp"
+		}
+		iconData = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(result.EmbeddedIconBytes)
+	}
+
+	return map[string]interface{}{
+		"format":              "scbbs",
+		"name":                manifest.Name,
+		"version":             manifest.Version,
+		"description":         manifest.Description,
+		"icon":                manifest.Icon,
+		"iconData":            iconData,
+		"packageName":         manifest.PackageName,
+		"carrier":             carrier,
+		"filePath":            result.FilePath,
+		"items":               items,
+		"itemCount":           len(items),
+		"missingEmbeddedCount": len(result.MissingEmbedded),
+	}
 }
 
 // InstallModpackWithProgress 安装整合包（带进度反馈）
@@ -1294,9 +1435,289 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 // CancelModpackInstall 取消整合包安装
 func (a *App) CancelModpackInstall() {
 	a.modpackInstaller.Cancel()
+	a.scbbsInstaller.Cancel()
+	// 解锁所有等待冲突应答的安装协程
+	a.conflictMu.Lock()
+	if a.conflictCancel != nil {
+		close(a.conflictCancel)
+		a.conflictCancel = nil
+	}
+	a.pendingConflicts = nil
+	a.conflictMu.Unlock()
 	runtime.EventsEmit(a.ctx, "modpack:install:cancelled", map[string]interface{}{})
 }
 
+// askScbbsConflict scbbs 安装的冲突询问：发事件给前端弹窗并阻塞等待用户应答。
+// 返回用户选择的 action；安装被取消时返回错误。
+func (a *App) askScbbsConflict(fileName, itemName string) (string, error) {
+	conflictID := fmt.Sprintf("conflict-%d-%s", time.Now().UnixNano(), generateRandomSuffix(6))
+	ch := make(chan string, 1)
+
+	a.conflictMu.Lock()
+	if a.pendingConflicts == nil {
+		a.pendingConflicts = make(map[string]chan string)
+	}
+	cancelChan := a.conflictCancel
+	if cancelChan != nil {
+		a.pendingConflicts[conflictID] = ch
+	}
+	a.conflictMu.Unlock()
+
+	if cancelChan == nil {
+		// 没有进行中的安装（异常路径），默认覆盖
+		return scbbs.ConflictOverwrite, nil
+	}
+
+	runtime.EventsEmit(a.ctx, "modpack:install:conflict", map[string]interface{}{
+		"id":       conflictID,
+		"fileName": fileName,
+		"itemName": itemName,
+	})
+
+	select {
+	case action := <-ch:
+		return action, nil
+	case <-cancelChan:
+		return "", fmt.Errorf("安装已取消")
+	}
+}
+
+// ResolveModpackConflict 应答安装过程中的文件冲突弹窗。
+// action 取值：overwrite / skip / overwriteAll / skipAll / cancel
+func (a *App) ResolveModpackConflict(conflictID string, action string) error {
+	switch action {
+	case scbbs.ConflictOverwrite, scbbs.ConflictSkip,
+		scbbs.ConflictOverwriteAll, scbbs.ConflictSkipAll, scbbs.ConflictCancel:
+	default:
+		return fmt.Errorf("无效的冲突处理动作: %s", action)
+	}
+
+	a.conflictMu.Lock()
+	ch, ok := a.pendingConflicts[conflictID]
+	if ok {
+		delete(a.pendingConflicts, conflictID)
+	}
+	a.conflictMu.Unlock()
+
+	if !ok {
+		return fmt.Errorf("冲突请求不存在或已处理: %s", conflictID)
+	}
+	ch <- action
+	return nil
+}
+
+// InstallScbbsModpack 安装 scbbs（ScbbsPlus）格式整合包到指定的已安装版本。
+// 进度走既有 modpack:install:* 事件通道（start 事件带 format: "scbbs"），
+// 不创建新版本记录。
+func (a *App) InstallScbbsModpack(modpackPath string, targetVersionID string) (string, error) {
+	if _, err := os.Stat(modpackPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("文件不存在: %s", modpackPath)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装 scbbs 整合包: %s -> 版本 %s", modpackPath, targetVersionID))
+
+	result, err := scbbs.Parse(modpackPath)
+	if err != nil {
+		if errors.Is(err, scbbs.ErrNotScbbsPack) {
+			return "", fmt.Errorf("该文件不是 scbbs 格式的整合包")
+		}
+		return "", fmt.Errorf("解析整合包失败: %v", err)
+	}
+
+	if targetVersionID == "" {
+		return "", fmt.Errorf("请先选择要安装到的目标版本")
+	}
+	versionPath := a.paths.GetVersionPath(targetVersionID)
+	if info, err := os.Stat(versionPath); err != nil || !info.IsDir() {
+		return "", fmt.Errorf("选择的版本不存在: %s", targetVersionID)
+	}
+
+	// 重置冲突协议状态
+	a.conflictMu.Lock()
+	a.pendingConflicts = make(map[string]chan string)
+	a.conflictCancel = make(chan struct{})
+	a.conflictMu.Unlock()
+
+	// 进度回调
+	a.scbbsInstaller.SetProgressCallback(func(stage string, progress float64, message string) {
+		runtime.EventsEmit(a.ctx, "modpack:install:progress", map[string]interface{}{
+			"stage":    stage,
+			"progress": progress,
+			"message":  message,
+		})
+	})
+	a.scbbsInstaller.SetConflictAskFn(func(fileName, itemName string) (string, error) {
+		return a.askScbbsConflict(fileName, itemName)
+	})
+
+	manifest := result.Manifest
+	runtime.EventsEmit(a.ctx, "modpack:install:start", map[string]interface{}{
+		"versionID": targetVersionID,
+		"name":      manifest.Name,
+		"version":   manifest.Version,
+		"format":    "scbbs",
+	})
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				runtime.LogError(a.ctx, fmt.Sprintf("scbbs 安装任务 panic: %v", r))
+				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
+					"error": fmt.Sprintf("安装过程中发生错误: %v", r),
+				})
+			}
+		}()
+
+		summary, err := a.scbbsInstaller.Install(result, targetVersionID)
+		if err != nil {
+			runtime.LogError(a.ctx, fmt.Sprintf("scbbs 整合包安装失败: %v", err))
+			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		runtime.EventsEmit(a.ctx, "modpack:install:complete", map[string]interface{}{
+			"versionID": targetVersionID,
+			"name":      manifest.Name,
+			"summary":   summary,
+		})
+		runtime.LogInfo(a.ctx, fmt.Sprintf("scbbs 整合包安装完成: %s -> %s", manifest.Name, targetVersionID))
+	}()
+
+	return targetVersionID, nil
+}
+
+// DownloadModpackFromURL 从社区下载整合包文件到临时目录（不安装）。
+// 用于整合包下载页：下载完成后由前端调用 ParseModpack 走信息弹窗→选版本→安装流程，
+// 安装结束（或用户取消）后再调 DeleteModpackTempFile 清理临时文件。
+// 保留 .json/.zip 扩展名供格式判别（JSON 清单 vs ZIP 载体）。
+// 返回临时文件路径；进度走 resource-download:* 事件通道（type=modpack，右下角悬浮面板可见）。
+func (a *App) DownloadModpackFromURL(downloadURL, fileName string) (string, error) {
+	// 推断带合法扩展名的落地文件名
+	name := strings.TrimSpace(fileName)
+	if name == "" {
+		if u, err := url.Parse(downloadURL); err == nil {
+			name = path.Base(u.Path)
+		}
+	}
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext != ".json" && ext != ".zip" {
+		if u, err := url.Parse(downloadURL); err == nil && strings.EqualFold(filepath.Ext(path.Base(u.Path)), ".json") {
+			ext = ".json"
+		} else {
+			ext = ".zip"
+		}
+		name += ext
+	}
+
+	// 生成唯一的下载任务ID
+	downloadID := fmt.Sprintf("modpack-%s", name)
+
+	// 发送下载开始事件
+	runtime.EventsEmit(a.ctx, "resource-download:start", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "modpack",
+		"fileName":   name,
+	})
+
+	// 创建临时文件保存下载内容（保留扩展名）
+	tempFile, err := os.CreateTemp("", "scmodpack-*"+ext)
+	if err != nil {
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("创建临时文件失败: %v", err),
+		})
+		return "", fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tempPath := tempFile.Name()
+
+	client := &http.Client{
+		Timeout: 30 * time.Minute,
+	}
+
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		tempFile.Close()
+		os.Remove(tempPath)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("下载失败: %v", err),
+		})
+		return "", fmt.Errorf("下载失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+		tempFile.Close()
+		os.Remove(tempPath)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      err.Error(),
+		})
+		return "", err
+	}
+
+	// 获取文件总大小
+	totalSize := resp.ContentLength
+
+	// 使用带进度回调的写入
+	writer := &progressWriter{
+		writer:  tempFile,
+		total:   totalSize,
+		onProgress: func(downloaded, total int64) {
+			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
+				"downloadId": downloadID,
+				"downloaded": downloaded,
+				"total":      total,
+			})
+		},
+	}
+
+	_, err = io.Copy(writer, resp.Body)
+	tempFile.Close()
+	if err != nil {
+		os.Remove(tempPath)
+		runtime.EventsEmit(a.ctx, "resource-download:error", map[string]interface{}{
+			"downloadId": downloadID,
+			"error":      fmt.Sprintf("保存文件失败: %v", err),
+		})
+		return "", fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包下载完成: %s -> %s", downloadURL, tempPath))
+
+	// 发送下载完成事件
+	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
+		"downloadId": downloadID,
+		"type":       "modpack",
+		"fileName":   name,
+	})
+
+	return tempPath, nil
+}
+
+// DeleteModpackTempFile 删除 DownloadModpackFromURL 下载的整合包临时文件。
+// 出于安全考虑只允许删除系统临时目录内、且以 scmodpack- 为前缀的文件。
+func (a *App) DeleteModpackTempFile(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("路径无效: %w", err)
+	}
+	tempDir, err := filepath.Abs(os.TempDir())
+	if err != nil {
+		return fmt.Errorf("无法定位临时目录: %w", err)
+	}
+	if !strings.HasPrefix(abs, tempDir+string(os.PathSeparator)) ||
+		!strings.HasPrefix(filepath.Base(abs), "scmodpack-") {
+		return fmt.Errorf("拒绝删除非整合包临时文件: %s", path)
+	}
+	if err := os.Remove(abs); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("删除临时文件失败: %w", err)
+	}
+	return nil
+}
 
 // copyDirectoryContents 复制目录内容（排除特定文件）
 func copyDirectoryContents(src, dst, excludeFile string) error {
@@ -2337,7 +2758,7 @@ func (a *App) ExportSaveGame(versionID, saveID string) (bool, error) {
 	return true, nil // 导出成功
 }
 
-// ExportSaveGameAsModpack 导出存档为整合包
+// ExportSaveGameAsModpack 导出存档为 scbbs（ScbbsPlus）格式整合包（ZIP 载体）
 func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (bool, error) {
 	// 获取存档信息以使用存档名称作为默认文件名
 	saveGames, err := a.savegameMgr.GetSaveGames(versionID)
@@ -2359,14 +2780,14 @@ func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (bool, error) {
 		saveName = saveID
 	}
 
-	// 让用户选择保存位置和文件名
+	// 让用户选择保存位置和文件名（整合包 ZIP 载体惯例为 .zip）
 	filename, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
 		Title:           "选择导出位置",
-		DefaultFilename: saveName + ".scmodpack",
+		DefaultFilename: saveName + ".zip",
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "整合包文件",
-				Pattern:     "*.scmodpack",
+				DisplayName: "整合包 (ZIP)",
+				Pattern:     "*.zip",
 			},
 		},
 	})

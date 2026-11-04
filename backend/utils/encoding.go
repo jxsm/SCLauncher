@@ -5,7 +5,29 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
+
+// DecodeArchiveEntryName 将压缩包条目名解码为 UTF-8，修复中文文件名乱码问题。
+//
+// 背景：中文 Windows 下的压缩工具（WinRAR、好压、360 压缩、资源管理器自带压缩等）
+// 用 GBK 编码存储文件名且不设置 zip 的 UTF-8 标志位，而 Go 的 archive/zip 不做
+// 任何转码（f.Name 就是压缩包里的原始字节），直接拿来写盘会得到乱码文件名。
+//
+// 策略：
+//   - 名字已是合法 UTF-8（含纯 ASCII，标准 zip/7z/rar 均为此类）→ 原样保留
+//   - 否则按 GBK 解码（覆盖绝大多数中文场景；个别无法识别的字节会被解码器
+//     替换为 U+FFFD，结果仍是合法 UTF-8，可直接作为文件名写盘）
+func DecodeArchiveEntryName(name string) string {
+	if utf8.ValidString(name) {
+		return name
+	}
+	if decoded, err := simplifiedchinese.GBK.NewDecoder().String(name); err == nil {
+		return decoded
+	}
+	return name
+}
 
 // DetectEncoding 检测字符串编码
 // 返回 "utf-8", "gbk", "unknown" 或其他编码

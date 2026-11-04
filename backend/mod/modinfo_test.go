@@ -93,7 +93,7 @@ func TestParseModInfo_ObjectMapDeps(t *testing.T) {
 		}`,
 		"data.dll": "binary",
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info == nil {
 		t.Fatal("expected non-nil ModInfo")
 	}
@@ -114,12 +114,12 @@ func TestParseModInfo_ObjectMapDeps(t *testing.T) {
 
 // 回归：modinfo.json 带 UTF-8 BOM 时也必须能解析（否则已装模组 modInfo=nil，
 // 存档依赖解析时该模组会被当成未安装而重复下载）。Go 的 json.Unmarshal 不容忍 BOM，
-// 故 parseModInfoFromModFile 需在解析前剥离 BOM（与 savegame 包处理 Project.json 一致）。
+// 故 ParseModInfoFromModFile 需在解析前剥离 BOM（与 savegame 包处理 Project.json 一致）。
 func TestParseModInfo_BOMPrefixed(t *testing.T) {
 	path := writeZip(t, map[string]string{
 		"modinfo.json": "\xef\xbb\xbf" + `{"Name":"示例","PackageName":"xfdz.BOM","Version":"1.0"}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info == nil {
 		t.Fatal("expected non-nil ModInfo for BOM-prefixed modinfo.json; BOM must be stripped before json.Unmarshal")
 	}
@@ -135,7 +135,7 @@ func TestParseModInfo_StringArrayDeps(t *testing.T) {
 			"Dependencies": ["pkgA:1.2", "pkgB"]
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if len(info.Dependencies) != 2 {
 		t.Fatalf("expected 2 deps, got %d", len(info.Dependencies))
 	}
@@ -155,7 +155,7 @@ func TestParseModInfo_ObjectArrayDeps(t *testing.T) {
 			"Dependencies": [ { "PackageName": "dep", "Version": ">=2.0" } ]
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if len(info.Dependencies) != 1 || info.Dependencies[0].PackageName != "dep" || info.Dependencies[0].VersionRange != ">=2.0" {
 		t.Errorf("unexpected deps: %+v", info.Dependencies)
 	}
@@ -169,7 +169,7 @@ func TestParseModInfo_SingleDependencyObject(t *testing.T) {
 			"Dependencies": { "PackageName": "dep", "Version": ">=2.0" }
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if len(info.Dependencies) != 1 || info.Dependencies[0].PackageName != "dep" || info.Dependencies[0].VersionRange != ">=2.0" {
 		t.Errorf("expected single dep {dep, >=2.0}, got %+v", info.Dependencies)
 	}
@@ -183,7 +183,7 @@ func TestParseModInfo_NumericVersionDep(t *testing.T) {
 			"Dependencies": { "pkgA": 1.0 }
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if len(info.Dependencies) != 1 || info.Dependencies[0].PackageName != "pkgA" {
 		t.Errorf("expected pkgA dep, got %+v", info.Dependencies)
 	}
@@ -200,7 +200,7 @@ func TestParseModInfo_BareStringWithRangeComma(t *testing.T) {
 			"Dependencies": "depA:[1.0,2.0),depB:1.0"
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if len(info.Dependencies) != 2 {
 		t.Fatalf("expected 2 deps, got %d (%+v)", len(info.Dependencies), info.Dependencies)
 	}
@@ -221,7 +221,7 @@ func TestParseModInfo_StringEncodedScalars(t *testing.T) {
 			"LoadOrder": "10000", "NonPersistentMod": "true"
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info.LoadOrder != 10000 {
 		t.Errorf("expected LoadOrder 10000, got %d", info.LoadOrder)
 	}
@@ -241,7 +241,7 @@ func TestParseModInfo_HardenedPrefixedScmod(t *testing.T) {
 		prefix[i] = byte(i)
 	}
 	path := writeTempFile(t, append(prefix, plain...), ".scmod")
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info == nil {
 		t.Fatal("expected hardened mod to parse, got nil")
 	}
@@ -259,7 +259,7 @@ func TestParseModInfo_HeadingCode2Strengthened(t *testing.T) {
 		"modinfo.json": `{"Name":"HC2模组","Version":"1.2","ApiVersion":"1.9","PackageName":"hc2.pkg","Dependencies":{"base":"1.0"}}`,
 	})
 	path := writeTempFile(t, strengthenHeadingCode2(plain), ".scmod")
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info == nil {
 		t.Fatal("expected HC2-strengthened mod to parse, got nil")
 	}
@@ -277,7 +277,7 @@ func TestParseModInfo_HeadingCodeStrengthened(t *testing.T) {
 		"modinfo.json": `{"Name":"HC模组","Version":"0.9","ApiVersion":"1.8","PackageName":"hc.pkg"}`,
 	})
 	path := writeTempFile(t, strengthenHeadingCode(plain), ".scmod")
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info == nil {
 		t.Fatal("expected HC-strengthened mod to parse, got nil")
 	}
@@ -291,7 +291,7 @@ func TestParseModInfo_EmptyDeps(t *testing.T) {
 		path := writeZip(t, map[string]string{
 			"modinfo.json": `{"Name":"X","Version":"1","ApiVersion":"1.9.1","PackageName":"x","Dependencies":` + raw + `}`,
 		})
-		info := parseModInfoFromModFile(path)
+		info := ParseModInfoFromModFile(path)
 		if info == nil || info.Dependencies == nil || len(info.Dependencies) != 0 {
 			t.Errorf("expected empty non-nil deps for %s, got %+v", raw, info)
 		}
@@ -306,7 +306,7 @@ func TestParseModInfo_NestedAndCaseInsensitive(t *testing.T) {
 			"gameplayimpactlevel": "Break", "loadorder": 10000, "nonpersistentmod": true
 		}`,
 	})
-	info := parseModInfoFromModFile(path)
+	info := ParseModInfoFromModFile(path)
 	if info == nil {
 		t.Fatal("expected non-nil")
 	}
@@ -324,19 +324,19 @@ func TestParseModInfo_CorruptAndMissing(t *testing.T) {
 	tmp.WriteString("this is not a zip")
 	tmp.Close()
 	t.Cleanup(func() { os.Remove(tmp.Name()) })
-	if info := parseModInfoFromModFile(tmp.Name()); info != nil {
+	if info := ParseModInfoFromModFile(tmp.Name()); info != nil {
 		t.Errorf("expected nil for non-zip, got %+v", info)
 	}
 
 	// zip 但无 modinfo.json
 	path := writeZip(t, map[string]string{"readme.txt": "hello"})
-	if info := parseModInfoFromModFile(path); info != nil {
+	if info := ParseModInfoFromModFile(path); info != nil {
 		t.Errorf("expected nil when modinfo.json absent, got %+v", info)
 	}
 
 	// 非法 JSON
 	path2 := writeZip(t, map[string]string{"modinfo.json": "{ not json"})
-	if info := parseModInfoFromModFile(path2); info != nil {
+	if info := ParseModInfoFromModFile(path2); info != nil {
 		t.Errorf("expected nil for bad json, got %+v", info)
 	}
 }
@@ -348,7 +348,7 @@ func TestParseModInfo_RealSampleIfPresent(t *testing.T) {
 	if _, err := os.Stat(sample); err != nil {
 		t.Skip("sample mod not present")
 	}
-	info := parseModInfoFromModFile(sample)
+	info := ParseModInfoFromModFile(sample)
 	if info == nil {
 		t.Fatal("expected non-nil for real sample")
 	}

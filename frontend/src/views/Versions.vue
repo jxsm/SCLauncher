@@ -90,7 +90,7 @@ const typeOptions = computed(() => [
 
 const manifestSourceOptions = computed(() =>
   manifestSources.value.map(s => ({
-    label: s.name,
+    label: s.id === 'default' ? t('settings.defaultManifestSourceName') : s.name,
     value: s.id
   }))
 )

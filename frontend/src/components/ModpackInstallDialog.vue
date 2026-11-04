@@ -98,11 +98,52 @@
         </n-alert>
 
         <!-- 成功信息 -->
-        <n-alert v-if="status === 'completed'" type="success" :title="t('common.success')">
+        <n-alert v-if="status === 'completed'" :type="installSummary && installSummary.failed > 0 ? 'warning' : 'success'" :title="t('common.success')">
           {{ t('installed.modpackInstallSuccess') }}
+          <div v-if="installSummary" style="margin-top: 8px; font-size: 13px;">
+            {{ t('installed.scbbsSummary', { ok: installSummary.succeeded, skip: installSummary.skipped, fail: installSummary.failed }) }}
+          </div>
+          <div v-if="installSummary && installSummary.failures && installSummary.failures.length" class="failure-list">
+            <div v-for="(failure, index) in installSummary.failures" :key="index">{{ failure }}</div>
+          </div>
         </n-alert>
       </n-space>
     </div>
+
+    <!-- 文件冲突询问（scbbs 安装，安装过程暂停等待应答） -->
+    <n-modal
+      :show="!!conflictRequest"
+      preset="card"
+      :title="t('installed.conflictTitle')"
+      style="width: 440px; max-width: 90vw;"
+      :mask-closable="false"
+      :closable="false"
+    >
+      <div class="conflict-body">
+        <p>{{ t('installed.conflictMessage') }}</p>
+        <div class="conflict-file">{{ conflictRequest?.fileName }}</div>
+        <div class="conflict-item">{{ conflictRequest?.itemName }}</div>
+      </div>
+      <template #footer>
+        <n-space justify="end" size="small">
+          <n-button size="small" @click="resolveConflict('skip')">
+            {{ t('installed.conflictSkip') }}
+          </n-button>
+          <n-button size="small" @click="resolveConflict('skipAll')">
+            {{ t('installed.conflictSkipAll') }}
+          </n-button>
+          <n-button size="small" secondary type="primary" @click="resolveConflict('overwrite')">
+            {{ t('installed.conflictOverwrite') }}
+          </n-button>
+          <n-button size="small" type="primary" @click="resolveConflict('overwriteAll')">
+            {{ t('installed.conflictOverwriteAll') }}
+          </n-button>
+          <n-button size="small" type="error" @click="resolveConflict('cancel')">
+            {{ t('installed.conflictCancel') }}
+          </n-button>
+        </n-space>
+      </template>
+    </n-modal>
 
     <template #footer>
       <n-space justify="end">
@@ -125,7 +166,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { InformationCircle, CheckmarkCircle, Time as TimeCircle, AlertCircle, ReloadOutline as Loader } from '@vicons/ionicons5'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
-import { CancelModpackInstall } from '../api/version'
+import { CancelModpackInstall, ResolveModpackConflict } from '../api/version'
 
 const props = defineProps<{
   show: boolean
@@ -149,16 +190,30 @@ const previousStage = ref('')
 const currentMessage = ref('')
 const errorMessage = ref('')
 const versionId = ref('')
+// scbbs 安装：文件冲突询问与结果汇总
+const conflictRequest = ref<{ id: string; fileName: string; itemName: string } | null>(null)
+const installSummary = ref<{ total: number; succeeded: number; skipped: number; failed: number; failures?: string[] } | null>(null)
 
-// 阶段定义
-const stages = ref([
-  { id: 'prepare', label: t('installed.stagePrepare'), status: 'pending' },
-  { id: 'download_game', label: t('installed.stageDownloadGame'), status: 'pending' },
-  { id: 'install_game', label: t('installed.stageInstallGame'), status: 'pending' },
-  { id: 'download_mods', label: t('installed.stageDownloadMods'), status: 'pending' },
-  { id: 'copy_overrides', label: t('installed.stageCopyOverrides'), status: 'pending' },
-  { id: 'complete', label: t('installed.stageComplete'), status: 'pending' }
-])
+// 阶段定义（scbbs 与 v0.1 安装流程不同，start 事件按 format 重建）
+const stages = ref<{ id: string; label: string; status: string }[]>(buildStageList(false))
+
+function buildStageList(isScbbs: boolean) {
+  if (isScbbs) {
+    return [
+      { id: 'prepare', label: t('installed.stagePrepare'), status: 'pending' },
+      { id: 'process_items', label: t('installed.stageProcessItems'), status: 'pending' },
+      { id: 'complete', label: t('installed.stageComplete'), status: 'pending' },
+    ]
+  }
+  return [
+    { id: 'prepare', label: t('installed.stagePrepare'), status: 'pending' },
+    { id: 'download_game', label: t('installed.stageDownloadGame'), status: 'pending' },
+    { id: 'install_game', label: t('installed.stageInstallGame'), status: 'pending' },
+    { id: 'download_mods', label: t('installed.stageDownloadMods'), status: 'pending' },
+    { id: 'copy_overrides', label: t('installed.stageCopyOverrides'), status: 'pending' },
+    { id: 'complete', label: t('installed.stageComplete'), status: 'pending' },
+  ]
+}
 
 // 当前阶段文本
 const currentStageText = computed(() => {
@@ -213,7 +268,7 @@ function updateStageStatus(stageId: string, newStatus: 'pending' | 'running' | '
 watch(() => props.show, (newVal) => {
   showModal.value = newVal
   if (newVal) {
-    // 重置状态
+    // 重置状态（阶段列表先按 v0.1 重建，start 事件会按 format 再调整）
     status.value = 'installing'
     currentProgress.value = 0
     stageProgress.value = 0
@@ -221,7 +276,9 @@ watch(() => props.show, (newVal) => {
     previousStage.value = ''
     currentMessage.value = ''
     errorMessage.value = ''
-    stages.value.forEach(s => s.status = 'pending')
+    installSummary.value = null
+    conflictRequest.value = null
+    stages.value = buildStageList(false)
   }
 })
 
@@ -254,6 +311,7 @@ function handleProgress(data: { stage: string; progress: number; message: string
     download_mods: 25,  // 下载模组：25%
     install_mods: 5,    // 安装模组：5%
     copy_overrides: 3,  // 复制覆盖文件：3%
+    process_items: 93,  // scbbs：逐项下载/安装：93%
     complete: 2         // 完成：2%
   }
 
@@ -280,11 +338,13 @@ function handleProgress(data: { stage: string; progress: number; message: string
 }
 
 // 处理安装完成
-function handleComplete(data: { versionID: string; name: string }) {
+function handleComplete(data: { versionID: string; name: string; summary?: any }) {
   status.value = 'completed'
   versionId.value = data.versionID
   currentProgress.value = 100
-  updateStageStatus('complete', 'completed')
+  installSummary.value = data.summary || null
+  // 所有阶段标记完成（scbbs 与 v0.1 阶段集不同，全部置为 completed）
+  stages.value.forEach((s) => { s.status = 'completed' })
   emit('completed', data.versionID)
 }
 
@@ -292,6 +352,7 @@ function handleComplete(data: { versionID: string; name: string }) {
 function handleError(data: { error: string }) {
   status.value = 'error'
   errorMessage.value = data.error
+  conflictRequest.value = null
 
   // 标记当前阶段为错误
   if (currentStage.value) {
@@ -304,6 +365,28 @@ function handleError(data: { error: string }) {
 function handleCancelled() {
   status.value = 'error'
   errorMessage.value = t('installed.installCancelled')
+  conflictRequest.value = null
+}
+
+// 处理文件冲突询问（scbbs 安装）：展示冲突弹窗，等待用户决策后回传后端
+function handleConflict(data: { id: string; fileName: string; itemName: string }) {
+  conflictRequest.value = {
+    id: data.id,
+    fileName: data.fileName,
+    itemName: data.itemName,
+  }
+}
+
+// 应答冲突弹窗（action: overwrite / skip / overwriteAll / skipAll / cancel）
+async function resolveConflict(action: string) {
+  const request = conflictRequest.value
+  if (!request) return
+  conflictRequest.value = null
+  try {
+    await ResolveModpackConflict(request.id, action)
+  } catch (error: any) {
+    console.error('应答冲突失败:', error)
+  }
 }
 
 // 关闭对话框
@@ -327,10 +410,16 @@ onMounted(() => {
     console.log('[ModpackInstallDialog] 收到 start 事件:', data)
     status.value = 'installing'
     versionId.value = data.versionID
+    // scbbs 安装流程没有游戏下载等阶段，按 format 重建阶段列表
+    stages.value = buildStageList(data?.format === 'scbbs')
   })
   EventsOn('modpack:install:progress', (data: any) => {
     console.log('[ModpackInstallDialog] 收到 progress 事件:', data)
     handleProgress(data)
+  })
+  EventsOn('modpack:install:conflict', (data: any) => {
+    console.log('[ModpackInstallDialog] 收到 conflict 事件:', data)
+    handleConflict(data)
   })
   EventsOn('modpack:install:complete', (data: any) => {
     console.log('[ModpackInstallDialog] 收到 complete 事件:', data)
@@ -349,6 +438,7 @@ onMounted(() => {
 // 清理事件监听
 onUnmounted(() => {
   EventsOff('modpack:install:progress')
+  EventsOff('modpack:install:conflict')
   EventsOff('modpack:install:complete')
   EventsOff('modpack:install:error')
   EventsOff('modpack:install:cancelled')
@@ -369,5 +459,40 @@ onUnmounted(() => {
 .modpack-version {
   font-size: 12px;
   color: var(--n-text-color-2);
+}
+
+/* 失败明细列表 */
+.failure-list {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--n-code-color);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+/* 冲突询问弹窗 */
+.conflict-body p {
+  margin: 0 0 8px 0;
+}
+
+.conflict-file {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 8px 12px;
+  background: var(--n-code-color);
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.conflict-item {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--n-text-color-3);
+  word-break: break-all;
 }
 </style>

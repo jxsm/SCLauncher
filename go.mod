@@ -7,6 +7,7 @@ toolchain go1.24.9
 require (
 	github.com/mholt/archiver/v4 v4.0.0-alpha.9
 	github.com/wailsapp/wails/v2 v2.10.2
+	golang.org/x/text v0.22.0
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
 	modernc.org/sqlite v1.33.1
@@ -63,7 +64,6 @@ require (
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.55.3 // indirect
 	modernc.org/mathutil v1.6.0 // indirect

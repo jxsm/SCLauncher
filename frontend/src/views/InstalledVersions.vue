@@ -21,6 +21,7 @@
             :version="version"
             :is-path-missing="isPathMissing(version)"
             :is-game-running="gameStore.isRunning"
+            :launching="gameStore.launchingVersionId === version.id"
             @launch="handleLaunch"
             @set-primary="handleSetPrimary"
             @open-folder="handleOpenFolder"
@@ -52,6 +53,13 @@
       @completed="handleInstallCompleted"
       @error="handleInstallError"
     />
+
+    <!-- 目标版本选择（已安装版本 + 下载新版本） -->
+    <ModpackVersionSelectDialog
+      v-model:show="showVersionSelectDialog"
+      :modpack-name="parsedModpackInfo?.name || ''"
+      @confirm="handleVersionConfirm"
+    />
     </n-space>
   </div>
 </template>
@@ -63,9 +71,10 @@ import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
 import { useGameStore } from '../stores/game'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack, InstallModpackWithProgress, GetInstalledVersions } from '../api/version'
+import { OpenVersionFolder, SelectGameFolder, ImportGameVersion, SelectArchiveFile, InstallFromArchive, SelectModpackFile, InstallModpack, ParseModpack, InstallModpackWithProgress, InstallScbbsModpack } from '../api/version'
 import ModpackInfoDialog from '../components/ModpackInfoDialog.vue'
 import ModpackInstallDialog from '../components/ModpackInstallDialog.vue'
+import ModpackVersionSelectDialog from '../components/ModpackVersionSelectDialog.vue'
 import VersionToolbar from '../components/VersionToolbar.vue'
 import VersionListItem from '../components/VersionListItem.vue'
 import type { Version } from '../types/version'
@@ -117,8 +126,10 @@ function isPathMissing(version: Version): boolean {
 
 async function handleLaunch(version: Version) {
   try {
-    await gameStore.launchGame(version.id)
-    message.success(`${t('installed.launchSuccess')}: "${version.name}"`)
+    const launched = await gameStore.launchGame(version.id)
+    if (launched) {
+      message.success(`${t('installed.launchSuccess')}: "${version.name}"`)
+    }
   } catch (error) {
     message.error(t('installed.launchFailed') + '：' + error)
   }
@@ -336,8 +347,9 @@ async function handleModpackInstall() {
   }
 
   try {
-    // 检查是否为手动模式
-    const isManualMode = parsedModpackInfo.value.survivalcraft?.version?.manual === true
+    // scbbs（ScbbsPlus）格式不带游戏本体，必须安装到已安装版本，与手动模式一致走版本选择
+    const isScbbs = parsedModpackInfo.value?.format === 'scbbs'
+    const isManualMode = isScbbs || parsedModpackInfo.value.survivalcraft?.version?.manual === true
 
     if (isManualMode) {
       // 手动模式：显示版本选择对话框
@@ -352,54 +364,23 @@ async function handleModpackInstall() {
   }
 }
 
-// 显示版本选择对话框（手动模式）
+// 版本选择对话框（已安装版本 + 下载新版本，scbbs / 手动模式共用）
+const showVersionSelectDialog = ref(false)
+
+function handleVersionConfirm(versionId: string) {
+  if (parsedModpackInfo.value?.format === 'scbbs') {
+    startScbbsInstall(versionId)
+  } else {
+    startModpackInstall(versionId)
+  }
+}
+
 async function showVersionSelectionDialog() {
   if (!parsedModpackInfo.value) {
     return
   }
 
-  // 获取所有已安装的版本
-  const installedVersions = await GetInstalledVersions()
-
-  if (installedVersions.length === 0) {
-    message.error('没有找到已安装的版本，请先安装游戏版本')
-    return
-  }
-
-  // 使用普通变量存储用户选择
-  let selectedVersionID = installedVersions[0]?.id || ''
-
-  // 创建版本选项
-  const versionOptions = installedVersions.map((v: Version) => ({
-    label: `${v.name} (${v.id})`,
-    value: v.id
-  }))
-
-  // 显示选择对话框
-  dialog.create({
-    title: '选择基础版本',
-    content: () => {
-      return h('div', [
-        h('p', { style: 'margin-bottom: 12px;' }, '请选择一个已安装的版本作为基础：'),
-        h('select', {
-          style: 'width: 100%; padding: 8px; border: 1px solid var(--n-border-color); border-radius: 4px; background: var(--n-color); color: var(--n-text-color);',
-          value: selectedVersionID,
-          onChange: (e: any) => {
-            selectedVersionID = e.target.value
-          }
-        }, versionOptions.map((opt: any) =>
-          h('option', { value: opt.value, style: 'padding: 8px;' }, opt.label)
-        ))
-      ])
-    },
-    positiveText: t('common.confirm'),
-    negativeText: t('common.cancel'),
-    onPositiveClick: async () => {
-      if (selectedVersionID) {
-        await startModpackInstall(selectedVersionID)
-      }
-    }
-  })
+  showVersionSelectDialog.value = true
 }
 
 // 开始安装整合包
@@ -417,6 +398,26 @@ async function startModpackInstall(baseVersionID?: string) {
 
     // 使用新的安装方法（带进度反馈）
     await InstallModpackWithProgress(parsedModpackInfo.value.filePath, baseVersionID)
+  } catch (error) {
+    message.error(t('installed.modpackInstallFailed') + '：' + error)
+    showInstallDialog.value = false
+  }
+}
+
+// 开始安装 scbbs（ScbbsPlus）格式整合包（装到已安装版本，不创建新版本）
+async function startScbbsInstall(targetVersionID: string) {
+  if (!parsedModpackInfo.value) {
+    return
+  }
+
+  try {
+    // 关闭信息对话框
+    showModpackDialog.value = false
+
+    // 打开安装进度对话框
+    showInstallDialog.value = true
+
+    await InstallScbbsModpack(parsedModpackInfo.value.filePath, targetVersionID)
   } catch (error) {
     message.error(t('installed.modpackInstallFailed') + '：' + error)
     showInstallDialog.value = false

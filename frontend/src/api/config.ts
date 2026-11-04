@@ -102,6 +102,11 @@ export async function SetCurrentManifestSource(id: string): Promise<void> {
   await AppBindings.SetCurrentManifestSource(id)
 }
 
+// 手动触发默认清单线路测速（主线/镜像哪个快用哪个）
+export async function TestDefaultManifestSpeed(): Promise<any> {
+  return await AppBindings.TestDefaultManifestSpeed()
+}
+
 // 检查压缩包内容类型
 // 返回: "game" (游戏本体), "modpack" (整合包), "unknown" (未知)
 export async function InspectArchive(archivePath: string): Promise<string> {
