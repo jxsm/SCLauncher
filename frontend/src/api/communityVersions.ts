@@ -1,34 +1,42 @@
 /**
  * scbbs 社区游戏版本目录（GET /api/version/list）
  * 返回 {code, data: [{id, name, type, version, status}]}，
- * id 即帖子 postVersions[].gameVersionIds 引用的适配游戏版本 ID（对齐 ScbbsPlus BuildVersionNameMap）。
+ * id 即帖子 postVersions[].gameVersionIds 引用的适配游戏版本 ID（对齐 ScbbsPlus BuildVersionNameMap），
+ * 也可作为 post/list 的 gameVersionIds 服务端过滤参数。
  * 模块级缓存，整个会话只拉一次；失败时清空 pending 允许重试。
  */
 import { HttpRequest } from './http'
 
 const COMMUNITY_API_BASE = 'https://m.suancaixianyu.cn'
 
-let cachedNames: Map<number, string> | null = null
-let pending: Promise<Map<number, string>> | null = null
+export interface CommunityGameVersion {
+  id: number
+  name: string
+}
 
-/** 获取社区游戏版本目录（id → 版本名，如 12 → "2.4"） */
-export async function getCommunityGameVersionNames(): Promise<Map<number, string>> {
-  if (cachedNames) return cachedNames
+let cachedVersions: CommunityGameVersion[] | null = null
+let pending: Promise<CommunityGameVersion[]> | null = null
+
+/** 获取社区游戏版本目录（按 id 降序，新版本在前） */
+export async function getCommunityGameVersions(): Promise<CommunityGameVersion[]> {
+  if (cachedVersions) return cachedVersions
   if (!pending) {
     pending = HttpRequest(`${COMMUNITY_API_BASE}/api/version/list`)
       .then(text => {
         const data = JSON.parse(text)
         const list: any[] = Array.isArray(data?.data) ? data.data : []
-        const map = new Map<number, string>()
+        const versions: CommunityGameVersion[] = []
         for (const item of list) {
           const id = Number(item?.id)
           const name = String(item?.name || '').trim()
           if (id > 0 && name) {
-            map.set(id, name)
+            versions.push({ id, name })
           }
         }
-        cachedNames = map
-        return map
+        // id 与版本新旧大致正相关，降序让新版本排在筛选下拉前面
+        versions.sort((a, b) => b.id - a.id)
+        cachedVersions = versions
+        return versions
       })
       .catch(error => {
         // 失败允许下次重试
@@ -37,6 +45,27 @@ export async function getCommunityGameVersionNames(): Promise<Map<number, string
       })
   }
   return pending
+}
+
+/** 获取社区游戏版本目录（id → 版本名，如 25 → "2.4.x"） */
+export async function getCommunityGameVersionNames(): Promise<Map<number, string>> {
+  const versions = await getCommunityGameVersions()
+  return new Map(versions.map(v => [v.id, v.name]))
+}
+
+/**
+ * 把本地清单的游戏版本号（如 "2.4"）解析为社区版本目录 ID（匹配 "2.4.x"），
+ * 供筛选下拉默认选中当前主版本；找不到返回 null。
+ */
+export async function resolveGameVersionId(gameVersion: string): Promise<number | null> {
+  const target = gameVersion.trim()
+  if (!target) return null
+  const versions = await getCommunityGameVersions()
+  // 先精确匹配，再去掉社区名的 ".x" 后缀匹配（"2.4.x" → "2.4"）
+  const exact = versions.find(v => v.name === target)
+  if (exact) return exact.id
+  const normalized = versions.find(v => v.name.replace(/\.x$/i, '') === target)
+  return normalized ? normalized.id : null
 }
 
 /** 把帖子的 gameVersionIds 解析为游戏版本名列表（解析失败返回空数组，交由用户自选） */

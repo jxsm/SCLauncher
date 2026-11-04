@@ -61,6 +61,7 @@ export default {
     later: '稍后提醒',
     notNow: '稍后',
     unknown: '未知',
+    allGameVersions: '全部版本',
     views: '浏览',
     unitCount: '个'
   },

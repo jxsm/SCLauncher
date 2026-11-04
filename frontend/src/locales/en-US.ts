@@ -61,6 +61,7 @@ export default {
     later: 'Remind Me Later',
     notNow: 'Not Now',
     unknown: 'Unknown',
+    allGameVersions: 'All Versions',
     views: 'views',
     unitCount: ''
   },

@@ -114,6 +114,20 @@
                       <n-icon><CloudDownloadIcon /></n-icon>
                     </template>
                   </n-select>
+
+                  <!-- 游戏版本筛选（默认当前主版本对应的游戏版本） -->
+                  <n-select
+                    v-if="gameVersionOptions.length > 1"
+                    v-model:value="gameVersionId"
+                    :options="gameVersionOptions"
+                    :consistent-menu-width="false"
+                    style="width: 170px"
+                    @update:value="handleGameVersionChange"
+                  >
+                    <template #prefix>
+                      <n-icon><FilterIcon /></n-icon>
+                    </template>
+                  </n-select>
                 </n-space>
                 <n-button text @click="openSourceSettings">
                   <template #icon>
@@ -195,11 +209,12 @@
 import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NInput } from 'naive-ui'
-import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon, FolderOpen as FolderOpenIcon } from '@vicons/ionicons5'
+import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon, FolderOpen as FolderOpenIcon, Filter as FilterIcon } from '@vicons/ionicons5'
 import { useVersionStore } from '../stores/version'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { GetTextures, DeleteTexture, OpenTextureFolder, RenameTexture, ImportTexture, SelectTextureFile, DownloadTextureFromURL } from '../api/texture'
 import { ModSourceManager } from '../managers'
+import { useGameVersionFilter } from '../composables/useGameVersionFilter'
 import type { Texture } from '../types/texture'
 import type { ModSearchResult } from '../types/mod-source'
 import { useRouter } from 'vue-router'
@@ -235,6 +250,9 @@ const currentView = ref<'manage' | 'download'>('manage')
 
 // 材质下载状态
 const downloadSearchText = ref<string>('')
+
+// 游戏版本筛选（下载视图，默认当前主版本对应的游戏版本）
+const { gameVersionId, gameVersionOptions, ensureGameVersionFilter, gameVersionFilters } = useGameVersionFilter()
 const searching = ref(false)
 const searchResults = ref<ModSearchResult[]>([])
 const downloadingTextures = ref<Set<string>>(new Set())
@@ -422,15 +440,30 @@ function switchView(view: 'manage' | 'download') {
 // 材质下载相关函数
 
 /**
+ * 切换游戏版本筛选：回到第 1 页，保留搜索词重新拉取
+ */
+function handleGameVersionChange() {
+  currentPage.value = 1
+  if (isSearchMode.value && downloadSearchText.value.trim()) {
+    handleSearchTextures()
+  } else {
+    loadTextureList()
+  }
+}
+
+/**
  * 加载材质列表
  */
 async function loadTextureList() {
+  // 首次进入下载视图时初始化版本筛选（幂等），确保默认选中主版本后再拉列表
+  await ensureGameVersionFilter()
   searching.value = true
 
   try {
     const response = await ModSourceManager.getModList({
       page: currentPage.value,
-      limit: pageSize
+      limit: pageSize,
+      filters: gameVersionFilters()
     })
 
     searchResults.value = response.data
@@ -469,7 +502,8 @@ async function handleSearchTextures() {
   try {
     const response = await ModSourceManager.searchMods(downloadSearchText.value, {
       page: 1,
-      limit: pageSize
+      limit: pageSize,
+      filters: gameVersionFilters()
     })
 
     searchResults.value = response.data
@@ -501,7 +535,8 @@ async function handlePageChange(page: number) {
     try {
       const response = await ModSourceManager.searchMods(downloadSearchText.value, {
         page,
-        limit: pageSize
+        limit: pageSize,
+        filters: gameVersionFilters()
       })
 
       searchResults.value = response.data
