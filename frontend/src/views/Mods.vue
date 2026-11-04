@@ -154,7 +154,7 @@
                     </template>
                   </n-select>
 
-                  <!-- 游戏版本筛选（默认当前主版本对应的游戏版本） -->
+                  <!-- 游戏版本筛选：单机版为插件 API 系列，联机版为联机系列，默认匹配当前版本 -->
                   <n-select
                     v-if="gameVersionOptions.length > 1"
                     v-model:value="gameVersionId"
@@ -312,8 +312,9 @@ watch(selectedVersion, (newVal) => {
 // 模组下载状态
 const downloadSearchText = ref<string>('')
 
-// 游戏版本筛选（下载视图，默认当前主版本对应的游戏版本）
-const { gameVersionId, gameVersionOptions, ensureGameVersionFilter, gameVersionFilters } = useGameVersionFilter()
+// 游戏版本筛选（下载视图）：单机版默认匹配插件 API 系列（如 2.4 API1.9 → API1.9.x），
+// 联机版只显示联机系列并默认匹配当前联机版本
+const { gameVersionId, gameVersionOptions, applyModsVersionContext, gameVersionFilters } = useGameVersionFilter()
 const searching = ref(false)
 const searchResults = ref<ModSearchResult[]>([])
 const downloadingMods = ref<Set<string>>(new Set())
@@ -542,6 +543,17 @@ async function switchView(view: 'manage' | 'download') {
 // 模组下载相关函数
 
 /**
+ * 按当前选中版本刷新版本筛选：
+ * 单机 → 选项只含插件 API 系列，默认按 subVersion（如 "api-1.9.5.1"）匹配（→ API1.9.x）；
+ * 联机 → 选项只含联机系列，默认按 subVersion（如 "26.07.01.01"）匹配。
+ * 匹配不到（如原版/导入版本）时保持「全部版本」。
+ */
+async function refreshGameVersionFilter() {
+  const version = versionStore.installedVersions.find(v => v.id === selectedVersion.value)
+  await applyModsVersionContext(version?.subVersion || '', isOnlineVersion.value)
+}
+
+/**
  * 切换游戏版本筛选：回到第 1 页，保留搜索词重新拉取
  */
 function handleGameVersionChange() {
@@ -557,8 +569,8 @@ function handleGameVersionChange() {
  * 加载模组列表
  */
 async function loadModList() {
-  // 首次进入下载视图时初始化版本筛选（幂等），确保默认选中主版本后再拉列表
-  await ensureGameVersionFilter()
+  // 先按当前版本（联机/单机）刷新筛选项与默认值，再拉列表
+  await refreshGameVersionFilter()
   searching.value = true
 
   try {
