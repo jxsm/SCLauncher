@@ -56,9 +56,9 @@ export function DownloadVersion(arg1:string):Promise<void>;
 
 export function DownloadVersionWithCustomName(arg1:string,arg2:string):Promise<void>;
 
-export function ExportSaveGame(arg1:string,arg2:string):Promise<boolean>;
+export function ExportSaveGame(arg1:string,arg2:string):Promise<string>;
 
-export function ExportSaveGameAsModpack(arg1:string,arg2:string):Promise<boolean>;
+export function ExportSaveGameAsModpack(arg1:string,arg2:string):Promise<string>;
 
 export function FetchVersions():Promise<Array<version.Version>>;
 
@@ -161,6 +161,8 @@ export function RenameTexture(arg1:string,arg2:string,arg3:string):Promise<void>
 export function RenameVersion(arg1:string,arg2:string):Promise<void>;
 
 export function ResolveModpackConflict(arg1:string,arg2:string):Promise<void>;
+
+export function RevealPathInExplorer(arg1:string):Promise<void>;
 
 export function SaveManifestSources(arg1:Array<Record<string, any>>):Promise<void>;
 

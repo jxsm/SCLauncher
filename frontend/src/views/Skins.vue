@@ -103,7 +103,18 @@
               <n-empty
                 v-if="skinStore.skins.length === 0 && !skinStore.loading"
                 :description="t('skins.noSkins')"
-              />
+              >
+                <template #extra>
+                  <n-space justify="center">
+                    <n-button type="primary" @click="handleImportSkin">
+                      {{ t('skins.import') }}
+                    </n-button>
+                    <n-button @click="switchView('download')">
+                      {{ t('skins.downloadSkin') }}
+                    </n-button>
+                  </n-space>
+                </template>
+              </n-empty>
             </n-spin>
           </div>
 

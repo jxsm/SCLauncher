@@ -314,6 +314,10 @@ export function ResolveModpackConflict(arg1, arg2) {
   return window['go']['main']['App']['ResolveModpackConflict'](arg1, arg2);
 }
 
+export function RevealPathInExplorer(arg1) {
+  return window['go']['main']['App']['RevealPathInExplorer'](arg1);
+}
+
 export function SaveManifestSources(arg1) {
   return window['go']['main']['App']['SaveManifestSources'](arg1);
 }

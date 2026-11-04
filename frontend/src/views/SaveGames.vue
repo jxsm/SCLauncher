@@ -188,11 +188,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick, h } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useMessage, useDialog, NInput } from 'naive-ui'
-import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon } from '@vicons/ionicons5'
+import { useMessage, useDialog, useNotification, NInput, NButton } from 'naive-ui'
+import { Download as ImportIcon, ArrowBack as ArrowBackIcon, Download as DownloadIcon, CloudDownload as CloudDownloadIcon, Settings as SettingsIcon, GameController as GameControllerIcon, Search as SearchIcon, FolderOpen as FolderOpenIcon } from '@vicons/ionicons5'
 import { useVersionStore } from '../stores/version'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
-import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ExportSaveGameAsModpack, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL, PreviewSaveRequiredMods, GetSaveRequiredMods } from '../api/savegame'
+import { GetSaveGames, DeleteSaveGame, OpenSaveGameFolder, RenameSaveGame, ExportSaveGame, ExportSaveGameAsModpack, ImportSaveGame, SelectSaveGameFile, PreviewSaveGame, DownloadSaveGameFromURL, PreviewSaveRequiredMods, GetSaveRequiredMods, RevealPathInExplorer } from '../api/savegame'
 import { IsOnlineVersion } from '../api/version'
 import { useModDependencyResolver } from '../composables/useModDependencyResolver'
 import { ModSourceManager } from '../managers'
@@ -212,6 +212,7 @@ const { t, te } = useI18n()
 const versionStore = useVersionStore()
 const message = useMessage()
 const dialog = useDialog()
+const notification = useNotification()
 const { resolveDependenciesForSave } = useModDependencyResolver()
 
 const isOnlineVersion = ref(false) // 当前版本是否是联机版（决定依赖解析优先 NetMods 源）
@@ -453,16 +454,32 @@ async function handleExportSave(save: SaveGame) {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
+        let exportedPath = ''
         if (exportFormat.value === 'scworld') {
-          const result = await ExportSaveGame(selectedVersionId.value, save.id)
-          if (result) {
-            message.success(t('saveGames.exportSuccess'))
-          }
+          exportedPath = await ExportSaveGame(selectedVersionId.value, save.id)
         } else {
-          const result = await ExportSaveGameAsModpack(selectedVersionId.value, save.id)
-          if (result) {
-            message.success(t('saveGames.exportSuccess'))
-          }
+          exportedPath = await ExportSaveGameAsModpack(selectedVersionId.value, save.id)
+        }
+        if (exportedPath) {
+          // 显示导出位置，方便用户找到文件
+          notification.success({
+            title: t('saveGames.exportSuccess'),
+            content: () => h('div', { style: 'word-break: break-all;' }, [
+              h('div', { style: 'margin-bottom: 8px; opacity: 0.8;' }, t('saveGames.exportedTo', { path: exportedPath })),
+              h(NButton, {
+                size: 'small',
+                onClick: () => {
+                  RevealPathInExplorer(exportedPath).catch(err => {
+                    message.error(String(err))
+                  })
+                }
+              }, {
+                icon: () => h(FolderOpenIcon),
+                default: () => t('saveGames.openExportFolder')
+              })
+            ]),
+            duration: 8000
+          })
         }
         return true
       } catch (error) {

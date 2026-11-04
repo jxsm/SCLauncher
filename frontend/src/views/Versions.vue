@@ -38,7 +38,11 @@
             @download="handleDownload"
           />
         </n-collapse>
-        <n-empty v-if="groupedVersions.length === 0 && !loading" :description="t('versions.noVersions')" />
+        <n-empty v-if="groupedVersions.length === 0 && !loading" :description="t('versions.noVersions')">
+          <template #extra>
+            <n-button size="small" @click="handleFetchVersions">{{ t('common.refresh') }}</n-button>
+          </template>
+        </n-empty>
       </n-spin>
     </n-space>
 
@@ -54,9 +58,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useVersionStore } from '../stores/version'
-import { useMessage } from 'naive-ui'
+import { useGameStore } from '../stores/game'
+import { useMessage, useDialog } from 'naive-ui'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import type { Version } from '../types/version'
 import VersionToolbar from '../components/version/VersionToolbar.vue'
@@ -64,8 +70,11 @@ import VersionGroup from '../components/version/VersionGroup.vue'
 import CustomVersionNameDialog from '../components/version/CustomVersionNameDialog.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 const versionStore = useVersionStore()
+const gameStore = useGameStore()
 const message = useMessage()
+const dialog = useDialog()
 
 const loading = ref(false)
 const filterType = ref<string>('api') // Default to plugin version
@@ -317,7 +326,25 @@ function handleDownloadComplete(data: any) {
 
   versionStore.installVersion(versionId)
     .then(async () => {
-      message.success(t('versions.installComplete'))
+      // 安装完成引导：新手装完第一个版本往往不知道下一步，直接给「立即开始」入口
+      const installed = versionStore.versions.find(v => v.id === versionId)
+      const versionName = installed?.name || versionId
+      dialog.success({
+        title: t('versions.installComplete'),
+        content: () => t('versions.installCompleteDesc', { name: versionName }),
+        positiveText: t('home.launchGame'),
+        negativeText: t('common.notNow'),
+        onPositiveClick: async () => {
+          try {
+            const launched = await gameStore.launchGame(versionId)
+            if (launched) {
+              router.push('/home')
+            }
+          } catch (launchError) {
+            message.error(t('errors.launchFailed') + '：' + launchError)
+          }
+        }
+      })
 
       // 清理所有相关的进度状态
       versionStore.clearDownloadProgress(versionId)

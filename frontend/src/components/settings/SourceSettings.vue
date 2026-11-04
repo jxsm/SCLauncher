@@ -85,6 +85,8 @@ const { t } = useI18n()
 
 const props = defineProps<{
   sources: ModSource[]
+  /** 初始展示的源类型子标签（供设置页深链定位，如 savegame-sources → savegames） */
+  initialType?: string
 }>()
 
 const emit = defineEmits<{
@@ -94,7 +96,7 @@ const emit = defineEmits<{
   addSource: []
 }>()
 
-const currentSourceType = ref('mods')
+const currentSourceType = ref(props.initialType || 'mods')
 
 function getSourcesByType(type: string) {
   return props.sources.filter(s => s.type === type)

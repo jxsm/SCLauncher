@@ -2708,12 +2708,12 @@ func (a *App) RenameSaveGame(versionID, saveID, newName string) error {
 	return a.savegameMgr.RenameSaveGame(versionID, saveID, newName)
 }
 
-// ExportSaveGame 导出存档
-func (a *App) ExportSaveGame(versionID, saveID string) (bool, error) {
+// ExportSaveGame 导出存档，返回导出文件路径（用户取消时返回空串）
+func (a *App) ExportSaveGame(versionID, saveID string) (string, error) {
 	// 获取存档信息以使用存档名称作为默认文件名
 	saveGames, err := a.savegameMgr.GetSaveGames(versionID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get save games: %w", err)
+		return "", fmt.Errorf("failed to get save games: %w", err)
 	}
 
 	// 查找对应的存档
@@ -2743,27 +2743,50 @@ func (a *App) ExportSaveGame(versionID, saveID string) (bool, error) {
 	})
 
 	if err != nil {
-		return false, fmt.Errorf("failed to open save dialog: %w", err)
+		return "", fmt.Errorf("failed to open save dialog: %w", err)
 	}
 
 	if filename == "" {
-		return false, nil // 用户取消，返回 false 但不返回错误
+		return "", nil // 用户取消，返回空串但不返回错误
 	}
 
 	err = a.savegameMgr.ExportSaveGame(versionID, saveID, filename)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return true, nil // 导出成功
+	return filename, nil // 导出成功，返回导出路径
 }
 
-// ExportSaveGameAsModpack 导出存档为 scbbs（ScbbsPlus）格式整合包（ZIP 载体）
-func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (bool, error) {
+// RevealPathInExplorer 在资源管理器中显示文件或文件夹（文件会被选中）
+func (a *App) RevealPathInExplorer(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return errors.New("path is empty")
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	if _, err := os.Stat(absPath); err != nil {
+		return fmt.Errorf("path does not exist: %s", absPath)
+	}
+
+	// explorer /select 只接受反斜杠路径并打开所在目录且选中该项
+	cmd := exec.Command("explorer.exe", "/select,", absPath)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to open explorer: %w", err)
+	}
+	return nil
+}
+
+// ExportSaveGameAsModpack 导出存档为社区通用格式整合包（ZIP 载体），返回导出文件路径（用户取消时返回空串）
+func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (string, error) {
 	// 获取存档信息以使用存档名称作为默认文件名
 	saveGames, err := a.savegameMgr.GetSaveGames(versionID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get save games: %w", err)
+		return "", fmt.Errorf("failed to get save games: %w", err)
 	}
 
 	// 查找对应的存档
@@ -2793,19 +2816,19 @@ func (a *App) ExportSaveGameAsModpack(versionID, saveID string) (bool, error) {
 	})
 
 	if err != nil {
-		return false, fmt.Errorf("failed to open save dialog: %w", err)
+		return "", fmt.Errorf("failed to open save dialog: %w", err)
 	}
 
 	if filename == "" {
-		return false, nil // 用户取消，返回 false 但不返回错误
+		return "", nil // 用户取消，返回空串但不返回错误
 	}
 
 	err = a.savegameMgr.ExportSaveGameAsModpack(versionID, saveID, filename)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	return true, nil // 导出成功
+	return filename, nil // 导出成功，返回导出路径
 }
 
 // ImportSaveGame 导入存档

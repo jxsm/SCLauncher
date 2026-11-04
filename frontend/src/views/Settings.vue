@@ -1,60 +1,82 @@
 <template>
   <div class="settings-view">
-    <n-space vertical size="large">
-      <!-- 主题设置 -->
-      <ThemeSettings />
+    <!-- 常用/高级两级分区：技术性配置收进「高级」，降低新手认知负担 -->
+    <n-tabs v-model:value="settingsTab" type="line" animated>
+      <n-tab-pane name="basic" :tab="t('settings.tabBasic')">
+        <n-space vertical size="large">
+          <!-- 主题设置 -->
+          <div id="settings-card-theme">
+            <ThemeSettings />
+          </div>
 
-      <!-- 语言设置 -->
-      <LanguageSettings
-        :language="language"
-        @update:language="handleSaveLanguage"
-      />
+          <!-- 语言设置 -->
+          <LanguageSettings
+            :language="language"
+            @update:language="handleSaveLanguage"
+          />
 
-      <!-- 路径信息 -->
-      <PathSettings :config="config" />
+          <!-- 背景设置 -->
+          <div id="settings-card-background">
+            <BackgroundSettings
+              :has-background="!!config?.backgroundImage"
+              :preview="backgroundImagePreview"
+              @select="handleSelectBackground"
+              @clear="handleClearBackground"
+            />
+          </div>
 
-      <!-- 清单设置 -->
-      <ManifestSettings
-        :sources="manifestSources"
-        :current-source-id="currentManifestSourceId"
-        :speed-info="defaultManifestInfo"
-        :testing="speedTesting"
-        @add-source="showAddManifestSourceDialog = true"
-        @set-current="handleSetCurrentManifestSource"
-        @delete="handleDeleteManifestSource"
-        @retest="handleRetestDefaultManifest"
-      />
+          <!-- 关于 -->
+          <div class="about-section">
+            <n-button text @click="showAboutDialog = true">
+              <template #icon>
+                <n-icon><InformationIcon /></n-icon>
+              </template>
+              {{ t('common.about') }}
+            </n-button>
+          </div>
+        </n-space>
+      </n-tab-pane>
 
-      <!-- 下载源设置 -->
-      <SourceSettings
-        :sources="modSources"
-        @toggle-source="handleToggleSource"
-        @set-default-source="handleSetDefaultSource"
-        @delete-source="handleDeleteSource"
-        @add-source="showAddSourceDialog = true"
-      />
+      <n-tab-pane name="advanced" :tab="t('settings.tabAdvanced')">
+        <n-space vertical size="large">
+          <!-- 路径信息 -->
+          <div id="settings-card-path">
+            <PathSettings :config="config" />
+          </div>
 
-      <!-- 背景设置 -->
-      <BackgroundSettings
-        :has-background="!!config?.backgroundImage"
-        :preview="backgroundImagePreview"
-        @select="handleSelectBackground"
-        @clear="handleClearBackground"
-      />
+          <!-- 清单设置 -->
+          <div id="settings-card-manifest">
+            <ManifestSettings
+              :sources="manifestSources"
+              :current-source-id="currentManifestSourceId"
+              :speed-info="defaultManifestInfo"
+              :testing="speedTesting"
+              @add-source="showAddManifestSourceDialog = true"
+              @set-current="handleSetCurrentManifestSource"
+              @delete="handleDeleteManifestSource"
+              @retest="handleRetestDefaultManifest"
+            />
+          </div>
 
-      <!-- .NET 运行时自动检查 -->
-      <RuntimeSettings />
+          <!-- 下载源设置 -->
+          <div id="settings-card-sources">
+            <SourceSettings
+              :sources="modSources"
+              :initial-type="initialSourceType"
+              @toggle-source="handleToggleSource"
+              @set-default-source="handleSetDefaultSource"
+              @delete-source="handleDeleteSource"
+              @add-source="showAddSourceDialog = true"
+            />
+          </div>
 
-      <!-- 关于 -->
-      <div class="about-section">
-        <n-button text @click="showAboutDialog = true">
-          <template #icon>
-            <n-icon><InformationIcon /></n-icon>
-          </template>
-          {{ t('common.about') }}
-        </n-button>
-      </div>
-    </n-space>
+          <!-- .NET 运行时自动检查 -->
+          <div id="settings-card-runtime">
+            <RuntimeSettings />
+          </div>
+        </n-space>
+      </n-tab-pane>
+    </n-tabs>
 
     <!-- 关于对话框 -->
     <AboutDialog
@@ -79,7 +101,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, onMounted, nextTick, h, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NAlert } from 'naive-ui'
 import { ModSourceManager } from '../managers'
@@ -87,7 +110,7 @@ import { ManifestSourceManager } from '../managers/ManifestSourceManager'
 import type { ModSource } from '../types/mod-source'
 import type { ManifestSource } from '../types/manifest-source'
 import { InformationCircleOutline as InformationIcon } from '@vicons/ionicons5'
-import { GetConfig, SetMaxConcurrent, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground, TestDefaultManifestSpeed } from '../api/config'
+import { GetConfig, SetLanguage, GetAppInfo, CheckUpdateForce, SelectBackgroundFile, SetBackground, ClearBackground, TestDefaultManifestSpeed } from '../api/config'
 import { useVersionStore } from '../stores/version'
 import type { AppConfig, DefaultManifestInfo, ManifestSpeedTestResponse } from '../types/config'
 import LanguageSettings from '../components/settings/LanguageSettings.vue'
@@ -103,13 +126,39 @@ import AddManifestSourceDialog from '../components/settings/AddManifestSourceDia
 
 const { t, locale } = useI18n()
 
+const route = useRoute()
 const message = useMessage()
 const dialog = useDialog()
 const versionStore = useVersionStore()
 
+// 常用/高级分区 + 深链定位（资源页「管理下载源」通过 /settings?tab=xxx 直达）
+const settingsTab = ref<'basic' | 'advanced'>('basic')
+const initialSourceType = ref('mods')
+
+const DEEP_LINK_TABS: Record<string, { pane: 'basic' | 'advanced'; card?: string; sourceType?: string }> = {
+  'mod-sources': { pane: 'advanced', card: 'settings-card-sources', sourceType: 'mods' },
+  'online-mod-sources': { pane: 'advanced', card: 'settings-card-sources', sourceType: 'online-mods' },
+  'savegame-sources': { pane: 'advanced', card: 'settings-card-sources', sourceType: 'savegames' },
+  'furniture-sources': { pane: 'advanced', card: 'settings-card-sources', sourceType: 'furniture' },
+  'texture-sources': { pane: 'advanced', card: 'settings-card-sources', sourceType: 'textures' },
+  'skin-sources': { pane: 'advanced', card: 'settings-card-sources', sourceType: 'skins' },
+  manifest: { pane: 'advanced', card: 'settings-card-manifest' },
+  path: { pane: 'advanced', card: 'settings-card-path' },
+  runtime: { pane: 'advanced', card: 'settings-card-runtime' },
+  theme: { pane: 'basic', card: 'settings-card-theme' },
+  background: { pane: 'basic', card: 'settings-card-background' }
+}
+
+const deepLink = DEEP_LINK_TABS[String(route.query.tab || '')]
+if (deepLink) {
+  settingsTab.value = deepLink.pane
+  if (deepLink.sourceType) {
+    initialSourceType.value = deepLink.sourceType
+  }
+}
+
 const config = ref<AppConfig | null>(null)
 const manifestUrl = ref('')
-const maxConcurrent = ref(3)
 const language = ref('zh-CN')
 const showAboutDialog = ref(false)
 const backgroundImagePreview = ref('')
@@ -410,15 +459,6 @@ async function loadBackgroundPreview() {
   }
 }
 
-async function handleSaveSettings() {
-  try {
-    await SetMaxConcurrent(maxConcurrent.value)
-    message.success(t('settings.settingsSaved'))
-  } catch (error) {
-    message.error(t('settings.saveFailed') + '：' + error)
-  }
-}
-
 async function handleSaveLanguage(newLanguage: string) {
   try {
     // 更新语言值
@@ -531,7 +571,6 @@ onMounted(async () => {
     config.value = await GetConfig()
     if (config.value) {
       manifestUrl.value = config.value.manifestUrl
-      maxConcurrent.value = config.value.maxConcurrent
       language.value = config.value.language
     }
 
@@ -542,6 +581,14 @@ onMounted(async () => {
     await loadBackgroundPreview()
   } catch (error) {
     message.error(t('settings.loadConfigFailed') + '：' + error)
+  }
+
+  // 深链定位：滚动到对应设置卡片
+  if (deepLink?.card) {
+    await nextTick()
+    setTimeout(() => {
+      document.getElementById(deepLink.card!)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 200)
   }
 })
 </script>

@@ -21,14 +21,19 @@ export async function RenameSaveGame(versionId: string, saveId: string, newName:
   await AppBindings.RenameSaveGame(versionId, saveId, newName)
 }
 
-// 导出存档
-export async function ExportSaveGame(versionId: string, saveId: string): Promise<boolean> {
+// 导出存档，返回导出文件路径（用户取消时返回空串）
+export async function ExportSaveGame(versionId: string, saveId: string): Promise<string> {
   return await AppBindings.ExportSaveGame(versionId, saveId)
 }
 
-// 导出存档为整合包
-export async function ExportSaveGameAsModpack(versionId: string, saveId: string): Promise<boolean> {
+// 导出存档为整合包，返回导出文件路径（用户取消时返回空串）
+export async function ExportSaveGameAsModpack(versionId: string, saveId: string): Promise<string> {
   return await AppBindings.ExportSaveGameAsModpack(versionId, saveId)
+}
+
+// 在资源管理器中显示文件（选中）
+export async function RevealPathInExplorer(path: string): Promise<void> {
+  await AppBindings.RevealPathInExplorer(path)
 }
 
 // 导入存档

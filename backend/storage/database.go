@@ -26,6 +26,26 @@ func New(dataDir string) (*Database, error) {
 		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
 	}
 
+	// SQLite 是单写者模型：限制连接池为单连接，进程内写操作天然串行化，
+	// 避免并发写（如清单刷新批量存版本 vs 下载/安装记录落库）直接报 SQLITE_BUSY
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+
+	// WAL 模式 + 忙等待：即使出现库级竞争（进程外占用、事务未及时提交），
+	// 也等待锁释放而不是立即失败
+	if _, err := sqlDB.Exec("PRAGMA busy_timeout = 10000;"); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to set busy_timeout: %w", err)
+	}
+	if _, err := sqlDB.Exec("PRAGMA journal_mode = WAL;"); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
+	}
+	if _, err := sqlDB.Exec("PRAGMA synchronous = NORMAL;"); err != nil {
+		sqlDB.Close()
+		return nil, fmt.Errorf("failed to set synchronous mode: %w", err)
+	}
+
 	// 使用 GORM 包装
 	db, err := gorm.Open(sqlite.Dialector{
 		Conn: sqlDB,

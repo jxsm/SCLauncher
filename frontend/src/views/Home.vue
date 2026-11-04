@@ -15,11 +15,26 @@
             </n-text>
           </div>
         </div>
-        <n-empty v-else :description="t('home.notSet')" size="small" />
+        <!-- 无版本时的欢迎引导卡片（新手第一步从这里开始） -->
+        <div v-else class="welcome-card">
+          <div class="welcome-title">{{ t('home.welcome') }}</div>
+          <div class="welcome-desc">{{ t('home.welcomeDesc') }}</div>
+          <ol class="welcome-steps">
+            <li>{{ t('home.onboardingStep1') }}</li>
+            <li>{{ t('home.onboardingStep2') }}</li>
+            <li>{{ t('home.onboardingStep3') }}</li>
+          </ol>
+          <n-button type="primary" size="large" class="welcome-cta" @click="$router.push('/versions')">
+            {{ t('home.goToVersions') }}
+          </n-button>
+          <n-button quaternary class="welcome-import" @click="$router.push('/installed')">
+            {{ t('home.importLocalGame') }}
+          </n-button>
+        </div>
       </div>
 
-      <!-- 核心操作按钮区 - 固定在底部 -->
-      <div class="action-section">
+      <!-- 核心操作按钮区 - 固定在底部（无版本时隐藏，引导卡片已提供入口） -->
+      <div class="action-section" v-if="primaryVersion || gameStore.isRunning">
         <!-- 启动游戏按钮 -->
         <n-button
           v-if="primaryVersion"
@@ -85,12 +100,14 @@ const launching = ref(false)
 const primaryVersion = computed(() => versionStore.primaryVersion)
 
 function getVersionTypeText(type: string): string {
-  const types = {
-    api: '插件版',
-    net: '联机版',
-    original: '原版'
+  // 与版本页/已安装页共用同一套类型文案，避免不同页面叫法不一
+  const keys: Record<string, string> = {
+    api: 'versions.apiVersion',
+    net: 'versions.netVersion',
+    original: 'versions.originalVersion',
+    modified: 'versions.modifiedVersion'
   }
-  return types[type as keyof typeof types] || type
+  return keys[type] ? t(keys[type]) : type
 }
 
 function getVersionTypeColor(type: string): 'info' | 'success' | 'warning' | 'default' {
@@ -285,6 +302,68 @@ onMounted(async () => {
 
 .secondary-btn:active {
   transform: scale(0.95);
+}
+
+/* 无版本时的欢迎引导卡片 */
+.welcome-card {
+  text-align: center;
+  width: 100%;
+}
+
+.welcome-title {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.welcome-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+}
+
+.welcome-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 auto 24px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.welcome-steps li {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-steps li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.welcome-cta {
+  width: 100%;
+  border-radius: 9999px !important;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.welcome-cta:active {
+  transform: scale(0.95);
+}
+
+.welcome-import {
+  width: 100%;
+  border-radius: 9999px !important;
 }
 
 /* 右侧空白区域 - Apple parchment */

@@ -107,7 +107,18 @@
                 v-else
                 :description="searchText || filterType !== 'all' ? t('mods.noMatchingMods') : t('mods.noMods')"
                 style="padding: 60px 0;"
-              />
+              >
+                <template v-if="!searchText && filterType === 'all'" #extra>
+                  <n-space justify="center">
+                    <n-button type="primary" @click="switchView('download')">
+                      {{ t('mods.downloadMod') }}
+                    </n-button>
+                    <n-button :disabled="!selectedVersion" @click="handleImportMod">
+                      {{ t('mods.importMod') }}
+                    </n-button>
+                  </n-space>
+                </template>
+              </n-empty>
             </template>
           </div>
 
@@ -366,10 +377,11 @@ const sourceOptions = computed(() => {
     }))
 })
 
-// 手动版本类型切换选项（联机版/普通插件版），仅在版本类型无法自动识别时显示
+// 手动版本类型切换选项（联机版/插件版），仅在版本类型无法自动识别时显示
+// 复用 versions.* 类型文案，保证全应用同一概念只有一套叫法
 const manualTypeOptions = computed(() => [
-  { label: t('mods.onlineVersionType'), value: 'online' },
-  { label: t('mods.offlineVersionType'), value: 'offline' }
+  { label: t('versions.netVersion'), value: 'online' },
+  { label: t('versions.apiVersion'), value: 'offline' }
 ])
 
 // 可自动识别为“单机版”的版本类型（net→联机版；api/original→单机版；其余视为无法识别）
