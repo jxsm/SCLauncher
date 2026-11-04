@@ -15,7 +15,7 @@
                 <n-icon><CloudDownloadIcon /></n-icon>
               </template>
             </n-select>
-            <!-- 游戏版本筛选（默认当前主版本对应的游戏版本） -->
+            <!-- 游戏版本筛选（默认全部版本） -->
             <n-select
               v-if="gameVersionOptions.length > 1"
               v-model:value="gameVersionId"
@@ -148,8 +148,8 @@ const router = useRouter()
 // 列表状态
 const searchText = ref('')
 
-// 游戏版本筛选（默认当前主版本对应的游戏版本）
-const { gameVersionId, gameVersionOptions, ensureGameVersionFilter, gameVersionFilters } = useGameVersionFilter()
+// 游戏版本筛选（默认「全部版本」，整合包通常混合多个游戏版本的资源）
+const { gameVersionId, gameVersionOptions, ensureGameVersionOptions, gameVersionFilters } = useGameVersionFilter()
 const searching = ref(false)
 const hasSearched = ref(false)
 const results = ref<ModSearchResult[]>([])
@@ -193,8 +193,8 @@ function handleGameVersionChange() {
 }
 
 async function loadList() {
-  // 初始化版本筛选（幂等），确保默认选中主版本后再拉列表
-  await ensureGameVersionFilter()
+  // 初始化版本筛选选项（幂等），默认保持「全部版本」
+  await ensureGameVersionOptions()
   searching.value = true
   try {
     const response = await ModSourceManager.getModList({

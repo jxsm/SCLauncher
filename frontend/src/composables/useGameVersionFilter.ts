@@ -48,10 +48,10 @@ export function useGameVersionFilter() {
   let initPromise: Promise<void> | null = null
 
   /**
-   * 非模组视图在首次拉列表前调用（幂等）：加载版本目录 + 按主版本 gameVersion
-   * 解析默认值。任何失败都静默降级为「全部版本」。
+   * 加载版本目录并填充下拉选项（幂等）：选项为整个目录 + 「全部版本」，
+   * 不设置默认值。供整合包等默认展示「全部版本」的视图使用。
    */
-  function ensureGameVersionFilter(): Promise<void> {
+  function ensureGameVersionOptions(): Promise<void> {
     if (!initPromise) {
       initPromise = (async () => {
         await ensureCatalog()
@@ -60,17 +60,28 @@ export function useGameVersionFilter() {
           { label: t('common.allGameVersions'), value: 0 },
           ...catalog.value.map(v => ({ label: v.name, value: v.id }))
         ]
-        // 默认选中当前主版本的游戏版本（如 2.4 → "2.4.x"）
-        if (!versionStore.primaryVersion) {
-          await versionStore.getPrimaryVersion().catch(() => {})
-        }
-        const primaryGameVersion = versionStore.primaryVersion?.gameVersion
-        if (primaryGameVersion) {
-          gameVersionId.value = (await resolveGameVersionId(primaryGameVersion)) ?? 0
-        }
       })()
     }
     return initPromise
+  }
+
+  let defaultApplied = false
+
+  /**
+   * 非模组视图在首次拉列表前调用（幂等）：加载选项 + 按主版本 gameVersion
+   * 解析默认值（如 2.4 → "2.4.x"）。任何失败都静默降级为「全部版本」。
+   */
+  async function ensureGameVersionFilter(): Promise<void> {
+    await ensureGameVersionOptions()
+    if (defaultApplied) return
+    defaultApplied = true
+    if (!versionStore.primaryVersion) {
+      await versionStore.getPrimaryVersion().catch(() => {})
+    }
+    const primaryGameVersion = versionStore.primaryVersion?.gameVersion
+    if (primaryGameVersion) {
+      gameVersionId.value = (await resolveGameVersionId(primaryGameVersion)) ?? 0
+    }
   }
 
   /**
@@ -110,6 +121,7 @@ export function useGameVersionFilter() {
   return {
     gameVersionId,
     gameVersionOptions,
+    ensureGameVersionOptions,
     ensureGameVersionFilter,
     applyModsVersionContext,
     gameVersionFilters
