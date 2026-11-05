@@ -6,6 +6,7 @@ import (
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/dotnet"
 	"SCLauncher/backend/game"
+	"SCLauncher/backend/logger"
 	"SCLauncher/backend/mod"
 	"SCLauncher/backend/modpack"
 	"SCLauncher/backend/modpack/scbbs"
@@ -96,19 +97,25 @@ func (a *App) startup(ctx context.Context) {
 	// 获取应用数据目录（启动器目录下的 .Survivalcraft）
 	appDataDir := config.GetAppDataDir()
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("=== SCLauncher 启动 ==="))
-	runtime.LogInfo(a.ctx, fmt.Sprintf("启动器目录: %s", appDataDir))
+	// 初始化启动器日志（.Survivalcraft/Logs，按天分隔，保留 7 天）
+	// 初始化失败不阻断启动，后续日志仅输出到控制台
+	if err := logger.Init(filepath.Join(appDataDir, "Logs")); err != nil {
+		logger.Error(fmt.Sprintf("日志初始化失败（仅输出到控制台）: %v", err))
+	}
+	logger.Info(fmt.Sprintf("=== SCLauncher %s 启动 ===", appinfo.Version))
+	logger.Info(fmt.Sprintf("启动器目录: %s", appDataDir))
+	logger.Infof("系统: %s/%s", stdruntime.GOOS, stdruntime.GOARCH)
 
 	// 加载配置
 	configPath := filepath.Join(appDataDir, "config.json")
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("配置加载失败，创建新配置: %v", err))
+		logger.Warn(fmt.Sprintf("配置加载失败，创建新配置: %v", err))
 		// 使用默认配置
 		cfg = config.DefaultConfig()
 		// 保存默认配置
 		if saveErr := cfg.Save(); saveErr != nil {
-			runtime.LogWarning(a.ctx, fmt.Sprintf("配置保存失败: %v", saveErr))
+			logger.Warn(fmt.Sprintf("配置保存失败: %v", saveErr))
 		}
 	}
 	a.config = cfg
@@ -116,16 +123,16 @@ func (a *App) startup(ctx context.Context) {
 
 	// 自动检测并设置语言（仅在首次启动时）
 	if err := a.AutoDetectLanguage(); err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("自动检测语言失败: %v", err))
+		logger.Warn(fmt.Sprintf("自动检测语言失败: %v", err))
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("版本目录: %s", cfg.GetVersionsDir()))
-	runtime.LogInfo(a.ctx, fmt.Sprintf("下载目录: %s", cfg.GetDownloadsDir()))
+	logger.Info(fmt.Sprintf("版本目录: %s", cfg.GetVersionsDir()))
+	logger.Info(fmt.Sprintf("下载目录: %s", cfg.GetDownloadsDir()))
 
 	// 初始化数据库
 	db, err := storage.New(appDataDir)
 	if err != nil {
-		runtime.LogError(a.ctx, fmt.Sprintf("数据库初始化失败: %v", err))
+		logger.Error(fmt.Sprintf("数据库初始化失败: %v", err))
 		panic(err)
 	}
 	a.db = db
@@ -147,12 +154,12 @@ func (a *App) startup(ctx context.Context) {
 
 	// 自动设置主要版本（如果没有的话）
 	if err := a.versionMgr.AutoSetPrimaryVersion(); err != nil {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("自动设置主要版本: %v", err))
+		logger.Info(fmt.Sprintf("自动设置主要版本: %v", err))
 	}
 
 	// 自动导入未导入的版本
 	if err := a.AutoImportVersions(); err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("自动导入版本: %v", err))
+		logger.Warn(fmt.Sprintf("自动导入版本: %v", err))
 	}
 
 	// 自动检测 GameVersion 为 unknown 的版本
@@ -161,23 +168,23 @@ func (a *App) startup(ctx context.Context) {
 	// 默认清单源自动测速：比较主线/镜像线路，哪个快用哪个（后台执行，不阻塞启动）
 	go a.autoSpeedTestDefaultManifest()
 
-	runtime.LogInfo(a.ctx, "SCLauncher 初始化完成！")
+	logger.Info("SCLauncher 初始化完成！")
 }
 
 // autoSpeedTestDefaultManifest 后台执行默认清单线路测速
 func (a *App) autoSpeedTestDefaultManifest() {
 	results, err := a.config.ApplyDefaultManifestSpeedTest()
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("默认清单线路测速结果保存失败: %v", err))
+		logger.Warn(fmt.Sprintf("默认清单线路测速结果保存失败: %v", err))
 	}
 	for _, r := range results {
 		if r.OK {
-			runtime.LogInfo(a.ctx, fmt.Sprintf("清单线路测速 %s(%s): %dms", r.Line, r.URL, r.LatencyMs))
+			logger.Info(fmt.Sprintf("清单线路测速 %s(%s): %dms", r.Line, r.URL, r.LatencyMs))
 		} else {
-			runtime.LogWarning(a.ctx, fmt.Sprintf("清单线路测速 %s(%s) 失败: %s", r.Line, r.URL, r.Error))
+			logger.Warn(fmt.Sprintf("清单线路测速 %s(%s) 失败: %s", r.Line, r.URL, r.Error))
 		}
 	}
-	runtime.LogInfo(a.ctx, fmt.Sprintf("默认清单线路已选定: %s", a.config.DefaultManifestURL))
+	logger.Info(fmt.Sprintf("默认清单线路已选定: %s", a.config.DefaultManifestURL))
 }
 
 // shutdown 应用关闭时调用
@@ -191,6 +198,9 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.db != nil {
 		a.db.Close()
 	}
+
+	logger.Info("=== SCLauncher 关闭 ===")
+	logger.Close()
 }
 
 // ========== 配置相关 API ==========
@@ -357,7 +367,7 @@ func (a *App) SetCurrentManifestSource(id string) error {
 func (a *App) TestDefaultManifestSpeed() map[string]interface{} {
 	results, err := a.config.ApplyDefaultManifestSpeedTest()
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("默认清单线路测速结果保存失败: %v", err))
+		logger.Warn(fmt.Sprintf("默认清单线路测速结果保存失败: %v", err))
 	}
 
 	// 转为前端友好的格式
@@ -429,7 +439,7 @@ func (a *App) getWindowsLanguage() string {
 	cmd := exec.Command("powershell", "-Command", "Get-WinSystemLanguageList")
 	output, err := cmd.Output()
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("Failed to get Windows language: %v", err))
+		logger.Warn(fmt.Sprintf("Failed to get Windows language: %v", err))
 		return "en-US"
 	}
 
@@ -450,7 +460,7 @@ func (a *App) getMacOSLanguage() string {
 	cmd := exec.Command("defaults", "read", "-g", "AppleLanguages")
 	output, err := cmd.Output()
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("Failed to get macOS language: %v", err))
+		logger.Warn(fmt.Sprintf("Failed to get macOS language: %v", err))
 		return "en-US"
 	}
 
@@ -506,13 +516,13 @@ func (a *App) formatSystemLanguage(systemLang string) string {
 func (a *App) AutoDetectLanguage() error {
 	// 如果配置文件中语言已设置且不为空，则不覆盖
 	if a.config.Language != "" {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("Language already set to: %s", a.config.Language))
+		logger.Info(fmt.Sprintf("Language already set to: %s", a.config.Language))
 		return nil
 	}
 
 	// 获取系统语言
 	systemLang := a.GetSystemLanguage()
-	runtime.LogInfo(a.ctx, fmt.Sprintf("Auto-detected system language: %s", systemLang))
+	logger.Info(fmt.Sprintf("Auto-detected system language: %s", systemLang))
 
 	// 设置语言
 	return a.config.SetLanguage(systemLang)
@@ -746,6 +756,32 @@ func (a *App) OpenVersionModsFolder(versionID string) error {
 	return nil
 }
 
+// OpenLogsFolder 打开启动器日志目录（.Survivalcraft/Logs，按天分隔，保留 7 天）
+func (a *App) OpenLogsFolder() error {
+	logsDir := filepath.Join(config.GetAppDataDir(), "Logs")
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
+	runtime.BrowserOpenURL(a.ctx, "file:///"+logsDir)
+	return nil
+}
+
+// WriteFrontendLog 前端日志上报入口（console/onerror/promise 拦截后写入启动器日志）
+func (a *App) WriteFrontendLog(level, message string) error {
+	msg := fmt.Sprintf("[前端] %s", message)
+	switch strings.ToLower(level) {
+	case "warn", "warning":
+		logger.Warn(msg)
+	case "error", "fatal":
+		logger.Error(msg)
+	case "debug":
+		logger.Debug(msg)
+	default:
+		logger.Info(msg)
+	}
+	return nil
+}
+
 // ========== 游戏管理 API ==========
 
 // SelectGameFolder 选择游戏文件夹
@@ -792,7 +828,7 @@ func (a *App) AutoImportVersions() error {
 		if _, err := os.Stat(metaFile); err == nil {
 			// 这是外部导入的版本，已经在 ImportGameVersion 时处理过
 			// 但可能数据库记录丢失了，尝试重新导入
-			runtime.LogInfo(a.ctx, fmt.Sprintf("发现外部导入版本但数据库记录缺失: %s", versionID))
+			logger.Info(fmt.Sprintf("发现外部导入版本但数据库记录缺失: %s", versionID))
 			continue
 		}
 
@@ -800,12 +836,12 @@ func (a *App) AutoImportVersions() error {
 		exePath, err := a.findGameExecutableInFolder(versionPath)
 		if err != nil {
 			// 不是有效的游戏文件夹，跳过
-			runtime.LogInfo(a.ctx, fmt.Sprintf("跳过无效的游戏文件夹: %s", versionPath))
+			logger.Info(fmt.Sprintf("跳过无效的游戏文件夹: %s", versionPath))
 			continue
 		}
 
 		// 这是一个有效的游戏文件夹，但未在数据库中，自动添加
-		runtime.LogInfo(a.ctx, fmt.Sprintf("发现未记录的游戏版本: %s", versionID))
+		logger.Info(fmt.Sprintf("发现未记录的游戏版本: %s", versionID))
 
 		// 尝试从文件夹名解析版本信息
 		versionModel := &storage.VersionModel{
@@ -819,16 +855,16 @@ func (a *App) AutoImportVersions() error {
 
 		// 保存到数据库
 		if err := a.repository.CreateVersion(versionModel); err != nil {
-			runtime.LogWarning(a.ctx, fmt.Sprintf("自动导入版本失败 %s: %v", versionID, err))
+			logger.Warn(fmt.Sprintf("自动导入版本失败 %s: %v", versionID, err))
 			continue
 		}
 
 		importedCount++
-		runtime.LogInfo(a.ctx, fmt.Sprintf("成功自动注册游戏版本: %s", versionID))
+		logger.Info(fmt.Sprintf("成功自动注册游戏版本: %s", versionID))
 	}
 
 	if importedCount > 0 {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("自动导入完成！共导入 %d 个版本", importedCount))
+		logger.Info(fmt.Sprintf("自动导入完成！共导入 %d 个版本", importedCount))
 	}
 
 	return nil
@@ -838,7 +874,7 @@ func (a *App) AutoImportVersions() error {
 func (a *App) detectUnknownVersions() {
 	versions, err := a.repository.ListVersions()
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("获取版本列表失败: %v", err))
+		logger.Warn(fmt.Sprintf("获取版本列表失败: %v", err))
 		return
 	}
 
@@ -863,16 +899,16 @@ func (a *App) detectUnknownVersions() {
 
 		v.GameVersion = ver
 		if err := a.repository.UpdateVersion(&v); err != nil {
-			runtime.LogWarning(a.ctx, fmt.Sprintf("更新版本 %s 的版本号失败: %v", v.ID, err))
+			logger.Warn(fmt.Sprintf("更新版本 %s 的版本号失败: %v", v.ID, err))
 			continue
 		}
 
 		detected++
-		runtime.LogInfo(a.ctx, fmt.Sprintf("自动检测版本 %s -> %s", v.ID, ver))
+		logger.Info(fmt.Sprintf("自动检测版本 %s -> %s", v.ID, ver))
 	}
 
 	if detected > 0 {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("版本号自动检测完成，共更新 %d 个版本", detected))
+		logger.Info(fmt.Sprintf("版本号自动检测完成，共更新 %d 个版本", detected))
 	}
 }
 
@@ -912,9 +948,9 @@ func (a *App) ImportGameVersion(folderPath string) (string, error) {
 	if ver, err := version.ReadGameVersion(folderPath); err == nil {
 		versionModel.GameVersion = ver
 		a.repository.UpdateVersion(versionModel)
-		runtime.LogInfo(a.ctx, fmt.Sprintf("从 DLL 检测到版本号: %s", ver))
+		logger.Info(fmt.Sprintf("从 DLL 检测到版本号: %s", ver))
 	} else {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("DLL 版本检测失败: %v", err))
+		logger.Warn(fmt.Sprintf("DLL 版本检测失败: %v", err))
 	}
 
 	// 创建版本目录（用于存储元数据）
@@ -930,7 +966,7 @@ func (a *App) ImportGameVersion(folderPath string) (string, error) {
 		return "", fmt.Errorf("写入元数据失败: %v", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功导入游戏版本: %s from %s", versionID, folderPath))
+	logger.Info(fmt.Sprintf("成功导入游戏版本: %s from %s", versionID, folderPath))
 	return versionID, nil
 }
 
@@ -1045,14 +1081,14 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 	}
 	defer os.RemoveAll(tempDir) // 清理临时目录
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始解压文件: %s 到 %s", archivePath, tempDir))
+	logger.Info(fmt.Sprintf("开始解压文件: %s 到 %s", archivePath, tempDir))
 
 	// 解压文件（支持 zip、7z、rar 等多种格式）
 	installer := version.NewInstaller()
 
 	// 检查文件类型（仅用于提示信息）
 	ext := strings.ToLower(filepath.Ext(archivePath))
-	runtime.LogInfo(a.ctx, fmt.Sprintf("检测到压缩包格式: %s", ext))
+	logger.Info(fmt.Sprintf("检测到压缩包格式: %s", ext))
 
 	// 解压文件
 	if err := installer.Install(archivePath, tempDir, func(current, total int64) {
@@ -1066,7 +1102,7 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 		return "", fmt.Errorf("解压文件失败: %v", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("解压完成，检查游戏文件..."))
+	logger.Info(fmt.Sprintf("解压完成，检查游戏文件..."))
 
 	// 检查解压后的目录是否包含游戏可执行文件
 	exePath, err := a.findGameExecutableInFolder(tempDir)
@@ -1074,7 +1110,7 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 		return "", fmt.Errorf("压缩包中未找到游戏文件(Survivalcraft.exe): %v", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("找到游戏文件: %s", exePath))
+	logger.Info(fmt.Sprintf("找到游戏文件: %s", exePath))
 
 	// 创建最终版本目录
 	versionPath := a.paths.GetVersionPath(versionID)
@@ -1085,13 +1121,13 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 	// 移动解压的文件到最终目录
 	if err := os.Rename(tempDir, versionPath); err != nil {
 		// 如果重命名失败（可能在不同的驱动器），尝试复制
-		runtime.LogWarning(a.ctx, fmt.Sprintf("重命名失败，尝试复制文件: %v", err))
+		logger.Warn(fmt.Sprintf("重命名失败，尝试复制文件: %v", err))
 		if err := installer.Install(archivePath, versionPath, nil); err != nil {
 			return "", fmt.Errorf("移动文件到最终目录失败: %v", err)
 		}
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("文件已移动到: %s", versionPath))
+	logger.Info(fmt.Sprintf("文件已移动到: %s", versionPath))
 
 	// 如果没有提供自定义名称，使用压缩包文件名
 	if customName == "" {
@@ -1118,12 +1154,12 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 	if ver, err := version.ReadGameVersion(versionPath); err == nil {
 		versionModel.GameVersion = ver
 		a.repository.UpdateVersion(versionModel)
-		runtime.LogInfo(a.ctx, fmt.Sprintf("从 DLL 检测到版本号: %s", ver))
+		logger.Info(fmt.Sprintf("从 DLL 检测到版本号: %s", ver))
 	} else {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("DLL 版本检测失败: %v", err))
+		logger.Warn(fmt.Sprintf("DLL 版本检测失败: %v", err))
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功从压缩包安装游戏版本: %s", versionID))
+	logger.Info(fmt.Sprintf("成功从压缩包安装游戏版本: %s", versionID))
 	return versionID, nil
 }
 
@@ -1134,7 +1170,7 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 		return "", fmt.Errorf("文件不存在: %s", modpackPath)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装整合包: %s", modpackPath))
+	logger.Info(fmt.Sprintf("开始安装整合包: %s", modpackPath))
 
 	// 使用解析器解析整合包
 	manifest, err := a.modpackRegistry.ParseModpack(modpackPath)
@@ -1142,7 +1178,7 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 		return "", fmt.Errorf("解析整合包失败: %v", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
+	logger.Info(fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
 
 	// 生成版本ID（添加随机数防止冲突）
 	randomSuffix := generateRandomSuffix(8)
@@ -1198,7 +1234,7 @@ func (a *App) InstallModpack(modpackPath string) (string, error) {
 		return "", fmt.Errorf("保存版本信息失败: %v", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功安装整合包: %s", versionID))
+	logger.Info(fmt.Sprintf("成功安装整合包: %s", versionID))
 	return versionID, nil
 }
 
@@ -1310,9 +1346,9 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 		return "", fmt.Errorf("文件不存在: %s", modpackPath)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装整合包: %s", modpackPath))
+	logger.Info(fmt.Sprintf("开始安装整合包: %s", modpackPath))
 	if baseVersionID != "" {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("使用基础版本: %s", baseVersionID))
+		logger.Info(fmt.Sprintf("使用基础版本: %s", baseVersionID))
 	}
 
 	// 使用解析器解析整合包
@@ -1321,7 +1357,7 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 		return "", fmt.Errorf("解析整合包失败: %v", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
+	logger.Info(fmt.Sprintf("整合包解析成功: %s v%s (作者: %s)", manifest.Name, manifest.Version, manifest.Author))
 
 	var versionID string
 	var versionPath string
@@ -1343,7 +1379,7 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 		versionID = baseVersionID
 		versionPath = baseVersionPath
 
-		runtime.LogInfo(a.ctx, fmt.Sprintf("手动模式：直接在版本 %s 上安装模组和覆盖文件", baseVersionID))
+		logger.Info(fmt.Sprintf("手动模式：直接在版本 %s 上安装模组和覆盖文件", baseVersionID))
 	} else {
 		// 自动模式：生成新的版本ID
 		randomSuffix := generateRandomSuffix(8)
@@ -1357,9 +1393,9 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 	}
 
 	// 设置进度回调
-	runtime.LogInfo(a.ctx, fmt.Sprintf("设置进度回调: versionID=%s", versionID))
+	logger.Info(fmt.Sprintf("设置进度回调: versionID=%s", versionID))
 	a.modpackInstaller.SetProgressCallback(func(stage string, progress float64, message string) {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("进度更新: stage=%s, progress=%.2f, message=%s", stage, progress, message))
+		logger.Info(fmt.Sprintf("进度更新: stage=%s, progress=%.2f, message=%s", stage, progress, message))
 		runtime.EventsEmit(a.ctx, "modpack:install:progress", map[string]interface{}{
 			"stage":    stage,
 			"progress": progress,
@@ -1373,31 +1409,31 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 		"name":      manifest.Name,
 		"version":   manifest.Version,
 	})
-	runtime.LogInfo(a.ctx, fmt.Sprintf("发送开始安装事件: versionID=%s", versionID))
+	logger.Info(fmt.Sprintf("发送开始安装事件: versionID=%s", versionID))
 
 	// 执行安装（在后台运行）
 	go func() {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("后台安装任务已启动: versionID=%s", versionID))
+		logger.Info(fmt.Sprintf("后台安装任务已启动: versionID=%s", versionID))
 		defer func() {
 			if r := recover(); r != nil {
-				runtime.LogInfo(a.ctx, fmt.Sprintf("安装任务发生panic: %v", r))
+				logger.Info(fmt.Sprintf("安装任务发生panic: %v", r))
 				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 					"error": fmt.Sprintf("安装过程中发生错误: %v", r),
 				})
 			}
 		}()
 
-		runtime.LogInfo(a.ctx, fmt.Sprintf("开始调用安装器: versionID=%s", versionID))
+		logger.Info(fmt.Sprintf("开始调用安装器: versionID=%s", versionID))
 		err := a.modpackInstaller.Install(manifest, versionID)
 		if err != nil {
-			runtime.LogInfo(a.ctx, fmt.Sprintf("安装器返回错误: %v", err))
+			logger.Info(fmt.Sprintf("安装器返回错误: %v", err))
 			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 				"error": err.Error(),
 			})
-			runtime.LogError(a.ctx, fmt.Sprintf("安装整合包失败: %v", err))
+			logger.Error(fmt.Sprintf("安装整合包失败: %v", err))
 			return
 		}
-		runtime.LogInfo(a.ctx, fmt.Sprintf("安装器执行成功，准备保存版本信息"))
+		logger.Info(fmt.Sprintf("安装器执行成功，准备保存版本信息"))
 
 		// 在手动模式下，不需要创建新版本记录，版本已经存在
 		// 在自动模式下，创建新的版本记录
@@ -1418,7 +1454,7 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 					"error": fmt.Sprintf("保存版本信息失败: %v", err),
 				})
-				runtime.LogError(a.ctx, fmt.Sprintf("保存版本信息失败: %v", err))
+				logger.Error(fmt.Sprintf("保存版本信息失败: %v", err))
 				return
 			}
 		}
@@ -1429,7 +1465,7 @@ func (a *App) InstallModpackWithProgress(modpackPath string, baseVersionID strin
 			"name":      manifest.Name,
 		})
 
-		runtime.LogInfo(a.ctx, fmt.Sprintf("成功安装整合包: %s", versionID))
+		logger.Info(fmt.Sprintf("成功安装整合包: %s", versionID))
 	}()
 
 	return versionID, nil
@@ -1517,7 +1553,7 @@ func (a *App) InstallScbbsModpack(modpackPath string, targetVersionID string) (s
 		return "", fmt.Errorf("文件不存在: %s", modpackPath)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始安装 scbbs 整合包: %s -> 版本 %s", modpackPath, targetVersionID))
+	logger.Info(fmt.Sprintf("开始安装 scbbs 整合包: %s -> 版本 %s", modpackPath, targetVersionID))
 
 	result, err := scbbs.Parse(modpackPath)
 	if err != nil {
@@ -1564,7 +1600,7 @@ func (a *App) InstallScbbsModpack(modpackPath string, targetVersionID string) (s
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				runtime.LogError(a.ctx, fmt.Sprintf("scbbs 安装任务 panic: %v", r))
+				logger.Error(fmt.Sprintf("scbbs 安装任务 panic: %v", r))
 				runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 					"error": fmt.Sprintf("安装过程中发生错误: %v", r),
 				})
@@ -1573,7 +1609,7 @@ func (a *App) InstallScbbsModpack(modpackPath string, targetVersionID string) (s
 
 		summary, err := a.scbbsInstaller.Install(result, targetVersionID)
 		if err != nil {
-			runtime.LogError(a.ctx, fmt.Sprintf("scbbs 整合包安装失败: %v", err))
+			logger.Error(fmt.Sprintf("scbbs 整合包安装失败: %v", err))
 			runtime.EventsEmit(a.ctx, "modpack:install:error", map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -1585,7 +1621,7 @@ func (a *App) InstallScbbsModpack(modpackPath string, targetVersionID string) (s
 			"name":      manifest.Name,
 			"summary":   summary,
 		})
-		runtime.LogInfo(a.ctx, fmt.Sprintf("scbbs 整合包安装完成: %s -> %s", manifest.Name, targetVersionID))
+		logger.Info(fmt.Sprintf("scbbs 整合包安装完成: %s -> %s", manifest.Name, targetVersionID))
 	}()
 
 	return targetVersionID, nil
@@ -1689,7 +1725,7 @@ func (a *App) DownloadModpackFromURL(downloadURL, fileName string) (string, erro
 		return "", fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("整合包下载完成: %s -> %s", downloadURL, tempPath))
+	logger.Info(fmt.Sprintf("整合包下载完成: %s -> %s", downloadURL, tempPath))
 
 	// 发送下载完成事件
 	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
@@ -1840,7 +1876,7 @@ func (a *App) CheckDotNetRuntime(versionID string) (map[string]interface{}, erro
 	result["tfm"] = status.TFM
 
 	if a.ctx != nil {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("[.NET检查] version=%s gameDir=%s source=%s needed=%v major=%d installed=%v tfm=%q",
+		logger.Info(fmt.Sprintf("[.NET检查] version=%s gameDir=%s source=%s needed=%v major=%d installed=%v tfm=%q",
 			versionID, gameDir, status.Source, status.Needed, status.MajorVersion, status.Installed, status.TFM))
 	}
 	return result, nil
@@ -1947,7 +1983,7 @@ func (a *App) DetectGameVersion(versionID string) (string, error) {
 		return "", fmt.Errorf("更新版本信息失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("已更新版本 %s 的游戏版本号: %s", versionID, ver))
+	logger.Info(fmt.Sprintf("已更新版本 %s 的游戏版本号: %s", versionID, ver))
 	return ver, nil
 }
 
@@ -1998,7 +2034,7 @@ func (a *App) CheckUpdate() (map[string]interface{}, error) {
 func (a *App) CheckUpdateWithForce(force bool) (map[string]interface{}, error) {
 	// 如果不是强制检查，检查是否应该在期限内跳过
 	if !force && !a.config.ShouldCheckUpdate() {
-		runtime.LogInfo(a.ctx, "Update check is disabled by user preference")
+		logger.Info("Update check is disabled by user preference")
 		return map[string]interface{}{
 			"currentVersion": appinfo.Version,
 			"latestVersion":  appinfo.Version,
@@ -2010,8 +2046,8 @@ func (a *App) CheckUpdateWithForce(force bool) (map[string]interface{}, error) {
 	// 获取最新 release
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", appinfo.RepoOwner, appinfo.RepoName)
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("Checking for updates from: %s", url))
-	runtime.LogInfo(a.ctx, fmt.Sprintf("Current version: %s", appinfo.Version))
+	logger.Info(fmt.Sprintf("Checking for updates from: %s", url))
+	logger.Info(fmt.Sprintf("Current version: %s", appinfo.Version))
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -2019,32 +2055,32 @@ func (a *App) CheckUpdateWithForce(force bool) (map[string]interface{}, error) {
 
 	resp, err := client.Get(url)
 	if err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("获取更新信息失败: %v", err))
+		logger.Warn(fmt.Sprintf("获取更新信息失败: %v", err))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("GitHub API 返回错误状态码: %d", resp.StatusCode)
-		runtime.LogWarning(a.ctx, err.Error())
+		logger.Warn(err.Error())
 		return nil, err
 	}
 
 	var release GitHubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		runtime.LogWarning(a.ctx, fmt.Sprintf("解析 release 信息失败: %v", err))
+		logger.Warn(fmt.Sprintf("解析 release 信息失败: %v", err))
 		return nil, err
 	}
 
 	// 移除版本号前的 'v' 前缀
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("Latest version from GitHub: %s (tag: %s)", latestVersion, release.TagName))
+	logger.Info(fmt.Sprintf("Latest version from GitHub: %s (tag: %s)", latestVersion, release.TagName))
 
 	// 比较版本号
 	hasUpdate := compareVersions(appinfo.Version, latestVersion)
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("Has update: %v (current: %s, latest: %s)", hasUpdate, appinfo.Version, latestVersion))
+	logger.Info(fmt.Sprintf("Has update: %v (current: %s, latest: %s)", hasUpdate, appinfo.Version, latestVersion))
 
 	return map[string]interface{}{
 		"currentVersion": appinfo.Version,
@@ -2171,7 +2207,7 @@ func (a *App) DeleteMod(versionID, modID string) error {
 
 // DownloadModFromURL 从URL下载模组
 func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error {
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载模组: %s -> %s", downloadURL, fileName))
+	logger.Info(fmt.Sprintf("开始下载模组: %s -> %s", downloadURL, fileName))
 
 	// 生成唯一的下载任务ID
 	downloadID := fmt.Sprintf("mod-%s-%s", versionID, fileName)
@@ -2247,7 +2283,7 @@ func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error 
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("模组下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+	logger.Info(fmt.Sprintf("模组下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
 
 	// 发送下载完成事件
 	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
@@ -2266,7 +2302,7 @@ func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error 
 		return fmt.Errorf("导入模组失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, "模组下载并安装成功")
+	logger.Info("模组下载并安装成功")
 	return nil
 }
 
@@ -2312,7 +2348,7 @@ func (a *App) HttpRequest(url, method string, headers map[string]string, body st
 	}
 
 	if a.ctx != nil {
-		runtime.LogInfo(a.ctx, fmt.Sprintf("HTTP 代理请求: %s %s -> %d", method, url, resp.StatusCode))
+		logger.Info(fmt.Sprintf("HTTP 代理请求: %s %s -> %d", method, url, resp.StatusCode))
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -2353,21 +2389,21 @@ func (a *App) GetModSources() ([]map[string]interface{}, error) {
 		filePath := filepath.Join(sourcesDir, file.Name())
 		data, err := os.ReadFile(filePath)
 		if err != nil {
-			runtime.LogWarning(a.ctx, fmt.Sprintf("读取下载源配置失败: %s, 错误: %v", filePath, err))
+			logger.Warn(fmt.Sprintf("读取下载源配置失败: %s, 错误: %v", filePath, err))
 			continue
 		}
 
 		// 解析 JSON
 		var source map[string]interface{}
 		if err := json.Unmarshal(data, &source); err != nil {
-			runtime.LogWarning(a.ctx, fmt.Sprintf("解析下载源配置失败: %s, 错误: %v", filePath, err))
+			logger.Warn(fmt.Sprintf("解析下载源配置失败: %s, 错误: %v", filePath, err))
 			continue
 		}
 
 		sources = append(sources, source)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功加载 %d 个自定义下载源", len(sources)))
+	logger.Info(fmt.Sprintf("成功加载 %d 个自定义下载源", len(sources)))
 	return sources, nil
 }
 
@@ -2413,7 +2449,7 @@ func (a *App) SaveModSources(sources []map[string]interface{}) error {
 			return fmt.Errorf("保存下载源配置失败: %w", err)
 		}
 
-		runtime.LogInfo(a.ctx, fmt.Sprintf("保存下载源: %s -> %s", sourceID, filePath))
+		logger.Info(fmt.Sprintf("保存下载源: %s -> %s", sourceID, filePath))
 	}
 
 	// 清理不再存在的源文件
@@ -2434,14 +2470,14 @@ func (a *App) SaveModSources(sources []map[string]interface{}) error {
 		if !validSourceIDs[sourceID] {
 			filePath := filepath.Join(sourcesDir, file.Name())
 			if err := os.Remove(filePath); err != nil {
-				runtime.LogWarning(a.ctx, fmt.Sprintf("删除旧源配置文件失败: %s, 错误: %v", filePath, err))
+				logger.Warn(fmt.Sprintf("删除旧源配置文件失败: %s, 错误: %v", filePath, err))
 			} else {
-				runtime.LogInfo(a.ctx, fmt.Sprintf("删除旧源配置文件: %s", filePath))
+				logger.Info(fmt.Sprintf("删除旧源配置文件: %s", filePath))
 			}
 		}
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功保存 %d 个自定义下载源", len(sources)))
+	logger.Info(fmt.Sprintf("成功保存 %d 个自定义下载源", len(sources)))
 	return nil
 }
 
@@ -2492,7 +2528,7 @@ func (a *App) GetSkinImage(fileName string) (string, error) {
 
 // DownloadSkinFromURL 从URL下载皮肤
 func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载皮肤: %s -> %s", downloadURL, fileName))
+	logger.Info(fmt.Sprintf("开始下载皮肤: %s -> %s", downloadURL, fileName))
 
 	// 验证文件扩展名
 	if !strings.HasSuffix(strings.ToLower(fileName), ".scskin") {
@@ -2572,7 +2608,7 @@ func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("皮肤下载完成，正在导入: %s", fileName))
+	logger.Info(fmt.Sprintf("皮肤下载完成，正在导入: %s", fileName))
 
 	// 发送下载完成事件
 	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
@@ -2634,7 +2670,7 @@ func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
 		return fmt.Errorf("复制文件内容失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, "皮肤下载并安装成功")
+	logger.Info("皮肤下载并安装成功")
 	return nil
 }
 
@@ -2847,7 +2883,7 @@ func (a *App) ImportSaveGame(versionID, sourcePath string) error {
 
 // DownloadSaveGameFromURL 从URL下载存档，返回落地存档目录名（供前端进一步解析所需模组）
 func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) (string, error) {
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载存档: %s -> %s", downloadURL, fileName))
+	logger.Info(fmt.Sprintf("开始下载存档: %s -> %s", downloadURL, fileName))
 
 	// 生成唯一的下载任务ID
 	downloadID := fmt.Sprintf("savegame-%s-%s", versionID, fileName)
@@ -2886,7 +2922,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) (
 	tempPath := tempFile.Name()
 	defer os.Remove(tempPath) // 确保临时文件被删除
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("临时文件路径: %s", tempPath))
+	logger.Info(fmt.Sprintf("临时文件路径: %s", tempPath))
 
 	// 下载文件
 	client := &http.Client{
@@ -2939,7 +2975,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) (
 		return "", fmt.Errorf("保存下载内容失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("存档下载完成，正在导入: %s", tempPath))
+	logger.Info(fmt.Sprintf("存档下载完成，正在导入: %s", tempPath))
 
 	// 发送下载完成事件
 	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
@@ -2959,7 +2995,7 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) (
 		return "", fmt.Errorf("导入存档失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("存档导入成功: %s -> %s", fileName, saveName))
+	logger.Info(fmt.Sprintf("存档导入成功: %s -> %s", fileName, saveName))
 	return saveName, nil
 }
 
@@ -3091,7 +3127,7 @@ func (a *App) GetFurnitures(versionID string) ([]Furniture, error) {
 		})
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("找到 %d 个家具包", len(furnitures)))
+	logger.Info(fmt.Sprintf("找到 %d 个家具包", len(furnitures)))
 	return furnitures, nil
 }
 
@@ -3203,13 +3239,13 @@ func (a *App) ImportFurniture(versionID, sourcePath string) error {
 		return fmt.Errorf("复制文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功导入家具包: %s -> %s", fileName, furniturePath))
+	logger.Info(fmt.Sprintf("成功导入家具包: %s -> %s", fileName, furniturePath))
 	return nil
 }
 
 // DownloadFurnitureFromURL 从URL下载家具
 func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) error {
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载家具: %s -> %s", downloadURL, fileName))
+	logger.Info(fmt.Sprintf("开始下载家具: %s -> %s", downloadURL, fileName))
 
 	// 获取版本路径
 	versionPath := a.paths.GetVersionPath(versionID)
@@ -3334,7 +3370,7 @@ func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) 
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("家具下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+	logger.Info(fmt.Sprintf("家具下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
 
 	// 发送下载完成事件
 	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
@@ -3379,7 +3415,7 @@ func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) 
 		}
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("家具下载并安装成功: %s", fileName))
+	logger.Info(fmt.Sprintf("家具下载并安装成功: %s", fileName))
 	return nil
 }
 
@@ -3439,7 +3475,7 @@ func (a *App) DeleteFurniture(versionID, furnitureID string) error {
 		return fmt.Errorf("删除家具包失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功删除家具包: %s", furnitureID))
+	logger.Info(fmt.Sprintf("成功删除家具包: %s", furnitureID))
 	return nil
 }
 
@@ -3501,7 +3537,7 @@ func (a *App) RenameFurniture(versionID, furnitureID, newName string) error {
 		return fmt.Errorf("重命名家具包失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功重命名家具包: %s -> %s", furnitureID, newName))
+	logger.Info(fmt.Sprintf("成功重命名家具包: %s -> %s", furnitureID, newName))
 	return nil
 }
 
@@ -3590,7 +3626,7 @@ func (a *App) GetTextures(versionID string) ([]Texture, error) {
 		}
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("找到 %d 个材质包", len(textures)))
+	logger.Info(fmt.Sprintf("找到 %d 个材质包", len(textures)))
 	return result, nil
 }
 
@@ -3689,13 +3725,13 @@ func (a *App) ImportTexture(versionID, sourcePath string) error {
 		return fmt.Errorf("复制文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("成功导入材质包: %s", fileName))
+	logger.Info(fmt.Sprintf("成功导入材质包: %s", fileName))
 	return nil
 }
 
 // DownloadTextureFromURL 从URL下载材质
 func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) error {
-	runtime.LogInfo(a.ctx, fmt.Sprintf("开始下载材质: %s -> %s", downloadURL, fileName))
+	logger.Info(fmt.Sprintf("开始下载材质: %s -> %s", downloadURL, fileName))
 
 	// 获取材质文件夹路径
 	texturePath, err := a.textureMgr.GetTexturePath(versionID)
@@ -3782,7 +3818,7 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 		return fmt.Errorf("保存文件失败: %w", err)
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("材质下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
+	logger.Info(fmt.Sprintf("材质下载完成，正在导入到版本: %s，文件名: %s", versionID, fileName))
 
 	// 发送下载完成事件
 	runtime.EventsEmit(a.ctx, "resource-download:complete", map[string]interface{}{
@@ -3827,7 +3863,7 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 		}
 	}
 
-	runtime.LogInfo(a.ctx, fmt.Sprintf("材质下载并安装成功: %s", fileName))
+	logger.Info(fmt.Sprintf("材质下载并安装成功: %s", fileName))
 	return nil
 }
 

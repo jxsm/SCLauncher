@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"SCLauncher/backend/config"
+	"SCLauncher/backend/logger"
 	"SCLauncher/backend/skin"
 	"SCLauncher/backend/storage"
 
@@ -112,7 +113,7 @@ func (g *GameManager) Launch(versionID string) error {
 	if err := skinManager.SyncSkinsToGame(versionID); err != nil {
 		// 皮肤同步失败不阻塞游戏启动，只记录警告
 		if g.ctx != nil {
-			runtime.LogWarning(g.ctx, fmt.Sprintf("皮肤同步失败: %v", err))
+			logger.Warn(fmt.Sprintf("皮肤同步失败: %v", err))
 		}
 		fmt.Printf("Warning: failed to sync skins: %v\n", err)
 	}
@@ -157,9 +158,9 @@ func (g *GameManager) Launch(versionID string) error {
 			}
 		}
 		if g.ctx != nil {
-			runtime.LogWarning(g.ctx, fmt.Sprintf("dotnet 启动 Survivalcraft.dll 失败(%v)，回退 Survivalcraft.exe", dotnetErr))
+			logger.Warn(fmt.Sprintf("dotnet 启动 Survivalcraft.dll 失败(%v)，回退 Survivalcraft.exe", dotnetErr))
 			if dotnetLog != "" {
-				runtime.LogWarning(g.ctx, fmt.Sprintf("dotnet 输出: %s", truncateLog(dotnetLog, 1000)))
+				logger.Warn(fmt.Sprintf("dotnet 输出: %s", truncateLog(dotnetLog, 1000)))
 			}
 		}
 	}
@@ -208,8 +209,8 @@ const createNoWindow = 0x08000000
 func (g *GameManager) finishLaunch(versionID string, cmd *exec.Cmd, waitCh <-chan error, stdout *syncBuffer, fallbackLog, method string) error {
 	// 记录日志
 	if g.ctx != nil {
-		runtime.LogInfo(g.ctx, fmt.Sprintf("游戏进程启动成功: PID=%d, 启动方式=%s", cmd.Process.Pid, method))
-		runtime.LogInfo(g.ctx, fmt.Sprintf("工作目录: %s", g.paths.GetVersionPath(versionID)))
+		logger.Info(fmt.Sprintf("游戏进程启动成功: PID=%d, 启动方式=%s", cmd.Process.Pid, method))
+		logger.Info(fmt.Sprintf("工作目录: %s", g.paths.GetVersionPath(versionID)))
 	}
 
 	// 保存进程信息
@@ -497,7 +498,7 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout *
 
 	// 记录日志
 	if g.ctx != nil {
-		runtime.LogInfo(g.ctx, fmt.Sprintf("游戏进程退出: PID=%d, 退出码=%d, killed=%v", g.processID, exitCode, g.killed))
+		logger.Info(fmt.Sprintf("游戏进程退出: PID=%d, 退出码=%d, killed=%v", g.processID, exitCode, g.killed))
 	}
 
 	// 被用户主动终止 → 不算崩溃
@@ -509,7 +510,7 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout *
 		g.setStatus(StatusCrashed)
 		isCrashed = true
 		if g.ctx != nil {
-			runtime.LogError(g.ctx, fmt.Sprintf("游戏崩溃: PID=%d, 退出码=%d", g.processID, exitCode))
+			logger.Error(fmt.Sprintf("游戏崩溃: PID=%d, 退出码=%d", g.processID, exitCode))
 		}
 	} else {
 		g.setStatus(StatusStopped)
@@ -568,7 +569,7 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout *
 // 低版本路径：{gameDir}/Logs/Game.log
 func (g *GameManager) readGameLog(versionID string) string {
 	if g.gameWorkDir == "" {
-		runtime.LogWarning(g.ctx, "[GameLog] gameWorkDir is empty")
+		logger.Warn("[GameLog] gameWorkDir is empty")
 		return ""
 	}
 
@@ -579,11 +580,11 @@ func (g *GameManager) readGameLog(versionID string) string {
 	}
 
 	for _, gameLogPath := range candidates {
-		runtime.LogInfo(g.ctx, fmt.Sprintf("[GameLog] Trying: %s (offset=%d)", gameLogPath, g.gameLogOffset))
+		logger.Info(fmt.Sprintf("[GameLog] Trying: %s (offset=%d)", gameLogPath, g.gameLogOffset))
 
 		file, err := os.Open(gameLogPath)
 		if err != nil {
-			runtime.LogInfo(g.ctx, fmt.Sprintf("[GameLog] Not found: %v", err))
+			logger.Info(fmt.Sprintf("[GameLog] Not found: %v", err))
 			continue
 		}
 

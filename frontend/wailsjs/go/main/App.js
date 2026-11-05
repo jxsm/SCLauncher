@@ -266,6 +266,10 @@ export function OpenFurnitureFolder(arg1) {
   return window['go']['main']['App']['OpenFurnitureFolder'](arg1);
 }
 
+export function OpenLogsFolder() {
+  return window['go']['main']['App']['OpenLogsFolder']();
+}
+
 export function OpenSaveGameFolder(arg1, arg2) {
   return window['go']['main']['App']['OpenSaveGameFolder'](arg1, arg2);
 }
@@ -420,4 +424,8 @@ export function ToggleMod(arg1, arg2, arg3) {
 
 export function VersionExists(arg1) {
   return window['go']['main']['App']['VersionExists'](arg1);
+}
+
+export function WriteFrontendLog(arg1, arg2) {
+  return window['go']['main']['App']['WriteFrontendLog'](arg1, arg2);
 }

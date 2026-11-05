@@ -131,9 +131,9 @@ func (p *Paths) GetDatabasePath() string {
 	return filepath.Join(p.config.GetDataDir(), "database.db")
 }
 
-// GetLogPath 获取日志文件路径（绝对路径）
-func (p *Paths) GetLogPath() string {
-	return filepath.Join(p.config.GetDataDir(), "launcher.log")
+// GetLogsDir 获取启动器日志目录（绝对路径，按天分隔的日志文件存放处）
+func (p *Paths) GetLogsDir() string {
+	return filepath.Join(GetAppDataDir(), "Logs")
 }
 
 // GetConfigPath 获取配置文件路径

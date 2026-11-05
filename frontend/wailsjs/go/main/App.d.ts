@@ -138,6 +138,8 @@ export function LaunchGame(arg1:string):Promise<void>;
 
 export function OpenFurnitureFolder(arg1:string):Promise<void>;
 
+export function OpenLogsFolder():Promise<void>;
+
 export function OpenSaveGameFolder(arg1:string,arg2:string):Promise<void>;
 
 export function OpenTextureFolder(arg1:string):Promise<void>;
@@ -215,3 +217,5 @@ export function TestDefaultManifestSpeed():Promise<Record<string, any>>;
 export function ToggleMod(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 
 export function VersionExists(arg1:string):Promise<boolean>;
+
+export function WriteFrontendLog(arg1:string,arg2:string):Promise<void>;
