@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, h, computed } from 'vue'
+import { ref, onMounted, nextTick, h, computed, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useMessage, useDialog, NAlert } from 'naive-ui'
@@ -130,6 +130,9 @@ const route = useRoute()
 const message = useMessage()
 const dialog = useDialog()
 const versionStore = useVersionStore()
+
+// App.vue 提供：设置/清除背景后立即重载背景层与特效
+const reloadBackground = inject<() => Promise<void>>('reloadBackground', async () => {})
 
 // 常用/高级分区 + 深链定位（资源页「管理下载源」通过 /settings?tab=xxx 直达）
 const settingsTab = ref<'basic' | 'advanced'>('basic')
@@ -486,6 +489,8 @@ async function handleSelectBackground() {
     config.value = await GetConfig()
     // 加载背景预览
     await loadBackgroundPreview()
+    // 立即应用背景与特效（无需离开设置页）
+    await reloadBackground()
     message.success(t('settings.backgroundSetSuccess'))
   } catch (error) {
     message.error(t('settings.backgroundSetFailed') + '：' + error)
@@ -505,6 +510,8 @@ async function handleClearBackground() {
         config.value = await GetConfig()
         // 清除预览
         backgroundImagePreview.value = ''
+        // 立即移除背景层与半透明表面
+        await reloadBackground()
         message.success(t('settings.backgroundCleared'))
       } catch (error) {
         message.error(t('settings.saveFailed') + '：' + error)

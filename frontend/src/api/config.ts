@@ -82,6 +82,11 @@ export async function GetBackgroundImageBase64(): Promise<string> {
   return await AppBindings.GetBackgroundImageBase64()
 }
 
+// 设置背景特效（模糊半径 px、遮罩浓度 %、界面表面不透明度 %）
+export async function SetBackgroundEffects(blur: number, dim: number, surfaceOpacity: number): Promise<void> {
+  await AppBindings.SetBackgroundEffects(blur, dim, surfaceOpacity)
+}
+
 // 获取模组下载源配置
 export async function GetModSources(): Promise<any[]> {
   return await AppBindings.GetModSources()

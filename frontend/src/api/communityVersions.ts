@@ -13,8 +13,6 @@ import { HttpRequest } from './http'
 
 const COMMUNITY_API_BASE = 'https://m.suancaixianyu.cn'
 
-export type CommunityVersionType = 'original' | 'plugin' | 'online'
-
 export interface CommunityGameVersion {
   id: number
   name: string
@@ -66,97 +64,6 @@ export async function getCommunityGameVersions(): Promise<CommunityGameVersion[]
 export async function getCommunityGameVersionNames(): Promise<Map<number, string>> {
   const versions = await getCommunityGameVersions()
   return new Map(versions.map(v => [v.id, v.name]))
-}
-
-/**
- * 把本地清单的游戏版本号（如 "2.4"）解析为社区版本目录 ID（匹配 "2.4.x"），
- * 供筛选下拉默认选中当前主版本；找不到返回 null。
- */
-export async function resolveGameVersionId(gameVersion: string): Promise<number | null> {
-  const target = gameVersion.trim()
-  if (!target) return null
-  const versions = await getCommunityGameVersions()
-  // 先精确匹配，再去掉社区名的 ".x" 后缀匹配（"2.4.x" → "2.4"）
-  const exact = versions.find(v => v.name === target)
-  if (exact) return exact.id
-  const normalized = versions.find(v => v.name.replace(/\.x$/i, '') === target)
-  return normalized ? normalized.id : null
-}
-
-/** 提取所有数字段为数字数组（如 "api-1.9.5.1" → [1,9,5,1]，"x26.10" → [26,10]） */
-function extractVersionNumbers(text: string): number[] {
-  const matches = text.match(/\d+/g)
-  return matches ? matches.map(Number) : []
-}
-
-interface VersionMatchScore {
-  // 候选是当前版本数字串的（部分）前缀（候选更短或相等），如当前 [1,9,5,1] vs 候选 [1,9]
-  candidateIsPrefix: boolean
-  // 公共数字前缀长度，越大越接近
-  commonPrefix: number
-  // 前缀后首个不同数字段之差，越小越接近
-  nextDiff: number
-  // 数字段数差，越小越接近
-  lenDiff: number
-  // 候选数字段数，同分时越长越具体
-  candidateLen: number
-}
-
-// 数字段比较约定：Infinity 表示无下一个可比较段（视为最接近）
-const INF = Number.POSITIVE_INFINITY
-
-function scoreCandidate(target: number[], candidate: number[]): VersionMatchScore | null {
-  if (target.length === 0 || candidate.length === 0) return null
-  let prefix = 0
-  while (prefix < target.length && prefix < candidate.length && target[prefix] === candidate[prefix]) {
-    prefix++
-  }
-  return {
-    candidateIsPrefix: prefix === candidate.length,
-    commonPrefix: prefix,
-    nextDiff: prefix < Math.min(target.length, candidate.length)
-      ? Math.abs(target[prefix] - candidate[prefix])
-      : INF,
-    lenDiff: Math.abs(target.length - candidate.length),
-    candidateLen: candidate.length
-  }
-}
-
-/** 分数比较：返回正数表示 a 更优（参考 scbbs-plus-mod Posts.cs VersionMatchScore.CompareTo） */
-function compareMatchScore(a: VersionMatchScore, b: VersionMatchScore): number {
-  if (a.candidateIsPrefix !== b.candidateIsPrefix) return a.candidateIsPrefix ? 1 : -1
-  if (a.commonPrefix !== b.commonPrefix) return b.commonPrefix - a.commonPrefix
-  if (a.nextDiff !== b.nextDiff) return a.nextDiff < b.nextDiff ? 1 : -1
-  if (a.lenDiff !== b.lenDiff) return a.lenDiff < b.lenDiff ? 1 : -1
-  return b.candidateLen - a.candidateLen
-}
-
-/**
- * 在版本目录指定类型中为本地版本号找最佳匹配（参考 scbbs-plus-mod Posts.cs
- * FindBestPluginVersion：仅参与 status==1 且 type 匹配的目录条目，按数字段打分取最优）。
- * versionText 传版本的 subVersion：单机 API 版如 "api-1.9.5.1"（匹配 plugin 类），
- * 联机版如 "26.07.01.01"（匹配 online 类）；找不到返回 null。
- */
-export async function findBestCommunityVersion(
-  type: CommunityVersionType,
-  versionText: string
-): Promise<CommunityGameVersion | null> {
-  const text = (versionText || '').trim()
-  if (!text) return null
-  const target = extractVersionNumbers(text)
-  if (target.length === 0) return null
-
-  const versions = await getCommunityGameVersions()
-  let best: { version: CommunityGameVersion; score: VersionMatchScore } | null = null
-  for (const v of versions) {
-    if (v.status !== 1 || v.type !== type) continue
-    const score = scoreCandidate(target, extractVersionNumbers(v.version))
-    if (!score) continue
-    if (!best || compareMatchScore(score, best.score) > 0) {
-      best = { version: v, score }
-    }
-  }
-  return best?.version ?? null
 }
 
 /** 把帖子的 gameVersionIds 解析为游戏版本名列表（解析失败返回空数组，交由用户自选） */

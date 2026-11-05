@@ -1,11 +1,15 @@
 <template>
   <n-list-item
     :style="isPathMissing ? 'background-color: rgba(255, 0, 0, 0.05);' : ''"
+    @click="$emit('seen')"
   >
     <n-thing>
       <template #header>
         <n-space align="center">
           <n-text strong style="font-size: 16px;">{{ version.name }}</n-text>
+          <n-tag v-if="isNew" type="error" size="small" class="new-version-tag" :bordered="false">
+            NEW
+          </n-tag>
           <n-tag v-if="version.isPrimary" type="success" size="small">
             {{ t('installed.primary') }}
           </n-tag>
@@ -119,6 +123,7 @@ const props = defineProps<{
   isPathMissing: boolean
   isGameRunning: boolean
   launching?: boolean
+  isNew?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -128,6 +133,7 @@ const emit = defineEmits<{
   manageResources: [version: Version]
   rename: [version: Version]
   delete: [version: Version]
+  seen: []
 }>()
 
 const isImportedVersion = computed(() => {
@@ -154,3 +160,17 @@ const versionTypeColor = computed(() => {
   }
 })
 </script>
+
+<style scoped>
+/* NEW 标记：轻微呼吸动画帮助用户在长列表里快速定位新版本 */
+.new-version-tag {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  animation: new-tag-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes new-tag-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+</style>

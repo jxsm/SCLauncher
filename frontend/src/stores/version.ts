@@ -6,6 +6,9 @@ import * as versionApi from '../api/version'
 // localStorage key
 const MANIFEST_CACHE_KEY = 'sc_launcher_manifest_cache'
 const MANIFEST_CACHE_TIME_KEY = 'sc_launcher_manifest_cache_time'
+// 已安装版本的「NEW」标记：known 记录见过的已安装版本 id，new 记录尚未被用户查看的
+const KNOWN_VERSION_IDS_KEY = 'sc_launcher_known_version_ids'
+const NEW_VERSION_IDS_KEY = 'sc_launcher_new_version_ids'
 
 export const useVersionStore = defineStore('version', () => {
   // 状态
@@ -32,6 +35,62 @@ export const useVersionStore = defineStore('version', () => {
   const manifestCache = ref<Version[] | null>(null)
   const manifestCacheTime = ref<number | null>(null)
   const MANIFEST_CACHE_DURATION = 30 * 60 * 1000 // 30分钟（毫秒）
+
+  // 新安装/新导入版本的「NEW」标记（用户点击过即从集合移除）
+  const newVersionIds = ref<Set<string>>(new Set())
+
+  function loadIdArray(key: string): string[] | null {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.map(String) : null
+    } catch {
+      return null
+    }
+  }
+
+  function saveIdArray(key: string, ids: string[]) {
+    try {
+      localStorage.setItem(key, JSON.stringify(ids))
+    } catch (error) {
+      console.error('[Version] Failed to save new-version flags:', error)
+    }
+  }
+
+  /**
+   * 对比本次版本列表与 localStorage 记录，标记「新出现」的已安装版本：
+   * - 首次运行（无记录）只落盘当前列表，不产生标记，避免全部标 NEW
+   * - 之后新安装/导入的版本进入 NEW 集合；卸载的版本从集合剔除
+   */
+  function syncNewVersionFlags() {
+    const currentIds = versions.value.filter(v => v.installed).map(v => v.id)
+    const known = loadIdArray(KNOWN_VERSION_IDS_KEY)
+    const storedNew = loadIdArray(NEW_VERSION_IDS_KEY) ?? []
+
+    let nextNew: string[]
+    if (known === null) {
+      nextNew = []
+    } else {
+      const knownSet = new Set(known)
+      const added = currentIds.filter(id => !knownSet.has(id))
+      const currentSet = new Set(currentIds)
+      nextNew = [...new Set([...storedNew.filter(id => currentSet.has(id)), ...added])]
+    }
+
+    saveIdArray(KNOWN_VERSION_IDS_KEY, [...new Set([...(known ?? []), ...currentIds])])
+    saveIdArray(NEW_VERSION_IDS_KEY, nextNew)
+    newVersionIds.value = new Set(nextNew)
+  }
+
+  /** 用户查看过该版本后清除 NEW 标记 */
+  function markVersionSeen(versionId: string) {
+    if (!newVersionIds.value.has(versionId)) return
+    const next = new Set(newVersionIds.value)
+    next.delete(versionId)
+    newVersionIds.value = next
+    saveIdArray(NEW_VERSION_IDS_KEY, [...next])
+  }
 
   // 从 localStorage 加载清单缓存
   function loadManifestCacheFromStorage() {
@@ -150,6 +209,7 @@ export const useVersionStore = defineStore('version', () => {
       try {
         const fetchedVersions = await versionApi.FetchVersions()
         versions.value = fetchedVersions
+        syncNewVersionFlags()
 
         // 更新缓存
         manifestCache.value = fetchedVersions
@@ -172,6 +232,7 @@ export const useVersionStore = defineStore('version', () => {
     if (hasCache && !isExpired) {
       console.log('[Version] Using fresh cache (age:', Math.floor(cacheAge / 1000 / 60), 'minutes)')
       versions.value = manifestCache.value!
+      syncNewVersionFlags()
       return manifestCache.value!
     }
 
@@ -179,6 +240,7 @@ export const useVersionStore = defineStore('version', () => {
     if (hasCache && isExpired) {
       console.log('[Version] Cache expired (age:', Math.floor(cacheAge / 1000 / 60), 'minutes), using stale cache and refreshing in background...')
       versions.value = manifestCache.value!
+      syncNewVersionFlags()
 
       // 后台静默刷新（不设置 loading，不阻塞界面）
       versionApi.FetchVersions()
@@ -191,6 +253,7 @@ export const useVersionStore = defineStore('version', () => {
           saveManifestCacheToStorage(fetchedVersions)
           // 更新界面
           versions.value = fetchedVersions
+          syncNewVersionFlags()
           // 通知调用方后台刷新完成
           if (onBackgroundUpdate) {
             onBackgroundUpdate(fetchedVersions)
@@ -211,6 +274,7 @@ export const useVersionStore = defineStore('version', () => {
     try {
       const fetchedVersions = await versionApi.FetchVersions()
       versions.value = fetchedVersions
+      syncNewVersionFlags()
 
       // 更新缓存
       manifestCache.value = fetchedVersions
@@ -234,6 +298,7 @@ export const useVersionStore = defineStore('version', () => {
     error.value = null
     try {
       versions.value = await versionApi.GetVersions()
+      syncNewVersionFlags()
     } catch (e) {
       error.value = e as string
       console.error('Failed to get versions:', e)
@@ -342,6 +407,7 @@ export const useVersionStore = defineStore('version', () => {
       if (version) {
         version.installed = true
       }
+      syncNewVersionFlags()
       // 刷新主要版本（可能自动设置了新的主要版本）
       await getPrimaryVersion()
     } catch (e) {
@@ -360,6 +426,7 @@ export const useVersionStore = defineStore('version', () => {
       if (version) {
         version.installed = false
       }
+      syncNewVersionFlags()
       // 刷新主要版本（可能重新选择了新的主要版本）
       await getPrimaryVersion()
     } catch (e) {
@@ -438,6 +505,8 @@ export const useVersionStore = defineStore('version', () => {
     completedDownloads,
     installedVersions,
     versionsByType,
+    newVersionIds,
+    markVersionSeen,
     fetchVersions,
     getVersions,
     downloadVersion,

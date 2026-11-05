@@ -370,6 +370,10 @@ export function SetBackground(arg1) {
   return window['go']['main']['App']['SetBackground'](arg1);
 }
 
+export function SetBackgroundEffects(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetBackgroundEffects'](arg1, arg2, arg3);
+}
+
 export function SetCurrentManifestSource(arg1) {
   return window['go']['main']['App']['SetCurrentManifestSource'](arg1);
 }

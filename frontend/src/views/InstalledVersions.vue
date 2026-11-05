@@ -22,12 +22,14 @@
             :is-path-missing="isPathMissing(version)"
             :is-game-running="gameStore.isRunning"
             :launching="gameStore.launchingVersionId === version.id"
+            :is-new="newVersionIds.has(version.id)"
             @launch="handleLaunch"
             @set-primary="handleSetPrimary"
             @open-folder="handleOpenFolder"
             @manage-resources="handleManageResources"
             @rename="handleRename"
             @delete="handleDelete"
+            @seen="versionStore.markVersionSeen(version.id)"
           />
         </n-list>
         <n-empty v-if="filteredVersions.length === 0 && !loading" :description="t('installed.noVersions')">
@@ -95,6 +97,9 @@ const showInstallDialog = ref(false)
 const parsedModpackInfo = ref<any>(null)
 
 const installedVersions = computed(() => versionStore.installedVersions)
+
+// 新安装/导入版本的 NEW 标记集合（点击条目后清除）
+const newVersionIds = computed(() => versionStore.newVersionIds)
 
 const typeOptions = computed(() => [
   { label: t('versions.all'), value: 'all' },

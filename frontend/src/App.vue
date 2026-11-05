@@ -1,7 +1,12 @@
 <template>
   <div class="app-box">
-    <!-- 背景图片层 -->
-    <div v-if="backgroundImage" class="background-layer" :style="{ backgroundImage: `url(${backgroundImage})` }">
+    <!-- 背景图片层（模糊作用在图片层本体上，blurred 时放大以遮住边缘晕开） -->
+    <div
+      v-if="backgroundImage"
+      class="background-layer"
+      :class="{ blurred: backgroundEffects.blur > 0 }"
+      :style="{ backgroundImage: `url(${backgroundImage})` }"
+    >
       <div class="background-overlay"></div>
     </div>
 
@@ -60,14 +65,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, h, onMounted, onUnmounted, computed, watch, provide } from "vue";
+import { ref, reactive, h, onMounted, onUnmounted, computed, watch, provide } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { darkTheme, NAlert, NDialogProvider, NButton, type GlobalThemeOverrides } from "naive-ui";
 import { useGameStore } from "./stores/game";
 import { useDownloadStore } from "./stores/download";
 import { EventsOn, EventsOff } from "../wailsjs/runtime/runtime";
-import { CheckUpdate, CheckUpdateForce, SetUpdateRemindDisabled, GetConfig, GetBackgroundImageBase64, SetTheme as SetThemeAPI } from "./api/config";
+import { CheckUpdate, CheckUpdateForce, SetUpdateRemindDisabled, GetConfig, GetBackgroundImageBase64, SetBackgroundEffects, SetTheme as SetThemeAPI } from "./api/config";
 import HomeView from "./views/Home.vue";
 import InstalledVersionsView from "./views/InstalledVersions.vue";
 import VersionsView from "./views/Versions.vue";
@@ -114,6 +119,40 @@ provide('setTheme', async (mode: 'light' | 'dark' | 'auto') => {
 function handleSystemThemeChange(e: MediaQueryListEvent) {
   systemPrefersDark.value = e.matches;
 }
+
+// ==================== 背景特效 ====================
+// 仅当设置了背景图片时生效：模糊半径 px / 遮罩浓度 % / 界面表面不透明度 %
+const backgroundEffects = reactive({ blur: 0, dim: 40, surfaceOpacity: 85 });
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+
+/** 把主题里的不透明色（#RRGGBB）转成指定透明度的 rgba */
+function withAlpha(color: string, alpha: number): string {
+  const m = color.match(/^#([0-9a-f]{6})$/i);
+  if (!m) return color;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+// 提供给设置页的背景特效编辑（滑块拖动时即时预览，停止后再持久化）
+provide('backgroundEffects', backgroundEffects);
+// 设置页设置/清除背景图片后立即重载背景（无需离开设置页再回来）
+provide('reloadBackground', () => loadBackgroundImage());
+let backgroundEffectsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+provide('updateBackgroundEffects', (patch: Partial<{ blur: number; dim: number; surfaceOpacity: number }>) => {
+  if (patch.blur !== undefined) backgroundEffects.blur = clampInt(patch.blur, 0, 40, 0);
+  if (patch.dim !== undefined) backgroundEffects.dim = clampInt(patch.dim, 0, 100, 40);
+  if (patch.surfaceOpacity !== undefined) backgroundEffects.surfaceOpacity = clampInt(patch.surfaceOpacity, 50, 100, 85);
+  if (backgroundEffectsSaveTimer) clearTimeout(backgroundEffectsSaveTimer);
+  backgroundEffectsSaveTimer = setTimeout(() => {
+    SetBackgroundEffects(backgroundEffects.blur, backgroundEffects.dim, backgroundEffects.surfaceOpacity)
+      .catch((e) => console.error('Failed to save background effects:', e));
+  }, 400);
+});
 
 // Discord Design System 主题配置 - 浅色
 const discordLightTheme: GlobalThemeOverrides = {
@@ -473,84 +512,136 @@ const discordDarkTheme: GlobalThemeOverrides = {
   },
 };
 
-// 根据主题和背景图片动态设置主题覆盖
+// 根据主题和背景图片动态设置主题覆盖：
+// 设置背景图后卡片/列表/表格等表面按配置变半透明（浮动层保持更高不透明度保证可读性）
 const themeOverrides = computed<GlobalThemeOverrides>(() => {
   const baseTheme = resolvedTheme.value === 'dark' ? discordDarkTheme : discordLightTheme;
+  if (!hasBackgroundImage.value) return baseTheme;
 
-  if (hasBackgroundImage.value) {
-    const isDark = resolvedTheme.value === 'dark';
-    return {
-      common: {
-        ...baseTheme.common,
-        color: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(255, 255, 255, 0.75)',
-        cardColor: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(255, 255, 255, 0.75)',
-        modalColor: isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-        bodyColor: isDark ? 'rgba(0, 0, 0, 0.75)' : 'rgba(255, 255, 255, 0.75)',
-      },
-      ...baseTheme,
-    };
-  }
-  return baseTheme;
+  const alpha = backgroundEffects.surfaceOpacity / 100;
+  const floatingAlpha = Math.min(1, alpha + 0.15);
+  const common = baseTheme.common ?? {};
+  const surfaceColor = withAlpha(common.cardColor as string, alpha);
+  const modalColor = withAlpha(common.modalColor as string, floatingAlpha);
+  const popoverColor = withAlpha(common.popoverColor as string, floatingAlpha);
+
+  return {
+    ...baseTheme,
+    common: {
+      ...common,
+      cardColor: surfaceColor,
+      modalColor,
+      popoverColor,
+      tableColor: surfaceColor,
+      tableHeaderColor: surfaceColor,
+      tabColor: withAlpha(common.tabColor as string, alpha),
+    },
+    Card: {
+      ...baseTheme.Card,
+      color: surfaceColor,
+      colorModal: modalColor,
+      colorPopover: popoverColor,
+    },
+    List: {
+      ...baseTheme.List,
+      color: surfaceColor,
+      colorModal: modalColor,
+    },
+    DataTable: {
+      ...baseTheme.DataTable,
+      thColor: surfaceColor,
+    },
+  };
 });
 
 // Naive UI 主题 (darkTheme 或 undefined)
 const naiveTheme = computed(() => resolvedTheme.value === 'dark' ? darkTheme : undefined);
 
-// CSS 自定义属性注入
-watch(resolvedTheme, (theme) => {
-  const root = document.documentElement;
-  const isDark = theme === 'dark';
+// CSS 自定义属性注入（主题色 + 背景特效：
+// 设置背景图后表面类变量按配置变半透明，透出背景图片）
+watch(
+  [resolvedTheme, hasBackgroundImage, () => backgroundEffects.surfaceOpacity, () => backgroundEffects.dim, () => backgroundEffects.blur],
+  () => {
+    const root = document.documentElement;
+    const isDark = resolvedTheme.value === 'dark';
 
-  if (isDark) {
-    root.classList.remove('theme-light');
-    root.classList.add('theme-dark');
-  } else {
-    root.classList.remove('theme-dark');
-    root.classList.add('theme-light');
-  }
+    if (isDark) {
+      root.classList.remove('theme-light');
+      root.classList.add('theme-dark');
+    } else {
+      root.classList.remove('theme-dark');
+      root.classList.add('theme-light');
+    }
 
-  const vars: Record<string, string> = isDark ? {
-    '--color-bg': '#313338',
-    '--color-surface': '#2B2D31',
-    '--color-surface-elevated': '#1E1F22',
-    '--color-text-primary': '#F2F3F5',
-    '--color-text-secondary': '#DBDEE1',
-    '--color-text-tertiary': '#949BA4',
-    '--color-border': 'rgba(255, 255, 255, 0.06)',
-    '--color-primary': '#5865F2',
-    '--color-primary-hover': '#4752C4',
-    '--color-primary-hover-bg': 'rgba(88, 101, 242, 0.1)',
-    '--color-error': '#DA373C',
-    '--color-error-hover': '#A12D31',
-    '--color-scroll-thumb': 'rgba(255, 255, 255, 0.1)',
-    '--color-scroll-thumb-hover': 'rgba(255, 255, 255, 0.15)',
-    '--color-overlay': 'rgba(0, 0, 0, 0.5)',
-    '--color-nav-bg': '#2B2D31',
-    '--hover-color': 'rgba(255, 255, 255, 0.08)',
-  } : {
-    '--color-bg': '#FFFFFF',
-    '--color-surface': '#F2F3F5',
-    '--color-surface-elevated': '#E3E5E8',
-    '--color-text-primary': '#060607',
-    '--color-text-secondary': '#313338',
-    '--color-text-tertiary': '#5D6167',
-    '--color-border': 'rgba(0, 0, 0, 0.08)',
-    '--color-primary': '#5865F2',
-    '--color-primary-hover': '#4752C4',
-    '--color-primary-hover-bg': 'rgba(88, 101, 242, 0.1)',
-    '--color-error': '#DA373C',
-    '--color-error-hover': '#A12D31',
-    '--color-scroll-thumb': 'rgba(0, 0, 0, 0.2)',
-    '--color-scroll-thumb-hover': 'rgba(0, 0, 0, 0.35)',
-    '--color-overlay': 'rgba(255, 255, 255, 0.5)',
-    '--color-nav-bg': '#FFFFFF',
-    '--hover-color': 'rgba(0, 0, 0, 0.08)',
-  };
+    // 背景特效：html 标记（导航栏磨砂等场景）+ 背景层变量（模糊半径 / 遮罩浓度）
+    root.classList.toggle('app-has-bg', hasBackgroundImage.value);
+    root.style.setProperty('--app-bg-blur', `${backgroundEffects.blur}px`);
+    root.style.setProperty('--app-bg-dim', String(backgroundEffects.dim / 100));
 
-  for (const [key, value] of Object.entries(vars)) {
-    root.style.setProperty(key, value);
-  }
-}, { immediate: true });
+    const surfaceAlpha = hasBackgroundImage.value ? backgroundEffects.surfaceOpacity / 100 : 1;
+    const surface = (color: string) => withAlpha(color, surfaceAlpha);
+
+    const palette = isDark ? {
+      bg: '#313338',
+      surface: '#2B2D31',
+      surfaceElevated: '#1E1F22',
+      textPrimary: '#F2F3F5',
+      textSecondary: '#DBDEE1',
+      textTertiary: '#949BA4',
+      border: 'rgba(255, 255, 255, 0.06)',
+      primary: '#5865F2',
+      primaryHover: '#4752C4',
+      primaryHoverBg: 'rgba(88, 101, 242, 0.1)',
+      error: '#DA373C',
+      errorHover: '#A12D31',
+      scrollThumb: 'rgba(255, 255, 255, 0.1)',
+      scrollThumbHover: 'rgba(255, 255, 255, 0.15)',
+      navBg: '#2B2D31',
+      hover: 'rgba(255, 255, 255, 0.08)',
+    } : {
+      bg: '#FFFFFF',
+      surface: '#F2F3F5',
+      surfaceElevated: '#E3E5E8',
+      textPrimary: '#060607',
+      textSecondary: '#313338',
+      textTertiary: '#5D6167',
+      border: 'rgba(0, 0, 0, 0.08)',
+      primary: '#5865F2',
+      primaryHover: '#4752C4',
+      primaryHoverBg: 'rgba(88, 101, 242, 0.1)',
+      error: '#DA373C',
+      errorHover: '#A12D31',
+      scrollThumb: 'rgba(0, 0, 0, 0.2)',
+      scrollThumbHover: 'rgba(0, 0, 0, 0.35)',
+      navBg: '#FFFFFF',
+      hover: 'rgba(0, 0, 0, 0.08)',
+    };
+
+    const vars: Record<string, string> = {
+      '--color-bg': palette.bg,
+      '--color-surface': surface(palette.surface),
+      '--color-surface-elevated': surface(palette.surfaceElevated),
+      '--color-text-primary': palette.textPrimary,
+      '--color-text-secondary': palette.textSecondary,
+      '--color-text-tertiary': palette.textTertiary,
+      '--color-border': palette.border,
+      '--color-primary': palette.primary,
+      '--color-primary-hover': palette.primaryHover,
+      '--color-primary-hover-bg': palette.primaryHoverBg,
+      '--color-error': palette.error,
+      '--color-error-hover': palette.errorHover,
+      '--color-scroll-thumb': palette.scrollThumb,
+      '--color-scroll-thumb-hover': palette.scrollThumbHover,
+      '--color-nav-bg': surface(palette.navBg),
+      '--hover-color': palette.hover,
+    };
+
+    for (const [key, value] of Object.entries(vars)) {
+      root.style.setProperty(key, value);
+    }
+  },
+  { immediate: true }
+);
 
 const dialogProviderInst = ref<InstanceType<typeof NDialogProvider> | null>(
   null,
@@ -568,7 +659,10 @@ async function loadBackgroundImage() {
     if (config?.theme && ['light', 'dark', 'auto'].includes(config.theme)) {
       themeMode.value = config.theme as 'light' | 'dark' | 'auto';
     }
-    // 加载背景图片
+    // 加载背景图片与背景特效
+    backgroundEffects.blur = clampInt(config?.backgroundBlur, 0, 40, 0);
+    backgroundEffects.dim = clampInt(config?.backgroundDim, 0, 100, 40);
+    backgroundEffects.surfaceOpacity = clampInt(config?.backgroundSurfaceOpacity, 50, 100, 85);
     if (config?.backgroundImage) {
       const base64 = await GetBackgroundImageBase64();
       backgroundImage.value = base64;
@@ -813,7 +907,7 @@ body {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* 背景图片层 */
+/* 背景图片层（模糊作用在图片本体上，由 --app-bg-blur 控制） */
 .background-layer {
   position: fixed;
   top: 0;
@@ -825,18 +919,28 @@ body {
   background-repeat: no-repeat;
   z-index: 0;
   pointer-events: none;
+  filter: blur(var(--app-bg-blur, 0px));
 }
 
-/* 背景图片遮罩层 */
+/* 模糊时轻微放大，遮住 blur 带来的边缘晕开 */
+.background-layer.blurred {
+  transform: scale(1.1);
+}
+
+/* 背景遮罩层：浓度由 --app-bg-dim（0-1）控制 */
 .background-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--color-overlay, rgba(0, 0, 0, 0.5));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background-color: rgba(0, 0, 0, var(--app-bg-dim, 0.4));
+}
+
+/* 设置背景图后：顶部导航磨砂玻璃（配合半透明 --color-nav-bg） */
+.app-has-bg .app-nav {
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
 }
 
 /* 确保内容在背景之上 */

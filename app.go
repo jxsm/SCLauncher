@@ -1,24 +1,6 @@
 package main
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
-	"os/exec"
-	stdruntime "runtime"
-	"path"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 	"SCLauncher/backend/appinfo"
 	"SCLauncher/backend/background"
 	"SCLauncher/backend/config"
@@ -32,6 +14,24 @@ import (
 	"SCLauncher/backend/storage"
 	"SCLauncher/backend/texture"
 	"SCLauncher/backend/version"
+	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	stdruntime "runtime"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/mholt/archiver/v4"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -61,22 +61,22 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 
 // App 应用结构体
 type App struct {
-	ctx            context.Context
-	config         *config.Config
-	paths          *config.Paths
-	db             *storage.Database
-	repository     *storage.Repository
-	versionMgr     *version.Manager
-	gameMgr        *game.GameManager
-	modMgr         *mod.Manager
-	skinMgr        *skin.Manager
-	savegameMgr    *savegame.Manager
-	textureMgr     *texture.Manager
-	backgroundMgr  *background.Manager
-	dotnetMgr          *dotnet.Manager
-	modpackRegistry    *modpack.ParserRegistry
-	modpackInstaller   *modpack.ModpackInstaller
-	scbbsInstaller     *scbbs.Installer // scbbs（ScbbsPlus）格式整合包安装器
+	ctx              context.Context
+	config           *config.Config
+	paths            *config.Paths
+	db               *storage.Database
+	repository       *storage.Repository
+	versionMgr       *version.Manager
+	gameMgr          *game.GameManager
+	modMgr           *mod.Manager
+	skinMgr          *skin.Manager
+	savegameMgr      *savegame.Manager
+	textureMgr       *texture.Manager
+	backgroundMgr    *background.Manager
+	dotnetMgr        *dotnet.Manager
+	modpackRegistry  *modpack.ParserRegistry
+	modpackInstaller *modpack.ModpackInstaller
+	scbbsInstaller   *scbbs.Installer // scbbs（ScbbsPlus）格式整合包安装器
 
 	// scbbs 安装的冲突询问协议：安装器阻塞等待前端弹窗的应答
 	conflictMu       sync.Mutex
@@ -198,7 +198,7 @@ func (a *App) shutdown(ctx context.Context) {
 // GetAppInfo 获取应用信息
 func (a *App) GetAppInfo() map[string]string {
 	return map[string]string{
-		"version":  appinfo.Version,
+		"version":   appinfo.Version,
 		"repoOwner": appinfo.RepoOwner,
 		"repoName":  appinfo.RepoName,
 	}
@@ -210,16 +210,16 @@ func (a *App) GetConfig() map[string]interface{} {
 	var manifestSources []map[string]interface{}
 	for _, source := range a.config.ManifestSources {
 		manifestSources = append(manifestSources, map[string]interface{}{
-			"id":         source.ID,
-			"name":       source.Name,
-			"url":        source.URL,
-			"isDefault":  source.IsDefault,
+			"id":        source.ID,
+			"name":      source.Name,
+			"url":       source.URL,
+			"isDefault": source.IsDefault,
 		})
 	}
 
 	return map[string]interface{}{
-		"manifestUrl":             a.config.ManifestURL,
-		"manifestSources":         manifestSources,
+		"manifestUrl":     a.config.ManifestURL,
+		"manifestSources": manifestSources,
 		"defaultManifest": map[string]interface{}{
 			"mainUrl":         config.DefaultManifestURLMain,
 			"mirrorUrl":       config.DefaultManifestURLMirror,
@@ -228,16 +228,19 @@ func (a *App) GetConfig() map[string]interface{} {
 			"mirrorLatencyMs": a.config.DefaultManifestMirrorLatencyMs,
 			"lastTest":        a.config.DefaultManifestLastTest,
 		},
-		"currentManifestSourceId": a.config.CurrentManifestSourceID,
-		"versionsDir":             a.config.GetRelativePathForDisplay(a.config.GetVersionsDir()),
-		"dataDir":                 a.config.GetRelativePathForDisplay(a.config.GetDataDir()),
-		"downloadsDir":            a.config.GetRelativePathForDisplay(a.config.GetDownloadsDir()),
-		"maxConcurrent":           a.config.MaxConcurrent,
-		"currentVersion":          a.config.CurrentVersion,
-		"theme":                   a.config.Theme,
-		"language":                a.config.Language,
-		"backgroundImage":         a.config.BackgroundImage,
-		"autoCheckRuntime":        a.config.AutoCheckRuntime,
+		"currentManifestSourceId":  a.config.CurrentManifestSourceID,
+		"versionsDir":              a.config.GetRelativePathForDisplay(a.config.GetVersionsDir()),
+		"dataDir":                  a.config.GetRelativePathForDisplay(a.config.GetDataDir()),
+		"downloadsDir":             a.config.GetRelativePathForDisplay(a.config.GetDownloadsDir()),
+		"maxConcurrent":            a.config.MaxConcurrent,
+		"currentVersion":           a.config.CurrentVersion,
+		"theme":                    a.config.Theme,
+		"language":                 a.config.Language,
+		"backgroundImage":          a.config.BackgroundImage,
+		"backgroundBlur":           a.config.BackgroundBlur,
+		"backgroundDim":            a.config.BackgroundDim,
+		"backgroundSurfaceOpacity": a.config.BackgroundSurfaceOpacity,
+		"autoCheckRuntime":         a.config.AutoCheckRuntime,
 	}
 }
 
@@ -524,20 +527,20 @@ func (a *App) GetPrimaryVersion() (map[string]interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"id":           model.ID,
-		"versionType":  model.VersionType,
-		"gameVersion":  model.GameVersion,
-		"subVersion":   model.SubVersion,
-		"name":         model.Name,
-		"size":         model.Size,
-		"downloadUrl":  model.DownloadURL,
-		"checksum":     model.Checksum,
-		"fileFormat":   model.FileFormat,
-		"illustrate":   model.Illustrate,
-		"installed":    model.Installed,
-		"isPrimary":    model.IsPrimary,
-		"localPath":    model.LocalPath,
-		"releaseDate":  model.CreatedAt,
+		"id":          model.ID,
+		"versionType": model.VersionType,
+		"gameVersion": model.GameVersion,
+		"subVersion":  model.SubVersion,
+		"name":        model.Name,
+		"size":        model.Size,
+		"downloadUrl": model.DownloadURL,
+		"checksum":    model.Checksum,
+		"fileFormat":  model.FileFormat,
+		"illustrate":  model.Illustrate,
+		"installed":   model.Installed,
+		"isPrimary":   model.IsPrimary,
+		"localPath":   model.LocalPath,
+		"releaseDate": model.CreatedAt,
 	}, nil
 }
 
@@ -1223,19 +1226,19 @@ func (a *App) ParseModpack(modpackPath string) (map[string]interface{}, error) {
 
 	// 转换为前端格式
 	return map[string]interface{}{
-		"name":            manifest.Name,
-		"version":         manifest.Version,
-		"author":          manifest.Author,
-		"description":     manifest.Description,
-		"icon":            manifest.Icon,
-		"created":         manifest.Created,
-		"changelog":       manifest.Changelog,
-		"manifestVersion": manifest.ManifestVersion,
-		"filePath":        manifest.FilePath,
-		"fileHash":        manifest.FileHash,
-		"survivalcraft":   manifest.Survivalcraft,
-		"mods":            manifest.Mods,
-		"overrides":       manifest.Overrides,
+		"name":             manifest.Name,
+		"version":          manifest.Version,
+		"author":           manifest.Author,
+		"description":      manifest.Description,
+		"icon":             manifest.Icon,
+		"created":          manifest.Created,
+		"changelog":        manifest.Changelog,
+		"manifestVersion":  manifest.ManifestVersion,
+		"filePath":         manifest.FilePath,
+		"fileHash":         manifest.FileHash,
+		"survivalcraft":    manifest.Survivalcraft,
+		"mods":             manifest.Mods,
+		"overrides":        manifest.Overrides,
 		"hasExternalLinks": manifest.HasExternalLinks,
 	}, nil
 }
@@ -1285,17 +1288,17 @@ func (a *App) buildScbbsParseInfo(result *scbbs.ParseResult) map[string]interfac
 	}
 
 	return map[string]interface{}{
-		"format":              "scbbs",
-		"name":                manifest.Name,
-		"version":             manifest.Version,
-		"description":         manifest.Description,
-		"icon":                manifest.Icon,
-		"iconData":            iconData,
-		"packageName":         manifest.PackageName,
-		"carrier":             carrier,
-		"filePath":            result.FilePath,
-		"items":               items,
-		"itemCount":           len(items),
+		"format":               "scbbs",
+		"name":                 manifest.Name,
+		"version":              manifest.Version,
+		"description":          manifest.Description,
+		"icon":                 manifest.Icon,
+		"iconData":             iconData,
+		"packageName":          manifest.PackageName,
+		"carrier":              carrier,
+		"filePath":             result.FilePath,
+		"items":                items,
+		"itemCount":            len(items),
 		"missingEmbeddedCount": len(result.MissingEmbedded),
 	}
 }
@@ -1664,8 +1667,8 @@ func (a *App) DownloadModpackFromURL(downloadURL, fileName string) (string, erro
 
 	// 使用带进度回调的写入
 	writer := &progressWriter{
-		writer:  tempFile,
-		total:   totalSize,
+		writer: tempFile,
+		total:  totalSize,
 		onProgress: func(downloaded, total int64) {
 			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
 				"downloadId": downloadID,
@@ -2222,8 +2225,8 @@ func (a *App) DownloadModFromURL(downloadURL, versionID, fileName string) error 
 
 	// 使用带进度回调的写入
 	writer := &progressWriter{
-		writer:  tempFile,
-		total:   totalSize,
+		writer: tempFile,
+		total:  totalSize,
 		onProgress: func(downloaded, total int64) {
 			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
 				"downloadId": downloadID,
@@ -2547,8 +2550,8 @@ func (a *App) DownloadSkinFromURL(downloadURL, fileName string) error {
 
 	// 使用带进度回调的写入
 	writer := &progressWriter{
-		writer:  tempFile,
-		total:   totalSize,
+		writer: tempFile,
+		total:  totalSize,
 		onProgress: func(downloaded, total int64) {
 			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
 				"downloadId": downloadID,
@@ -2678,6 +2681,11 @@ func (a *App) HasBackground() bool {
 // GetBackgroundImageBase64 获取背景图片的base64编码
 func (a *App) GetBackgroundImageBase64() (string, error) {
 	return a.backgroundMgr.GetBackgroundImageBase64()
+}
+
+// SetBackgroundEffects 设置背景特效（模糊半径 px、遮罩浓度 %、界面表面不透明度 %）
+func (a *App) SetBackgroundEffects(blur, dim, surfaceOpacity int) error {
+	return a.config.SetBackgroundEffects(blur, dim, surfaceOpacity)
 }
 
 // ========== 存档管理 API ==========
@@ -2909,8 +2917,8 @@ func (a *App) DownloadSaveGameFromURL(downloadURL, versionID, fileName string) (
 
 	// 使用带进度回调的写入
 	writer := &progressWriter{
-		writer:  tempFile,
-		total:   totalSize,
+		writer: tempFile,
+		total:  totalSize,
 		onProgress: func(downloaded, total int64) {
 			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
 				"downloadId": downloadID,
@@ -3304,8 +3312,8 @@ func (a *App) DownloadFurnitureFromURL(downloadURL, versionID, fileName string) 
 
 	// 使用带进度回调的写入
 	writer := &progressWriter{
-		writer:  tempFile,
-		total:   totalSize,
+		writer: tempFile,
+		total:  totalSize,
 		onProgress: func(downloaded, total int64) {
 			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
 				"downloadId": downloadID,
@@ -3752,8 +3760,8 @@ func (a *App) DownloadTextureFromURL(downloadURL, versionID, fileName string) er
 
 	// 使用带进度回调的写入
 	writer := &progressWriter{
-		writer:  tempFile,
-		total:   totalSize,
+		writer: tempFile,
+		total:  totalSize,
 		onProgress: func(downloaded, total int64) {
 			runtime.EventsEmit(a.ctx, "resource-download:progress", map[string]interface{}{
 				"downloadId": downloadID,

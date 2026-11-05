@@ -24,6 +24,12 @@ export interface AppConfig {
   theme: string
   language: string
   backgroundImage: string
+  /** 背景特效（仅当设置了背景图片时生效）：模糊半径 px（0-40） */
+  backgroundBlur: number
+  /** 背景遮罩浓度 %（0-100） */
+  backgroundDim: number
+  /** 界面表面不透明度 %（50-100） */
+  backgroundSurfaceOpacity: number
 }
 
 // 单条线路的测速结果（重新测速接口返回）

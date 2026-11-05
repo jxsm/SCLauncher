@@ -16,10 +16,10 @@ const (
 
 // ManifestSource 清单源配置
 type ManifestSource struct {
-	ID     string `json:"id"`     // 唯一标识
-	Name   string `json:"name"`   // 清单名称
-	URL    string `json:"url"`    // 清单URL
-	IsDefault bool `json:"isDefault"` // 是否为默认源
+	ID        string `json:"id"`        // 唯一标识
+	Name      string `json:"name"`      // 清单名称
+	URL       string `json:"url"`       // 清单URL
+	IsDefault bool   `json:"isDefault"` // 是否为默认源
 }
 
 // Config 应用配置
@@ -75,6 +75,12 @@ type Config struct {
 	// 背景图片路径（相对路径）
 	BackgroundImage string `json:"backgroundImage"`
 
+	// 背景特效（仅当设置了背景图片时生效）：
+	// 模糊半径 px（0-40）、遮罩浓度 %（0-100）、界面表面不透明度 %（50-100）
+	BackgroundBlur           int `json:"backgroundBlur"`
+	BackgroundDim            int `json:"backgroundDim"`
+	BackgroundSurfaceOpacity int `json:"backgroundSurfaceOpacity"`
+
 	// 不再提醒更新的时间戳（Unix时间戳，0表示未设置）
 	UpdateRemindDisableUntil int64 `json:"updateRemindDisableUntil"`
 
@@ -91,10 +97,10 @@ func DefaultConfig() *Config {
 
 	// 创建默认清单源
 	defaultSource := ManifestSource{
-		ID:         "default",
-		Name:       "BTOS",
-		URL:        DefaultManifestURLMain,
-		IsDefault:  true,
+		ID:        "default",
+		Name:      "BTOS",
+		URL:       DefaultManifestURLMain,
+		IsDefault: true,
 	}
 
 	return &Config{
@@ -112,6 +118,9 @@ func DefaultConfig() *Config {
 		AutoCheckUpdates:         true,
 		AutoCheckRuntime:         true,
 		BackgroundImage:          "",
+		BackgroundBlur:           0,
+		BackgroundDim:            40,
+		BackgroundSurfaceOpacity: 85,
 		UpdateRemindDisableUntil: 0,
 		execDir:                  execDir,
 	}
@@ -185,6 +194,14 @@ func Load(configPath string) (*Config, error) {
 		if _, ok := rawKeys["autoCheckRuntime"]; !ok {
 			config.AutoCheckRuntime = true
 		}
+		// 背景特效为后来新增的字段，旧配置缺少时按默认值补齐
+		// （backgroundBlur 缺省值 0 与零值一致，无需处理）
+		if _, ok := rawKeys["backgroundDim"]; !ok {
+			config.BackgroundDim = 40
+		}
+		if _, ok := rawKeys["backgroundSurfaceOpacity"]; !ok {
+			config.BackgroundSurfaceOpacity = 85
+		}
 	}
 
 	// 兼容旧配置：未记录过测速结果时，默认线路视为主线（随后台自动测速更新）
@@ -234,43 +251,49 @@ func (c *Config) Save() error {
 
 	// 创建临时配置对象用于序列化（只保存相对路径）
 	tempConfig := struct {
-		ManifestURL               string            `json:"manifestUrl"`
-		DefaultManifestURL        string            `json:"defaultManifestUrl"`
-		DefaultManifestMainLatencyMs   int64        `json:"defaultManifestMainLatencyMs"`
-		DefaultManifestMirrorLatencyMs int64        `json:"defaultManifestMirrorLatencyMs"`
-		DefaultManifestLastTest        int64        `json:"defaultManifestLastTest"`
-		ManifestSources           []ManifestSource `json:"manifestSources"`
-		CurrentManifestSourceID   string            `json:"currentManifestSourceId"`
-		VersionsDir               string            `json:"versionsDir"`
-		DataDir                   string            `json:"dataDir"`
-		DownloadsDir              string            `json:"downloadsDir"`
-		MaxConcurrent             int               `json:"maxConcurrent"`
-		CurrentVersion            string            `json:"currentVersion"`
-		Theme                     string            `json:"theme"`
-		Language                  string            `json:"language"`
-		AutoCheckUpdates          bool              `json:"autoCheckUpdates"`
-		AutoCheckRuntime          bool              `json:"autoCheckRuntime"`
-		BackgroundImage           string            `json:"backgroundImage"`
-		UpdateRemindDisableUntil  int64             `json:"updateRemindDisableUntil"`
+		ManifestURL                    string           `json:"manifestUrl"`
+		DefaultManifestURL             string           `json:"defaultManifestUrl"`
+		DefaultManifestMainLatencyMs   int64            `json:"defaultManifestMainLatencyMs"`
+		DefaultManifestMirrorLatencyMs int64            `json:"defaultManifestMirrorLatencyMs"`
+		DefaultManifestLastTest        int64            `json:"defaultManifestLastTest"`
+		ManifestSources                []ManifestSource `json:"manifestSources"`
+		CurrentManifestSourceID        string           `json:"currentManifestSourceId"`
+		VersionsDir                    string           `json:"versionsDir"`
+		DataDir                        string           `json:"dataDir"`
+		DownloadsDir                   string           `json:"downloadsDir"`
+		MaxConcurrent                  int              `json:"maxConcurrent"`
+		CurrentVersion                 string           `json:"currentVersion"`
+		Theme                          string           `json:"theme"`
+		Language                       string           `json:"language"`
+		AutoCheckUpdates               bool             `json:"autoCheckUpdates"`
+		AutoCheckRuntime               bool             `json:"autoCheckRuntime"`
+		BackgroundImage                string           `json:"backgroundImage"`
+		BackgroundBlur                 int              `json:"backgroundBlur"`
+		BackgroundDim                  int              `json:"backgroundDim"`
+		BackgroundSurfaceOpacity       int              `json:"backgroundSurfaceOpacity"`
+		UpdateRemindDisableUntil       int64            `json:"updateRemindDisableUntil"`
 	}{
-		ManifestURL:               c.ManifestURL,
-		DefaultManifestURL:        c.DefaultManifestURL,
+		ManifestURL:                    c.ManifestURL,
+		DefaultManifestURL:             c.DefaultManifestURL,
 		DefaultManifestMainLatencyMs:   c.DefaultManifestMainLatencyMs,
 		DefaultManifestMirrorLatencyMs: c.DefaultManifestMirrorLatencyMs,
 		DefaultManifestLastTest:        c.DefaultManifestLastTest,
-		ManifestSources:           c.ManifestSources,
-		CurrentManifestSourceID:   c.CurrentManifestSourceID,
-		VersionsDir:               c.toRelativePath(c.VersionsDir),
-		DataDir:                   c.toRelativePath(c.DataDir),
-		DownloadsDir:              c.toRelativePath(c.DownloadsDir),
-		MaxConcurrent:             c.MaxConcurrent,
-		CurrentVersion:            c.CurrentVersion,
-		Theme:                     c.Theme,
-		Language:                  c.Language,
-		AutoCheckUpdates:          c.AutoCheckUpdates,
-		AutoCheckRuntime:          c.AutoCheckRuntime,
-		BackgroundImage:           c.toRelativePath(c.BackgroundImage),
-		UpdateRemindDisableUntil:  c.UpdateRemindDisableUntil,
+		ManifestSources:                c.ManifestSources,
+		CurrentManifestSourceID:        c.CurrentManifestSourceID,
+		VersionsDir:                    c.toRelativePath(c.VersionsDir),
+		DataDir:                        c.toRelativePath(c.DataDir),
+		DownloadsDir:                   c.toRelativePath(c.DownloadsDir),
+		MaxConcurrent:                  c.MaxConcurrent,
+		CurrentVersion:                 c.CurrentVersion,
+		Theme:                          c.Theme,
+		Language:                       c.Language,
+		AutoCheckUpdates:               c.AutoCheckUpdates,
+		AutoCheckRuntime:               c.AutoCheckRuntime,
+		BackgroundImage:                c.toRelativePath(c.BackgroundImage),
+		BackgroundBlur:                 c.BackgroundBlur,
+		BackgroundDim:                  c.BackgroundDim,
+		BackgroundSurfaceOpacity:       c.BackgroundSurfaceOpacity,
+		UpdateRemindDisableUntil:       c.UpdateRemindDisableUntil,
 	}
 
 	// 序列化为 JSON（带缩进）
@@ -405,6 +428,23 @@ func (c *Config) SetTheme(theme string) error {
 // SetBackgroundImage 设置背景图片路径
 func (c *Config) SetBackgroundImage(relativePath string) error {
 	c.BackgroundImage = relativePath
+	return c.Save()
+}
+
+// SetBackgroundEffects 设置背景特效（模糊半径 px、遮罩浓度 %、界面表面不透明度 %）
+func (c *Config) SetBackgroundEffects(blur, dim, surfaceOpacity int) error {
+	if blur < 0 || blur > 40 {
+		return fmt.Errorf("invalid background blur: %d (must be 0-40)", blur)
+	}
+	if dim < 0 || dim > 100 {
+		return fmt.Errorf("invalid background dim: %d (must be 0-100)", dim)
+	}
+	if surfaceOpacity < 50 || surfaceOpacity > 100 {
+		return fmt.Errorf("invalid background surface opacity: %d (must be 50-100)", surfaceOpacity)
+	}
+	c.BackgroundBlur = blur
+	c.BackgroundDim = dim
+	c.BackgroundSurfaceOpacity = surfaceOpacity
 	return c.Save()
 }
 
