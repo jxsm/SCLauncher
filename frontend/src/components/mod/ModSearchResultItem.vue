@@ -35,10 +35,10 @@
           </n-text>
           <n-space>
             <n-tag size="small" type="info">
-              👁 {{ mod.views }}
+              <n-icon><EyeIcon /></n-icon> {{ mod.views }}
             </n-tag>
             <n-tag v-if="mod.likes > 0" size="small" type="warning">
-              👍 {{ mod.likes }}
+              <n-icon><ThumbUpIcon /></n-icon> {{ mod.likes }}
             </n-tag>
             <n-tag v-if="mod.versions.length > 0" size="small" type="success">
               {{ mod.versions.length }} {{ t('mods.versions') }}
@@ -52,6 +52,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { EyeOutline as EyeIcon, ThumbsUpOutline as ThumbUpIcon } from '@vicons/ionicons5'
 import type { ModSearchResult } from '../../types/mod-source'
 
 defineProps<{

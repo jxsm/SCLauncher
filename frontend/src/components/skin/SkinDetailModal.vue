@@ -28,13 +28,13 @@
         <!-- 统计信息 -->
         <n-space>
           <n-tag size="small" type="info">
-            👁 {{ skin?.views }}
+            <n-icon><EyeIcon /></n-icon> {{ skin?.views }}
           </n-tag>
           <n-tag v-if="skin && skin.likes > 0" size="small" type="warning">
-            👍 {{ skin?.likes }}
+            <n-icon><ThumbUpIcon /></n-icon> {{ skin?.likes }}
           </n-tag>
           <n-tag v-if="skin?.versions" size="small" type="success">
-            📦 {{ skin.versions.length }} {{ t('common.unitCount') }} {{ t('skins.files') }}
+            <n-icon><LayersIcon /></n-icon> {{ skin.versions.length }} {{ t('common.unitCount') }} {{ t('skins.files') }}
           </n-tag>
         </n-space>
 
@@ -91,7 +91,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { Download as DownloadIcon, Image as ImageIcon } from '@vicons/ionicons5'
+import { Download as DownloadIcon, Image as ImageIcon, EyeOutline as EyeIcon, ThumbsUpOutline as ThumbUpIcon, LayersOutline as LayersIcon } from '@vicons/ionicons5'
 import { formatSize } from '../../utils/format'
 import type { ModSearchResult } from '../../types/mod-source'
 

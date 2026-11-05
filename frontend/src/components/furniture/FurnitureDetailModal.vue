@@ -23,13 +23,13 @@
         <!-- 统计信息 -->
         <n-space>
           <n-tag size="small" type="info">
-            👁 {{ furniture?.views }}
+            <n-icon><EyeIcon /></n-icon> {{ furniture?.views }}
           </n-tag>
           <n-tag v-if="furniture && furniture.likes > 0" size="small" type="warning">
-            👍 {{ furniture?.likes }}
+            <n-icon><ThumbUpIcon /></n-icon> {{ furniture?.likes }}
           </n-tag>
           <n-tag size="small" type="success">
-            📦 {{ furniture?.versions.length }} {{ t('mods.versions') }}
+            <n-icon><LayersIcon /></n-icon> {{ furniture?.versions.length }} {{ t('mods.versions') }}
           </n-tag>
         </n-space>
 
@@ -75,7 +75,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { Download as DownloadIcon } from '@vicons/ionicons5'
+import { Download as DownloadIcon, EyeOutline as EyeIcon, ThumbsUpOutline as ThumbUpIcon, LayersOutline as LayersIcon } from '@vicons/ionicons5'
 import { formatSize } from '../../utils/format'
 import type { ModSearchResult } from '../../types/mod-source'
 
