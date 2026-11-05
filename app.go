@@ -189,10 +189,9 @@ func (a *App) autoSpeedTestDefaultManifest() {
 
 // shutdown 应用关闭时调用
 func (a *App) shutdown(ctx context.Context) {
-	// 停止游戏
-	if a.gameMgr.GetStatus() == game.StatusRunning {
-		a.gameMgr.Stop()
-	}
+	// 注意：不停止运行中的游戏——游戏与启动器生命周期解耦，启动器退出后
+	// 游戏继续独立运行（dotnet 方式的 .NET 输出已落盘到游戏目录
+	// Logs/DotNetConsole.log，游戏自身日志在 Bugs/Game.log，重新打开启动器仍可诊断）。
 
 	// 关闭数据库
 	if a.db != nil {
