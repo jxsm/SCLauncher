@@ -218,6 +218,11 @@ func (g *GameManager) finishLaunch(versionID string, cmd *exec.Cmd, waitCh <-cha
 	g.processID = cmd.Process.Pid
 	g.setStatus(StatusRunning)
 
+	// 游戏启动成功，最小化启动器窗口（游戏结束时在 monitorProcess 中恢复）
+	if g.ctx != nil {
+		runtime.WindowMinimise(g.ctx)
+	}
+
 	// 记录到数据库
 	processRecord := &storage.GameProcessModel{
 		ID:        generateProcessID(),
@@ -521,6 +526,11 @@ func (g *GameManager) monitorProcess(versionID, processRecordID string, stdout *
 	g.process = nil
 	g.processID = 0
 	g.processMu.Unlock()
+
+	// 游戏已结束（正常退出/崩溃/被主动终止），恢复启动器窗口
+	if g.ctx != nil {
+		runtime.WindowUnminimise(g.ctx)
+	}
 
 	// 更新数据库记录
 	if err := g.repository.UpdateGameProcessEnded(processRecordID, endTime, exitCode); err != nil {
