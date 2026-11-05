@@ -1,10 +1,9 @@
 <template>
   <div class="app-box">
-    <!-- 背景图片层（模糊作用在图片层本体上，blurred 时放大以遮住边缘晕开） -->
+    <!-- 背景图片层（模糊作用在图片层本体上，通过负 inset 外扩遮住边缘晕开） -->
     <div
       v-if="backgroundImage"
       class="background-layer"
-      :class="{ blurred: backgroundEffects.blur > 0 }"
       :style="{ backgroundImage: `url(${backgroundImage})` }"
     >
       <div class="background-overlay"></div>
@@ -519,19 +518,16 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
   if (!hasBackgroundImage.value) return baseTheme;
 
   const alpha = backgroundEffects.surfaceOpacity / 100;
-  const floatingAlpha = Math.min(1, alpha + 0.15);
   const common = baseTheme.common ?? {};
   const surfaceColor = withAlpha(common.cardColor as string, alpha);
-  const modalColor = withAlpha(common.modalColor as string, floatingAlpha);
-  const popoverColor = withAlpha(common.popoverColor as string, floatingAlpha);
 
+  // 只让页面内表面（卡片/列表/表格/分段标签）半透明；
+  // 弹窗/下拉等浮动层保持完全不透明，避免背后的内容产生干扰
   return {
     ...baseTheme,
     common: {
       ...common,
       cardColor: surfaceColor,
-      modalColor,
-      popoverColor,
       tableColor: surfaceColor,
       tableHeaderColor: surfaceColor,
       tabColor: withAlpha(common.tabColor as string, alpha),
@@ -539,13 +535,10 @@ const themeOverrides = computed<GlobalThemeOverrides>(() => {
     Card: {
       ...baseTheme.Card,
       color: surfaceColor,
-      colorModal: modalColor,
-      colorPopover: popoverColor,
     },
     List: {
       ...baseTheme.List,
       color: surfaceColor,
-      colorModal: modalColor,
     },
     DataTable: {
       ...baseTheme.DataTable,
@@ -634,6 +627,10 @@ watch(
       '--color-scroll-thumb-hover': palette.scrollThumbHover,
       '--color-nav-bg': surface(palette.navBg),
       '--hover-color': palette.hover,
+      // 内容区浅色底：页面内容较少（如版本页大多折叠）时，底部不露出未处理的背景
+      '--app-content-wash': hasBackgroundImage.value
+        ? withAlpha(palette.surface, surfaceAlpha * 0.55)
+        : 'transparent',
     };
 
     for (const [key, value] of Object.entries(vars)) {
@@ -856,6 +853,8 @@ onUnmounted(() => {
 .app-box {
   width: 100vw;
   height: 100vh;
+  /* 滚动只发生在 .app-container 内；裁掉背景层的外扩部分，避免出现文档级滚动条 */
+  overflow: hidden;
   --wails-drop-target: drop;
 }
 
@@ -876,6 +875,11 @@ body {
   width: 100vw;
   height: 100vh;
   overflow-y: auto;
+}
+
+/* 设置背景图后：内容区整体铺一层浅色底，短页面底部不再露出未处理的背景 */
+.app-has-bg .app-container {
+  background-color: var(--app-content-wash, transparent);
 }
 
 /* Discord 风格顶部导航栏 */
@@ -907,24 +911,21 @@ body {
   background: rgba(255, 255, 255, 0.15);
 }
 
-/* 背景图片层（模糊作用在图片本体上，由 --app-bg-blur 控制） */
+/* 背景图片层（模糊作用在图片本体上，由 --app-bg-blur 控制）。
+   模糊时用负 inset 向四周外扩遮住边缘晕开——不用 transform 放大，
+   否则变换后的固定定位元素会被算进文档滚动区域，右侧多出滚动条 */
 .background-layer {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: calc(var(--app-bg-blur, 0px) * -1.25);
+  right: calc(var(--app-bg-blur, 0px) * -1.25);
+  bottom: calc(var(--app-bg-blur, 0px) * -1.25);
+  left: calc(var(--app-bg-blur, 0px) * -1.25);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   z-index: 0;
   pointer-events: none;
   filter: blur(var(--app-bg-blur, 0px));
-}
-
-/* 模糊时轻微放大，遮住 blur 带来的边缘晕开 */
-.background-layer.blurred {
-  transform: scale(1.1);
 }
 
 /* 背景遮罩层：浓度由 --app-bg-dim（0-1）控制 */
