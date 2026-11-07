@@ -180,8 +180,8 @@ function handleRename(version: Version) {
         return false
       }
 
-      // 检查重名
-      const exists = versionStore.installedVersions.some(
+      // 检查重名（用全部版本记录，含已卸载但名字仍占用的）
+      const exists = versionStore.versions.some(
         v => v.name === newName.value && v.id !== version.id
       )
       if (exists) {
@@ -195,7 +195,12 @@ function handleRename(version: Version) {
         renamingVersion.value = null
         return true
       } catch (error) {
-        message.error(t('installed.renameFailed') + '：' + error)
+        // 后端重名错误（ErrVersionNameExists）转成本地化提示
+        if (/already exists/i.test(String(error))) {
+          message.error(t('installed.nameAlreadyExists'))
+        } else {
+          message.error(t('installed.renameFailed') + '：' + error)
+        }
         return false
       }
     }

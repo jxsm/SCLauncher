@@ -48,9 +48,18 @@ const errorMessage = ref('')
 watch(() => props.visible, (newValue) => {
   if (newValue) {
     inputName.value = props.defaultName
-    errorMessage.value = ''
+    // 默认名可能已与已装版本重名（如重复下载同一版本），打开时就提示，
+    // 而不是等用户点确认后弹窗一闪而过地关闭
+    errorMessage.value = checkDuplicate(effectiveName())
+      ? t('versions.nameAlreadyExists')
+      : ''
   }
 })
+
+// 实际生效的名字：输入为空时回退到默认名
+function effectiveName(): string {
+  return inputName.value.trim() || props.defaultName
+}
 
 function checkDuplicate(name: string): boolean {
   const trimmed = name.trim()
@@ -60,11 +69,10 @@ function checkDuplicate(name: string): boolean {
 
 function handleInputChange(value: string) {
   inputName.value = value
-  if (checkDuplicate(value)) {
-    errorMessage.value = t('versions.nameAlreadyExists')
-  } else {
-    errorMessage.value = ''
-  }
+  // 校验实际生效的名字（清空输入会回退默认名，同样可能重名）
+  errorMessage.value = checkDuplicate(effectiveName())
+    ? t('versions.nameAlreadyExists')
+    : ''
 }
 
 function handleKeyup(e: KeyboardEvent) {
@@ -73,15 +81,18 @@ function handleKeyup(e: KeyboardEvent) {
   }
 }
 
-function handleConfirm() {
-  if (checkDuplicate(inputName.value)) {
+function handleConfirm(): boolean {
+  const name = effectiveName()
+  if (checkDuplicate(name)) {
     errorMessage.value = t('versions.nameAlreadyExists')
-    return
+    // naive-ui 对话框预设：确认回调返回 false 才不自动关闭弹窗，
+    // 这里重名时保持弹窗打开，等待用户重新输入
+    return false
   }
 
-  const name = inputName.value.trim() || props.defaultName
   emit('confirm', name)
   emit('update:visible', false)
+  return true
 }
 
 function handleVisibleChange(value: boolean) {

@@ -1,6 +1,7 @@
 package version
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,9 @@ import (
 	"SCLauncher/backend/config"
 	"SCLauncher/backend/storage"
 )
+
+// ErrVersionNameExists 重命名时新名称与其他版本（含已卸载的记录）重复
+var ErrVersionNameExists = errors.New("version name already exists")
 
 // Manager 版本管理器
 type Manager struct {
@@ -294,13 +298,13 @@ func (m *Manager) RenameVersion(versionID, newName string) error {
 		return fmt.Errorf("version not found: %w", err)
 	}
 
-	// 检查新名称是否与其他版本重复
+	// 检查新名称是否与其他版本重复（含已卸载但仍有记录的版本）
 	exists, err := m.repository.CheckVersionNameExists(newName, versionID)
 	if err != nil {
 		return fmt.Errorf("failed to check name: %w", err)
 	}
 	if exists {
-		return fmt.Errorf("version name '%s' already exists", newName)
+		return fmt.Errorf("%w: %s", ErrVersionNameExists, newName)
 	}
 
 	// 更新数据库名称
