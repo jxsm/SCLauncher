@@ -869,7 +869,8 @@ func (a *App) AutoImportVersions() error {
 	return nil
 }
 
-// detectUnknownVersions 检测所有 GameVersion 为 unknown 的已安装版本
+// detectUnknownVersions 检测已安装但版本信息缺失的版本（GameVersion 为 unknown，
+// 或插件版 API 子版本为空的 unknown 类型），补全游戏大版本和 API 版本
 func (a *App) detectUnknownVersions() {
 	versions, err := a.repository.ListVersions()
 	if err != nil {
@@ -879,7 +880,11 @@ func (a *App) detectUnknownVersions() {
 
 	detected := 0
 	for _, v := range versions {
-		if v.GameVersion != "unknown" || !v.Installed {
+		if !v.Installed {
+			continue
+		}
+		// 已有完整版本信息（大版本 + 子版本）的跳过；旧数据的大版本也顺带归一化
+		if v.GameVersion != "unknown" && v.SubVersion != "" {
 			continue
 		}
 
@@ -891,24 +896,41 @@ func (a *App) detectUnknownVersions() {
 			continue
 		}
 
-		ver, err := version.ReadGameVersion(localPath)
+		info, err := version.DetectLocalVersion(localPath)
 		if err != nil {
 			continue
 		}
 
-		v.GameVersion = ver
+		applyDetectedVersion(&v, info)
 		if err := a.repository.UpdateVersion(&v); err != nil {
 			logger.Warn(fmt.Sprintf("更新版本 %s 的版本号失败: %v", v.ID, err))
 			continue
 		}
 
 		detected++
-		logger.Info(fmt.Sprintf("自动检测版本 %s -> %s", v.ID, ver))
+		logger.Info(fmt.Sprintf("自动检测版本 %s -> %s", v.ID, detectedVersionLog(info)))
 	}
 
 	if detected > 0 {
 		logger.Info(fmt.Sprintf("版本号自动检测完成，共更新 %d 个版本", detected))
 	}
+}
+
+// applyDetectedVersion 将本地检测结果写入版本模型
+func applyDetectedVersion(m *storage.VersionModel, info version.LocalVersionInfo) {
+	m.GameVersion = info.GameVersion
+	if info.IsAPI {
+		m.VersionType = string(version.VersionTypeAPI)
+		m.SubVersion = "API" + info.SubVersion
+	}
+}
+
+// detectedVersionLog 生成检测结果日志
+func detectedVersionLog(info version.LocalVersionInfo) string {
+	if info.IsAPI {
+		return fmt.Sprintf("游戏版本 %s, API 版本 %s（来源: %s）", info.GameVersion, info.SubVersion, info.Source)
+	}
+	return fmt.Sprintf("游戏版本 %s（来源: %s）", info.GameVersion, info.Source)
 }
 
 // ImportGameVersion 导入游戏版本
@@ -943,13 +965,15 @@ func (a *App) ImportGameVersion(folderPath string) (string, error) {
 		return "", fmt.Errorf("保存版本信息失败: %v", err)
 	}
 
-	// 尝试从 DLL 检测版本号并更新
-	if ver, err := version.ReadGameVersion(folderPath); err == nil {
-		versionModel.GameVersion = ver
-		a.repository.UpdateVersion(versionModel)
-		logger.Info(fmt.Sprintf("从 DLL 检测到版本号: %s", ver))
+	// 尝试检测版本信息（游戏大版本 + 插件版 API 版本）并更新
+	if info, err := version.DetectLocalVersion(folderPath); err == nil {
+		applyDetectedVersion(versionModel, info)
+		if err := a.repository.UpdateVersion(versionModel); err != nil {
+			logger.Warn(fmt.Sprintf("更新版本信息失败: %v", err))
+		}
+		logger.Info(fmt.Sprintf("检测到版本信息: %s", detectedVersionLog(info)))
 	} else {
-		logger.Warn(fmt.Sprintf("DLL 版本检测失败: %v", err))
+		logger.Warn(fmt.Sprintf("版本检测失败: %v", err))
 	}
 
 	// 创建版本目录（用于存储元数据）
@@ -1149,13 +1173,15 @@ func (a *App) InstallFromArchive(archivePath string, customName string) (string,
 		return "", fmt.Errorf("保存版本信息失败: %v", err)
 	}
 
-	// 尝试从 DLL 检测版本号并更新
-	if ver, err := version.ReadGameVersion(versionPath); err == nil {
-		versionModel.GameVersion = ver
-		a.repository.UpdateVersion(versionModel)
-		logger.Info(fmt.Sprintf("从 DLL 检测到版本号: %s", ver))
+	// 尝试检测版本信息（游戏大版本 + 插件版 API 版本）并更新
+	if info, err := version.DetectLocalVersion(versionPath); err == nil {
+		applyDetectedVersion(versionModel, info)
+		if err := a.repository.UpdateVersion(versionModel); err != nil {
+			logger.Warn(fmt.Sprintf("更新版本信息失败: %v", err))
+		}
+		logger.Info(fmt.Sprintf("检测到版本信息: %s", detectedVersionLog(info)))
 	} else {
-		logger.Warn(fmt.Sprintf("DLL 版本检测失败: %v", err))
+		logger.Warn(fmt.Sprintf("版本检测失败: %v", err))
 	}
 
 	logger.Info(fmt.Sprintf("成功从压缩包安装游戏版本: %s", versionID))
@@ -1953,7 +1979,7 @@ func (a *App) GetGameProcessInfo() (interface{}, error) {
 	return a.gameMgr.GetProcessInfo()
 }
 
-// DetectGameVersion 从已安装版本的 DLL 中检测游戏版本号
+// DetectGameVersion 从已安装版本目录检测游戏版本号（含插件版 API 版本）
 func (a *App) DetectGameVersion(versionID string) (string, error) {
 	// 获取版本信息
 	v, err := a.repository.GetVersion(versionID)
@@ -1970,20 +1996,20 @@ func (a *App) DetectGameVersion(versionID string) (string, error) {
 		return "", fmt.Errorf("版本目录不存在: %s", localPath)
 	}
 
-	// 从 DLL 读取版本号
-	ver, err := version.ReadGameVersion(localPath)
+	// 检测版本信息（游戏大版本 + 插件版 API 版本）
+	info, err := version.DetectLocalVersion(localPath)
 	if err != nil {
 		return "", fmt.Errorf("读取版本号失败: %w", err)
 	}
 
 	// 更新数据库
-	v.GameVersion = ver
+	applyDetectedVersion(v, info)
 	if err := a.repository.UpdateVersion(v); err != nil {
 		return "", fmt.Errorf("更新版本信息失败: %w", err)
 	}
 
-	logger.Info(fmt.Sprintf("已更新版本 %s 的游戏版本号: %s", versionID, ver))
-	return ver, nil
+	logger.Info(fmt.Sprintf("已更新版本 %s 的版本信息: %s", versionID, detectedVersionLog(info)))
+	return info.GameVersion, nil
 }
 
 // ========== 工具函数 API ==========

@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 // CheckDownloadFile 检查下载的文件是否存在
@@ -25,45 +23,6 @@ func CheckDownloadFile(filePath string) error {
 	}
 
 	return nil
-}
-
-// ReadGameVersion 从游戏目录下读取版本号
-// 优先读 Survivalcraft.dll（2.4+），没有则读 Survivalcraft.exe（2.3-）
-func ReadGameVersion(gameDir string) (string, error) {
-	dllPath := filepath.Join(gameDir, "Survivalcraft.dll")
-	exePath := filepath.Join(gameDir, "Survivalcraft.exe")
-
-	// 优先尝试 dll
-	if _, err := os.Stat(dllPath); err == nil {
-		ver, err := readPEVersion(dllPath)
-		if err == nil {
-			return ver, nil
-		}
-		// dll 读取失败，继续尝试 exe
-	}
-
-	// 回退到 exe
-	if _, err := os.Stat(exePath); err == nil {
-		return readPEVersion(exePath)
-	}
-
-	// 递归查找 dll
-	var found string
-	filepath.Walk(gameDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
-		}
-		if strings.EqualFold(info.Name(), "Survivalcraft.dll") || strings.EqualFold(info.Name(), "Survivalcraft.exe") {
-			found = path
-			return filepath.SkipDir
-		}
-		return nil
-	})
-	if found != "" {
-		return readPEVersion(found)
-	}
-
-	return "", fmt.Errorf("目录中未找到 Survivalcraft.dll 或 Survivalcraft.exe: %s", gameDir)
 }
 
 // VS_FIXEDFILEINFO 签名
