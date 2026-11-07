@@ -24,7 +24,11 @@
             </template>
             {{ t('common.rename') }}
           </n-button>
-          <n-popconfirm @positive-click="$emit('delete', texture)">
+          <n-popconfirm
+            :positive-text="t('common.confirm')"
+            :negative-text="t('common.cancel')"
+            @positive-click="$emit('delete', texture)"
+          >
             <template #trigger>
               <n-button type="error" size="medium">
                 <template #icon>

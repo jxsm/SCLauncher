@@ -63,7 +63,11 @@
           >
             {{ t('mods.viewModInfo') }}
           </n-button>
-          <n-popconfirm @positive-click="$emit('delete', mod)">
+          <n-popconfirm
+            :positive-text="t('common.confirm')"
+            :negative-text="t('common.cancel')"
+            @positive-click="$emit('delete', mod)"
+          >
             <template #trigger>
               <n-button type="error" size="small">
                 {{ t('common.delete') }}

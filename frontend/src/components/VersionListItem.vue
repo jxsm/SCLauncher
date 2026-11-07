@@ -93,7 +93,11 @@
               {{ t('versions.rename') }}
             </n-button>
           </template>
-          <n-popconfirm @positive-click="$emit('delete', version)">
+          <n-popconfirm
+            :positive-text="t('common.confirm')"
+            :negative-text="t('common.cancel')"
+            @positive-click="$emit('delete', version)"
+          >
             <template #trigger>
               <n-button type="error" size="medium">
                 <template #icon>

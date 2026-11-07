@@ -86,7 +86,11 @@
 
                       <!-- 操作按钮 -->
                       <n-space>
-                        <n-popconfirm @positive-click="handleDeleteSkin(skin)">
+                        <n-popconfirm
+                          :positive-text="t('common.confirm')"
+                          :negative-text="t('common.cancel')"
+                          @positive-click="handleDeleteSkin(skin)"
+                        >
                           <template #trigger>
                             <n-button type="error" size="small" block>
                               {{ t('common.delete') }}
