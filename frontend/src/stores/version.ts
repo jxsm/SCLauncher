@@ -12,7 +12,11 @@ const NEW_VERSION_IDS_KEY = 'sc_launcher_new_version_ids'
 
 export const useVersionStore = defineStore('version', () => {
   // 状态
+  // versions 只放 DB（GetVersions）来源的本地数据，带真实 installed/pathExists 状态；
+  // 在线清单放 manifestVersions，二者分离，避免 fetchVersions 用清单列表覆盖
+  // versions 导致资源管理页下拉框选项瞬间清空（显示原始 ID）
   const versions = ref<Version[]>([])
+  const manifestVersions = ref<Version[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
   const currentVersion = ref<string | null>(null)
@@ -208,8 +212,7 @@ export const useVersionStore = defineStore('version', () => {
       error.value = null
       try {
         const fetchedVersions = await versionApi.FetchVersions()
-        versions.value = fetchedVersions
-        syncNewVersionFlags()
+        manifestVersions.value = fetchedVersions
 
         // 更新缓存
         manifestCache.value = fetchedVersions
@@ -231,16 +234,14 @@ export const useVersionStore = defineStore('version', () => {
     // 情况1：有缓存且未过期 - 直接使用缓存
     if (hasCache && !isExpired) {
       console.log('[Version] Using fresh cache (age:', Math.floor(cacheAge / 1000 / 60), 'minutes)')
-      versions.value = manifestCache.value!
-      syncNewVersionFlags()
+      manifestVersions.value = manifestCache.value!
       return manifestCache.value!
     }
 
     // 情况2：有缓存但已过期 - 先返回缓存，然后后台静默刷新
     if (hasCache && isExpired) {
       console.log('[Version] Cache expired (age:', Math.floor(cacheAge / 1000 / 60), 'minutes), using stale cache and refreshing in background...')
-      versions.value = manifestCache.value!
-      syncNewVersionFlags()
+      manifestVersions.value = manifestCache.value!
 
       // 后台静默刷新（不设置 loading，不阻塞界面）
       versionApi.FetchVersions()
@@ -251,9 +252,8 @@ export const useVersionStore = defineStore('version', () => {
           manifestCacheTime.value = Date.now()
           // 保存到 localStorage
           saveManifestCacheToStorage(fetchedVersions)
-          // 更新界面
-          versions.value = fetchedVersions
-          syncNewVersionFlags()
+          // 更新在线清单（不动 versions——那是 DB 已装列表的数据源）
+          manifestVersions.value = fetchedVersions
           // 通知调用方后台刷新完成
           if (onBackgroundUpdate) {
             onBackgroundUpdate(fetchedVersions)
@@ -273,8 +273,7 @@ export const useVersionStore = defineStore('version', () => {
     error.value = null
     try {
       const fetchedVersions = await versionApi.FetchVersions()
-      versions.value = fetchedVersions
-      syncNewVersionFlags()
+      manifestVersions.value = fetchedVersions
 
       // 更新缓存
       manifestCache.value = fetchedVersions
@@ -492,6 +491,7 @@ export const useVersionStore = defineStore('version', () => {
 
   return {
     versions,
+    manifestVersions,
     loading,
     error,
     currentVersion,

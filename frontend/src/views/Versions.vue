@@ -137,6 +137,7 @@ function getDownloadProgress(id: string): number {
 }
 
 // Existing version names for validation
+// （store.versions 现在只由 DB（getVersions）填充，重名校验基于真实 installed 状态）
 const existingVersionNames = computed(() =>
   versionStore.versions.filter(v => v.installed).map(v => v.name)
 )
@@ -382,6 +383,10 @@ onMounted(async () => {
 
   // 加载清单源列表
   await loadManifestSources()
+
+  // 拉取 DB 版本列表：重名校验（existingVersionNames）需要真实 installed 状态，
+  // 清单列表现在存放在 manifestVersions，不再写入 store.versions
+  await versionStore.getVersions()
 
   // 初始化清单版本列表（带后台刷新回调，确保缓存过期时后台刷新结果能同步到组件）
   loading.value = true

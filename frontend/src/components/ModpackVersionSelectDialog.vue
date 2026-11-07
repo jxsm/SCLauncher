@@ -159,8 +159,8 @@ const progress = ref(0)
 // 自定义名下载路径的后端新版本 ID（<原ID>-<纳秒时间戳>），从 download:start 事件捕获
 const activeDownloadId = ref('')
 
-// 已安装版本快照：打开弹窗时从 DB 拉取后固化，避免进入下载模式时
-// fetchVersions() 用清单列表覆盖 store.versions 导致已装列表"消失"
+// 已安装版本快照：打开弹窗时从 DB 拉取后固化，弹窗期间不受下载/安装
+// 过程中列表变化影响（fetchVersions 现在写 manifestVersions，不再覆盖 versions）
 const installedList = ref<Version[]>([])
 
 const busy = computed(() => phase.value !== 'idle')
@@ -175,7 +175,7 @@ const installedOptions = computed(() =>
 )
 
 const onlineOptions = computed(() =>
-  versionStore.versions
+  versionStore.manifestVersions
     .filter(v => !v.installed)
     .map(v => ({ label: `${v.name} (${v.id})`, value: v.id }))
 )
@@ -240,7 +240,7 @@ async function enterDownloadMode() {
     loadingOnline.value = false
   }
   // 默认选第一个；有适配声明则优先选匹配项
-  const preferred = versionStore.versions.find(v => !v.installed && matchesPreference(v))
+  const preferred = versionStore.manifestVersions.find(v => !v.installed && matchesPreference(v))
   selectedOnlineId.value = preferred?.id || onlineOptions.value[0]?.value || ''
 }
 
