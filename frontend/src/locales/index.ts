@@ -22,7 +22,11 @@ const messages = {
 const i18n = createI18n({
   legacy: false,
   locale: 'zh-CN',
-  fallbackLocale: 'zh-CN',
+  // 缺键回退：其他语言缺键时回退到英文（而不是中文）
+  fallbackLocale: {
+    'zh-CN': ['en-US'],
+    default: ['en-US']
+  },
   messages
 })
 
