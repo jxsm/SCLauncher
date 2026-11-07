@@ -1,6 +1,9 @@
 name: Build and Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       release_notes:
@@ -22,18 +25,42 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get version from appinfo.go
+      - name: Determine version
         id: version
         shell: pwsh
         run: |
-          $content = Get-Content "backend\appinfo\appinfo.go" -Raw
-          if ($content -match 'Version\s*=\s*"([^"]+)"') {
-            $version = $matches[1]
-            Write-Output "version=$version" >> $env:GITHUB_OUTPUT
-            Write-Output "从 appinfo.go 读取版本号: v$version"
+          # 从 wails.json 读取版本号（版本号唯一来源）
+          $appinfoVersion = ""
+          $wails = Get-Content "wails.json" -Raw | ConvertFrom-Json
+          if ($wails.info.productVersion) {
+            $appinfoVersion = $wails.info.productVersion
+          }
+
+          if ("${{ github.event_name }}" -eq "push") {
+            # Tag 触发：直接以 push 的 tag 作为版本号
+            $tagName = "${{ github.ref_name }}"
+            $version = $tagName -replace '^v', ''
           } else {
-            Write-Error "无法找到版本号"
-            exit 1
+            # 手动触发：使用 wails.json 中的版本号
+            if (-not $appinfoVersion) {
+              Write-Error "无法从 wails.json 读取版本号 (info.productVersion)"
+              exit 1
+            }
+            $version = $appinfoVersion
+            $tagName = "v$version"
+          }
+
+          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Output "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          Write-Output "版本号: $version (tag: $tagName)"
+
+          # 一致性检查：wails.json 与 tag 是否一致
+          if ($appinfoVersion -and $appinfoVersion -ne $version) {
+            Write-Output "version_match=false" >> $env:GITHUB_OUTPUT
+            Write-Output "appinfo_version=$appinfoVersion" >> $env:GITHUB_OUTPUT
+            Write-Warning "wails.json 版本号 ($appinfoVersion) 与 tag ($version) 不一致，构建产物内部版本号以 wails.json 为准，建议下次发布前同步"
+          } else {
+            Write-Output "version_match=true" >> $env:GITHUB_OUTPUT
           }
 
           # 获取上一个 tag
@@ -95,6 +122,7 @@ jobs:
         run: |
           $customNotes = '${{ github.event.inputs.release_notes }}'
           $version = "${{ steps.version.outputs.version }}"
+          $tagName = "${{ steps.version.outputs.tag_name }}"
           $previousTag = "${{ steps.version.outputs.previous_tag }}"
 
           if ($customNotes -ne "") {
@@ -131,7 +159,11 @@ jobs:
 
             $notes += "---`n`n"
             $notes += "**Download:** Choose the asset below that matches your system.`n`n"
-            $notes += "**Full Changelog:** https://github.com/${{ github.repository }}/commits/v$version"
+            if ($previousTag -ne "") {
+              $notes += "**Full Changelog:** https://github.com/${{ github.repository }}/compare/$previousTag...$tagName"
+            } else {
+              $notes += "**Full Changelog:** https://github.com/${{ github.repository }}/commits/$tagName"
+            }
           }
 
           # 将换行符转换为 GitHub Actions 可以处理的格式
@@ -142,8 +174,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: SCLauncher v${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: SCLauncher ${{ steps.version.outputs.tag_name }}
           body: ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
@@ -158,6 +190,10 @@ jobs:
         run: |
           Write-Output "## 构建完成! :rocket:" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "- **版本:** v${{ steps.version.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **触发方式:** ${{ github.event_name == 'push' && 'Tag 推送' || '手动触发' }}" >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "- **版本:** ${{ steps.version.outputs.tag_name }}" >> $env:GITHUB_STEP_SUMMARY
           Write-Output "- **上一个 Tag:** ${{ steps.version.outputs.previous_tag }}" >> $env:GITHUB_STEP_SUMMARY
-          Write-Output "- **Release:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}" >> $env:GITHUB_STEP_SUMMARY
+          if ("${{ steps.version.outputs.version_match }}" -eq "false") {
+            Write-Output "- **⚠️ 注意:** wails.json 版本号 (${{ steps.version.outputs.appinfo_version }}) 与 tag 不一致，产物内部版本号未同步" >> $env:GITHUB_STEP_SUMMARY
+          }
+          Write-Output "- **Release:** https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag_name }}" >> $env:GITHUB_STEP_SUMMARY

@@ -1,55 +1,58 @@
 # GitHub Actions 自动构建和发布流程
 
-这个 workflow 会在合并到主分支时自动构建 Wails 应用并发布到 GitHub Releases。
+这个 workflow 会在**推送新 tag 时**自动构建 Wails 应用并发布到 GitHub Releases。
 
 ## 功能特性
 
-- ✅ 自动版本号管理（支持自定义或自动累加）
+- ✅ 推送 `v*` tag 自动触发构建与发布
+- ✅ 版本号直接取自 tag 名
 - ✅ 自动构建 Windows 可执行文件
 - ✅ 自动创建 GitHub Release
-- ✅ 自动生成 Release Notes
-- ✅ 支持手动触发构建
+- ✅ 自动生成 Release Notes（基于两个 tag 之间的提交）
+- ✅ 保留手动触发构建（此时版本号取自 `wails.json`）
 
 ## 触发方式
 
-### 1. 自动触发（合并到 main 分支）
+### 1. 推送 tag 自动触发（推荐）
 
-当你将 PR 合并到 `main` 分支时，workflow 会自动运行。
+创建并推送一个 `v` 开头的 tag 即可自动构建并创建对应版本的 Release：
 
-**默认行为：** 自动累加版本号（如 0.7.1 → 0.7.2）
-
-### 2. 提交信息中指定版本号
-
-在合并的提交信息中包含 `release: x.x.x`，例如：
-
-```
-release: 1.0.0
-
-添加了新功能并修复了一些 bug
+```bash
+# 1. 发布前先把 wails.json 的 info.productVersion 改成相同版本号并提交
+# 2. 打 tag 并推送
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-### 3. 手动触发
+推送 tag 后 workflow 自动运行，Release 的版本号、名称均取自 tag（`v` 前缀仅用于匹配，产物文件名不含 `v`）。
+
+> ⚠️ 同名 tag 重复推送不会重新触发 workflow。如需重新构建，先删除远程 tag 和对应 Release，再重新推送：
+> ```bash
+> git push origin :refs/tags/v1.1.0   # 删除远程 tag
+> git tag -d v1.1.0                   # 删除本地 tag
+> ```
+
+### 2. 手动触发
 
 1. 进入 GitHub 仓库的 **Actions** 标签页
 2. 选择 **Build and Release** workflow
 3. 点击 **Run workflow**
 4. 填写参数：
-   - **自定义版本号**：留空则自动累加，输入版本号如 `1.0.0` 则使用自定义版本
    - **Release 发布信息**：留空则自动生成，输入自定义内容则使用该内容
+
+手动触发时版本号取自 `wails.json` 的 `info.productVersion`。
 
 ## 版本号规则
 
-### 自动累加
+- **Tag 触发**：版本号 = tag 名去掉 `v` 前缀（如 `v1.1.0` → `1.1.0`）
+- **手动触发**：版本号 = `wails.json` 的 `info.productVersion`
 
-当没有指定版本号时，会自动增加补丁版本号：
-- `0.7.1` → `0.7.2`
-- `1.2.3` → `1.2.4`
+### 一致性检查
 
-### 自定义版本号
-
-支持以下格式：
-- `1.0.0` - 使用 `release: 1.0.0` 前缀或手动触发时输入
-- `v1.0.0` - 带有 `v` 前缀也可以
+Tag 触发时，workflow 会检查 `wails.json` 中的版本号是否与 tag 一致。
+不一致时构建仍会继续，但会在日志和 Summary 中给出警告——
+此时构建出的 exe 内部版本号（关于页/更新检查显示的版本）与 Release 版本号不符。
+**发布前请记得同步 `wails.json`。**
 
 ## 构建产物
 
@@ -62,9 +65,9 @@ release: 1.0.0
 
 如果没有自定义 Release Notes，系统会自动生成，包含：
 
-- 当前版本的改动（基于 git commit 信息，每条单独一行并编号）
+- 当前版本的改动（基于上一个 tag 到本次 tag 之间的 git commit 信息，每条单独一行并编号）
 - 下载链接说明
-- 完整的变更日志链接
+- 完整的变更日志链接（两个 tag 的 compare 对比页）
 
 **示例格式：**
 ```markdown
@@ -81,25 +84,13 @@ release: 1.0.0
 
 **Download:** Choose the asset below that matches your system.
 
-**Full Changelog:** https://github.com/jxsm/SCLauncher/commits/0.7.2
-```
-
-## 本地测试版本号
-
-你可以使用以下命令测试版本号变更：
-
-```bash
-# 查看当前版本
-grep Version backend/appinfo/appinfo.go
-
-# 创建测试提交
-git commit --allow-empty -m "release: 0.8.0" -m "测试版本号功能"
+**Full Changelog:** https://github.com/jxsm/SCLauncher/compare/v1.0.9...v1.1.0
 ```
 
 ## 注意事项
 
-1. **版本号更新**：workflow 会自动更新 `backend/appinfo/appinfo.go` 中的版本号并提交
-2. **Git Tag**：每次发布会自动创建对应的 git tag（如 `v0.7.2`）
+1. **版本号同步**：发布前确保 `wails.json` 的 `info.productVersion` 与 tag 一致
+2. **Tag 命名**：必须以 `v` 开头（如 `v1.1.0`），其他格式的 tag 不会触发
 3. **权限要求**：需要仓库的 `contents: write` 权限（workflow 已自动配置）
 4. **构建时间**：首次构建可能需要 5-10 分钟
 
@@ -113,7 +104,7 @@ git commit --allow-empty -m "release: 0.8.0" -m "测试版本号功能"
 - name: Create GitHub Release
   uses: softprops/action-gh-release@v1
   with:
-    prerelease: ${{ contains(steps.new_version.outputs.new_version, 'beta') || contains(steps.new_version.outputs.new_version, 'rc') }}
+    prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
 ```
 
 ### 多平台构建
@@ -138,9 +129,9 @@ git commit --allow-empty -m "release: 0.8.0" -m "测试版本号功能"
 
 ### 版本号冲突
 
-如果指定的版本号已存在，workflow 会失败。请确保：
-- 自定义版本号未被使用
-- 或删除旧的 tag 和 release 后重试
+如果该 tag 已存在对应的 Release，workflow 会失败。请确保：
+- 删除旧的 Release 后重试
+- 或删除远程 tag 后重新推送
 
 ### 权限问题
 
@@ -151,23 +142,21 @@ git commit --allow-empty -m "release: 0.8.0" -m "测试版本号功能"
 ## 工作流程图
 
 ```
-合并到 main 分支
+推送 v* tag
        ↓
-   检测触发方式
+   检出代码 (完整历史)
        ↓
-   确定新版本号
+   确定版本号 (取自 tag，并校验 wails.json)
        ↓
-   更新 appinfo.go
-       ↓
-   安装依赖 (Go + Node.js)
+   安装依赖 (Go + Node.js + Wails)
        ↓
    运行 wails build
        ↓
-   打包构建产物
+   打包构建产物 (.exe + .zip)
+       ↓
+   生成 Release Notes (上一个 tag 到本次提交)
        ↓
    创建 GitHub Release
-       ↓
-   创建 Git Tag
        ↓
    完成 ✅
 ```
