@@ -125,8 +125,20 @@ jobs:
           $tagName = "${{ steps.version.outputs.tag_name }}"
           $previousTag = "${{ steps.version.outputs.previous_tag }}"
 
+          # Tag 触发时读取 annotated tag 的注释内容作为发布说明
+          $tagNotes = ""
+          if ("${{ github.event_name }}" -eq "push") {
+            $raw = git for-each-ref "refs/tags/${{ github.ref_name }}" --format="%(contents)"
+            if ($LASTEXITCODE -eq 0 -and $raw) {
+              $tagNotes = ($raw -join "`n").Trim()
+            }
+          }
+
+          # 优先级：手动输入 > tag 注释 > 自动生成
           if ($customNotes -ne "") {
             $notes = $customNotes
+          } elseif ($tagNotes -ne "") {
+            $notes = $tagNotes
           } else {
             $notes = "## What's New`n`n"
 

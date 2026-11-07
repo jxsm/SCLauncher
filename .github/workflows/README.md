@@ -26,6 +26,18 @@ git push origin v1.1.0
 
 推送 tag 后 workflow 自动运行，Release 的版本号、名称均取自 tag（`v` 前缀仅用于匹配，产物文件名不含 `v`）。
 
+**发布说明优先级：** 手动触发输入 > **tag 注释内容**（annotated tag 的消息）> 自动生成的提交列表。
+
+推荐打 annotated tag 并把更新说明写进 tag 消息，发布时 Release 会直接使用：
+
+```bash
+git tag -a v1.1.0 -m "## 更新内容
+
+- 新功能 A
+- 修复 B"
+git push origin v1.1.0
+```
+
 > ⚠️ 同名 tag 重复推送不会重新触发 workflow。如需重新构建，先删除远程 tag 和对应 Release，再重新推送：
 > ```bash
 > git push origin :refs/tags/v1.1.0   # 删除远程 tag
