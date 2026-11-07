@@ -4,7 +4,7 @@
   "outputfilename": "SCLauncher",
   "info": {
     "productName": "SCLauncher",
-    "productVersion": "1.0.9"
+    "productVersion": "1.1.0"
   },
   "frontend:install": "bun install",
   "frontend:build": "bun run build",

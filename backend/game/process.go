@@ -199,7 +199,7 @@ func (g *GameManager) Launch(versionID string) error {
 const launchGracePeriod = 3 * time.Second
 
 // createNoWindow 对应 Windows 的 CREATE_NO_WINDOW 标志（0x08000000）。
-// dotnet.exe 是控制台程序，输出已通过管道捕获，无需再弹出控制台窗口。
+// dotnet.exe 是控制台程序，输出已重定向到日志文件，该标志足以避免弹出控制台窗口。
 const createNoWindow = 0x08000000
 
 // finishLaunch 启动成功后的收尾：保存进程信息、记录数据库并启动监控协程。
@@ -281,8 +281,12 @@ func (g *GameManager) startViaDotnet(dllPath, workDir string) (*exec.Cmd, <-chan
 		cmd.Stdout = stdoutFile
 		cmd.Stderr = stdoutFile
 	}
+	// 只用 CREATE_NO_WINDOW 隐藏 dotnet.exe 的控制台，绝不能设置 HideWindow：
+	// HideWindow 会向子进程 STARTUPINFO 写入 STARTF_USESHOWWINDOW + SW_HIDE，
+	// 按 Win32 规则，进程第一次调用 ShowWindow 时参数会被 wShowWindow(SW_HIDE)
+	// 覆盖——OpenTK 窗口栈的版本（如 SCAPI 1.8）只在创建窗口时 ShowWindow 一次，
+	// 游戏会完全启动却永远不显示窗口（Silk.NET/GLFW 的新版本不受影响）。
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
 		CreationFlags: createNoWindow,
 	}
 
