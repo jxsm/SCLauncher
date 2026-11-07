@@ -2,6 +2,10 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "SCLauncher",
   "outputfilename": "SCLauncher",
+  "info": {
+    "productName": "SCLauncher",
+    "productVersion": "1.0.9"
+  },
   "frontend:install": "bun install",
   "frontend:build": "bun run build",
   "frontend:dev:watcher": "bun run dev",
